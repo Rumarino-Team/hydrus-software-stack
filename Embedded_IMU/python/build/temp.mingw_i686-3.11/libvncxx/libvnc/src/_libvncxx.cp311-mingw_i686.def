@@ -1,0 +1,3 @@
+LIBRARY _libvncxx.cp311-mingw_i686.pyd
+EXPORTS
+PyInit__libvncxx
