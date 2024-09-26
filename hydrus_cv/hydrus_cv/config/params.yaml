@@ -1,6 +1,0 @@
-zed_camera_node:
-  ros_parameters:
-    camera_name : "zed_camera"
-    camera_resolution: "720p"
-    fps: 30
-    enable_depth: true
