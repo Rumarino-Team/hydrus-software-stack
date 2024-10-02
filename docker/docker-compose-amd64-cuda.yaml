@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  ros-master:
+    image: ros:noetic-ros-core
+    command: stdbuf -o L roscore
+    ports:
+      - "11311:11311"
+
+  hydrus:
+    build:
+      context: ../
+      dockerfile: docker/amd64/hydrus.Dockerfile
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+    volumes:
+      - ".:/catkin_ws/src"
+    ports:
+      - "8000:8000"
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
+    environment:
+      - ROS_MASTER_URI=http://ros-master:11311
+      - ARDUINO_BOARD=arduino:avr:mega
+    depends_on:
+      - ros-master
