@@ -20,6 +20,6 @@ else
     docker compose -f docker-compose-amd64-cuda.yaml up
   else
     echo "No GPU available. Running without GPU support."
-    docker compose -f docker-compose.cpu.yml up
+    docker compose -f docker-compose-amd64-cpu.yaml up
   fi
 fi

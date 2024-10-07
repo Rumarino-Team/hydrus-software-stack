@@ -67,9 +67,5 @@ RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/la
 RUN apt-get install -y libeigen3-dev python3-tf2-kdl
 RUN echo "source /catkin_ws/devel/setup.bash" >> /root/.bashrc
 
-# # Build the catkin workspace
-# RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin_make"
 
-# Set the entrypoint
-#CMD ["/bin/bash -c 'source devel/setup.bash && catkin_make && bash"]
-
+CMD ["/catkin_ws/ros-entrypoint.sh"]

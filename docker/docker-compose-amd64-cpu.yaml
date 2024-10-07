@@ -6,10 +6,12 @@ services:
     command: stdbuf -o L roscore
     ports:
       - "11311:11311"
+
   hydrus:
     build:
       context: ../
       dockerfile: docker/amd64/hydrus.Dockerfile
+
     privileged: true
     stdin_open: true
     tty: true
