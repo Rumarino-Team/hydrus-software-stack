@@ -26,8 +26,8 @@ services:
 
   hydrus:
     build:
-      context: .
-      dockerfile: hydrus.Dockerfile
+      context: ../
+      dockerfile:  jetson/hydrus.Dockerfile
     privileged: true
     deploy:
       resources:
