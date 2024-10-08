@@ -12,7 +12,7 @@ is_jetson_tx2() {
 # Check if system is Jetson TX2
 if is_jetson_tx2; then
   echo "Jetson TX2 detected. Running Jetson TX2 Docker Compose."
-  docker compose -f docker-compose.jetson-tx2.yml up
+  docker compose -f docker-compose.jetson-tx2.yaml up
 else
   # Check if NVIDIA GPUs are available
   if nvidia-smi > /dev/null 2>&1; then
