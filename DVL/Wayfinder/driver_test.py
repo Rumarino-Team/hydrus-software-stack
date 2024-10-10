@@ -1,6 +1,3 @@
-# Copyright (c) 2023 Real-Time Development Center (RTDC) Project
-# All rights reserved.
-# Example usage for DVL driver
 
 from dvl.dvl import Dvl # import wayfinder dvl module from Teledyne Marine RDI
 from dvl.system import OutputData # import BinaryDataOutputGroup Object from Teleyne Marine RDI
