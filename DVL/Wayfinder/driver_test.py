@@ -1,6 +1,5 @@
-
-from dvl.dvl import Dvl # import wayfinder dvl module from Teledyne Marine RDI
-from dvl.system import OutputData # import BinaryDataOutputGroup Object from Teleyne Marine RDI
+from dvl.dvl import Dvl
+from dvl.system import OutputData
 import math
 import numpy as np
 
