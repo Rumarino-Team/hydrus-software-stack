@@ -1,0 +1,11 @@
+<launch>
+  <arg name="_bags" default="false" />
+
+
+<!-- IF bags its on it will acticate all the ros bags for the sensors we have. -->
+  <include if="$(arg _bags)" file="$(find computer_vision)/launch/zed_rosbag.launch" />
+
+  <!-- Include the main launch files -->
+  <include file="$(find computer_vision)/launch/detector.launch" />
+
+</launch>

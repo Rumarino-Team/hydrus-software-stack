@@ -9,8 +9,8 @@ services:
 
   zed-camera:
     build:
-      context: .
-      dockerfile: camera.Dockerfile
+      context: ../
+      dockerfile: jetson/camera.Dockerfile
     privileged: true
     deploy:
       resources:
@@ -26,8 +26,8 @@ services:
 
   hydrus:
     build:
-      context: .
-      dockerfile: hydrus.Dockerfile
+      context: ../
+      dockerfile:  jetson/hydrus.Dockerfile
     privileged: true
     deploy:
       resources:

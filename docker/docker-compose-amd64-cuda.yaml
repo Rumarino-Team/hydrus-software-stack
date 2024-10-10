@@ -7,6 +7,23 @@ services:
     ports:
       - "11311:11311"
 
+  zed-camera:
+    build:
+      context: ../
+      dockerfile: /docker
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - ROS_MASTER_URI=http://ros-master:11311
+    depends_on:
+      - ros-master
+
   hydrus:
     build:
       context: ../
@@ -32,3 +49,4 @@ services:
       - ARDUINO_BOARD=arduino:avr:mega
     depends_on:
       - ros-master
+      - zed-camera
