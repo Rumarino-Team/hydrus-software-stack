@@ -8,10 +8,14 @@ def object_detector():
     if not capture:
         return
     
+    frame_count = 0
     while True:
         ret, frame = capture.read()  
         if not ret:
             break  
+
+        if frame_count % 3 == 0:
+            continue
 
         results = model(frame)
 
