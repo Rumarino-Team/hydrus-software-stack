@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>mission</name>
+    <version>0.1.0</version>
+    <description>This is a combined package that includes dependencies for zed_nodelets, smach_tutorials, and nav_sensors.</description>
+
+    <maintainer email="your-email@example.com">Your Name</maintainer>
+    <license>BSD</license>
+    <!-- Common build tool dependency -->
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <!-- Combined dependencies -->
+    <depend>tf2_ros</depend>
+    <depend>tf2_geometry_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>sensor_msgs</depend>
+    <depend>stereo_msgs</depend>
+    <depend>dynamic_reconfigure</depend>
+    <depend>diagnostic_updater</depend>
+    <depend>geometry_msgs</depend>
+    <depend>visualization_msgs</depend>
+    <depend>message_runtime</depend>
+    <depend>rospy</depend>
+    <depend>smach</depend>
+    <depend>smach_ros</depend>
+    <depend>actionlib</depend>
+    <depend>actionlib_msgs</depend>
+    <depend>message_generation</depend>
+    <depend>rosbag</depend>
+    <depend>std_msgs</depend>
+    <depend>topic_tools</depend>
+
+    <!-- Adding detector_node as an exec and build dependency -->
+    <exec_depend>detector_node</exec_depend>
+    <build_depend>detector_node</build_depend>
+</package>

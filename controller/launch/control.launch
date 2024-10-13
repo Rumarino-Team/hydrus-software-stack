@@ -1,0 +1,5 @@
+<launch>
+    <!-- Start the node -->
+      <param name="controller" value="$(find controller)" />
+    <node name="control" pkg="controller_node" type="controller.py" output="screen"/>
+</launch>
