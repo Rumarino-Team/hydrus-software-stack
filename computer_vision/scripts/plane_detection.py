@@ -56,4 +56,4 @@ def plane_detection():
     vid.release()
     cv2.destroyAllWindows()
 
-detect_planes()
+plane_detection()
