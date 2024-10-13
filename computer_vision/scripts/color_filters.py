@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-def detect_color(tolerance = 10, min_area = 500, min_confidence = 30):
+def color_filters(tolerance = 10, min_area = 500, min_confidence = 30):
 
     vid = cv2.VideoCapture(0)
 
@@ -41,8 +41,8 @@ def detect_color(tolerance = 10, min_area = 500, min_confidence = 30):
 
         # Reduce noise
         kernel = np.ones((5, 5), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)  # Remove small noise
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)  # Dilate to merge nearby contours
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
         filtered_frame = cv2.bitwise_and(frame, frame, mask=mask)
 
@@ -64,15 +64,18 @@ def detect_color(tolerance = 10, min_area = 500, min_confidence = 30):
                 red_pixels_in_contour = cv2.bitwise_and(mask, mask, mask=contour_mask)
                 red_pixel_count = np.sum(red_pixels_in_contour == 255)
                 total_pixels_in_contour = w * h
-            
+
+                # To avoid dividing by 0
                 if total_pixels_in_contour > 0:
                     confidence = (red_pixel_count / total_pixels_in_contour) * 100
                 else:
                     confidence = 0
 
+                # To avoid a percentage higher than 100%
                 if confidence > 100:
                     confidence = 100
-                
+
+                # Ignoring objects with low confidence levels
                 if confidence > min_confidence:
                     cv2.rectangle(filtered_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
                     cv2.putText(filtered_frame, f"Conf: {confidence:.2f}%", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
@@ -110,4 +113,4 @@ def detect_color(tolerance = 10, min_area = 500, min_confidence = 30):
     vid.release()
     cv2.destroyAllWindows()
 
-detect_color()
+color_filters()
