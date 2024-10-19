@@ -9,14 +9,13 @@ services:
 
   hydrus:
     build:
-      context: ../
-      dockerfile: docker/amd64/hydrus.Dockerfile
-
+      context: ../../hydrus-software-stack
+      dockerfile: docker/amd64/cpu/hydrus.Dockerfile
     privileged: true
     stdin_open: true
     tty: true
     volumes:
-      - ".:/catkin_ws/src"
+      - "../:/home/catkin_ws/src"
     ports:
       - "8000:8000"
     devices:
@@ -24,5 +23,6 @@ services:
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:mega
+      - DEPLOY
     depends_on:
       - ros-master

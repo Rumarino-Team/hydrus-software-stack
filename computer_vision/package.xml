@@ -2,7 +2,7 @@
 <package format="2">
   <name>computer_vision</name>
   <version>0.0.0</version>
-  <description>The detector_node package</description>
+  <description>The computer vision package</description>
   <maintainer email="user@domain.com">User Name</maintainer>
 
   <license>BSD</license>

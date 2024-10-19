@@ -15,11 +15,6 @@ add_message_files(
   Detections.msg  # Add the new message file
 )
 
-add_service_files(
-  FILES
-  EnableDetector.srv
-  SetCustomClasses.srv
-)
 
 generate_messages(
   DEPENDENCIES
