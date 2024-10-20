@@ -24,5 +24,6 @@ services:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:mega
       - DEPLOY
+      - VOLUME
     depends_on:
       - ros-master

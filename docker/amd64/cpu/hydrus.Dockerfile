@@ -45,20 +45,17 @@ RUN arduino-cli lib install "Rosserial Arduino Library@0.7.9" && \
     arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
 RUN apt-get install -y ros-noetic-rosserial-arduino
 
-# Source ROS setup.bash script
-RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 
-# Copy embedded Arduino code
-WORKDIR /root/Arduino/libraries
-COPY ./embedded_arduino /sensor_actuator_pkg
+# Copy embedded Arduino code in the Arduino libraries folder
+COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
-# Set the working directory
-WORKDIR /catkin_ws
+
 # Copy the rest of your application code
 COPY ./requirements.txt /requirements.txt
 
 # Install additional Python packages using pip
 RUN apt-get install -y python3.9
+# Ultralytics with NO GPU
 RUN python3.9 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
 RUN python3.9 -m pip install -r /requirements.txt
 
@@ -66,10 +63,9 @@ RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/d
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
 RUN apt-get install -y libeigen3-dev python3-tf2-kdl
-RUN echo "source /catkin_ws/devel/setup.bash" >> /root/.bashrc
-WORKDIR /catkin_ws/src
 RUN apt-get update && apt-get install -y ros-noetic-tf2-geometry-msgs
 
-COPY ./ .
+COPY ./ /catkin_ws/src/hydrus-software-stack
+WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x ros-entrypoint.sh
 CMD ["./ros-entrypoint.sh"]

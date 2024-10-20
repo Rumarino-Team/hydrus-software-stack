@@ -16,8 +16,18 @@ fi
 # Source the corresponding ROS setup.bash
 source /opt/ros/$ROS_DISTRO/setup.bash
 
+
+if [ "$VOLUME" == "true" ]; then
+    echo "Use the Volume directory for building the packages."
+    ROS_DIR='/home/catkin_ws'    
+else
+    echo "Use the Copied Packages from Docker."
+    ROS_DIR='/catkin_ws'   
+fi
+
+
 # Start roscore in the background
-cd /catkin_ws
+cd "$ROS_DIR"
 catkin_make --cmake-args \
             -DCMAKE_BUILD_TYPE=Release \
             -DPYTHON_EXECUTABLE=/usr/bin/python3 \
