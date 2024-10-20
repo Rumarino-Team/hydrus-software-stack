@@ -30,7 +30,6 @@
     <depend>std_msgs</depend>
     <depend>topic_tools</depend>
 
-    <!-- Adding detector_node as an exec and build dependency -->
-    <exec_depend>detector_node</exec_depend>
-    <build_depend>detector_node</build_depend>
+    <exec_depend>computer_vision</exec_depend>
+    <build_depend>computer_vision</build_depend>
 </package>

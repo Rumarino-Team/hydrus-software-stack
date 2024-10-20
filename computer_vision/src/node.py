@@ -215,10 +215,7 @@ def initialize_subscribers(topics_file):
 
 if __name__ == "__main__":
     rospy.init_node('yolo_detector')
-
-    service_enable_detector = rospy.Service('enable_detector', EnableDetector, handle_enable_detector)
-    service_set_custom_classes = rospy.Service('set_custom_classes', SetCustomClasses, handle_set_custom_classes)
-    config_path = os.path.join(rospy.get_param('detector_node'), '../configs/topics.yml')
+    config_path = os.path.join(rospy.get_param(''), '../configs/topics.yml')
     initialize_subscribers(config_path)
 
     rospy.spin()

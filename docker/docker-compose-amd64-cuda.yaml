@@ -10,7 +10,7 @@ services:
   zed-camera:
     build:
       context: ../
-      dockerfile: /docker
+      dockerfile: docker/amd64/cuda/camera.Dockerfile
     privileged: true
     deploy:
       resources:

@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   rosbag
   std_msgs
   topic_tools
-  detector_node
+  computer_vision
 )
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
@@ -52,7 +52,7 @@ catkin_package(
     rosbag
     std_msgs
     topic_tools
-    detector_node
+    computer_vision
 )
 
 include_directories(
