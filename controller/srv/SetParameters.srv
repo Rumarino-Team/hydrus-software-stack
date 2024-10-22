@@ -1,0 +1,6 @@
+float64 depth_speed
+float64 rotation_speed
+float64 linear_speed
+float64 delta
+---
+bool success
