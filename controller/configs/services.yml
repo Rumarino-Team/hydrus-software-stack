@@ -1,0 +1,6 @@
+detector_node:
+  enable_detector: 
+  set_custom_classes:
+
+controller_node:
+  

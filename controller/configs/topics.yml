@@ -1,0 +1,22 @@
+zed_camera:
+  camera_info: "/zed2i/zed_node/rgb/camera_info"
+  image: "/zed2i/zed_node/rgb/image_rect_color"
+  depth_image: "/zed2i/zed_node/depth/depth_registered"
+  imu_pose: "/zed2i/zed_node/pose"
+  pose: "/zed2i/zed_node/pose"
+  odom: "/zed2i/zed_node/odom"
+  path_odom: "/zed2i/zed_node/path_odom"
+  path_map: "/zed2i/zed_node/path_map"
+
+detector_node:
+  box_detection: "/detector/box_detection"
+
+controller_node: 
+  truster_1: "/hydrus/thrusters/1"
+  truster_2: "/hydrus/thrusters/2"
+  truster_3: "/hydrus/thrusters/3"
+  truster_4: "/hydrus/thrusters/4"
+  truster_5: "/hydrus/thrusters/5"
+  truster_6: "/hydrus/thrusters/6"
+  truster_7: "/hydrus/thrusters/7"
+  truster_8: "/hydrus/thrusters/8"
