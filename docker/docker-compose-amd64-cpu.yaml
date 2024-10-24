@@ -7,15 +7,13 @@ services:
     ports:
       - "11311:11311"
 
-  hydrus:
+  hydrus_cpu:
     build:
       context: ../../hydrus-software-stack
       dockerfile: docker/amd64/cpu/hydrus.Dockerfile
     privileged: true
     stdin_open: true
     tty: true
-    volumes:
-      - "../:/home/catkin_ws/src"
     ports:
       - "8000:8000"
     devices:
@@ -25,5 +23,9 @@ services:
       - ARDUINO_BOARD=arduino:avr:mega
       - DEPLOY
       - VOLUME
+      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
+    volumes:
+      - "../:/home/catkin_ws/src"
+      - /tmp/.X11-unix:/tmp/.X11-unix 
     depends_on:
       - ros-master

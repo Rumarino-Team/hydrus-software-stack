@@ -24,7 +24,7 @@ services:
     depends_on:
       - ros-master
 
-  hydrus:
+  hydrus_jetson:
     build:
       context: ../
       dockerfile:  jetson/hydrus.Dockerfile

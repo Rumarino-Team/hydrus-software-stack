@@ -24,7 +24,7 @@ services:
     depends_on:
       - ros-master
 
-  hydrus:
+  hydrus_cuda:
     build:
       context: ../
       dockerfile: docker/amd64/hydrus.Dockerfile

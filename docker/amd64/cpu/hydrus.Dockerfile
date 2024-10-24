@@ -6,13 +6,14 @@ RUN apt-get update && apt-get install -y lsb-release gnupg curl
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_PYTHON_VERSION=3
 
-# Install Python and detector node Dependencies
+# Camera and Computer Vision Dependencies Python-3
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-numpy\
     python3-opencv \
     libgl1-mesa-glx \
     ros-noetic-cv-bridge \
-#    ros-noetic-python-orocos-kdl \
+    ros-noetic-vision-opencv\
     libbullet-dev \
     python3-empy
 
@@ -20,7 +21,10 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get install -y \
     ros-noetic-smach-ros \
     ros-noetic-executive-smach \
-    ros-noetic-smach-viewer
+    ros-noetic-smach-viewer\
+    ros-noetic-tf2-geometry-msgs\
+    libeigen3-dev\
+    python3-tf2-kdl
 
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \
@@ -50,20 +54,16 @@ RUN apt-get install -y ros-noetic-rosserial-arduino
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 
-# Copy the rest of your application code
+# Copy the Python Dependencies and Install them
 COPY ./requirements.txt /requirements.txt
-
-# Install additional Python packages using pip
-RUN apt-get install -y python3.9
+RUN apt-get install -y python3
 # Ultralytics with NO GPU
-RUN python3.9 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
-RUN python3.9 -m pip install -r /requirements.txt
+RUN python3 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
+RUN python3 -m pip install -r /requirements.txt
 
+# Install Default models for YOLO
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
-
-RUN apt-get install -y libeigen3-dev python3-tf2-kdl
-RUN apt-get update && apt-get install -y ros-noetic-tf2-geometry-msgs
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack

@@ -16,6 +16,13 @@ RUN apt-get update && apt-get install -y \
     libbullet-dev \
     python3-empy
 
+# Install Gazebo and ROS Noetic integration packages
+RUN apt-get update && apt-get install -y \
+    gazebo11 \
+    ros-noetic-gazebo-ros-pkgs \
+    ros-noetic-gazebo-ros-control \
+    && rm -rf /var/lib/apt/lists/*
+
 # Mission Node Dependencies
 RUN apt-get install -y \
     ros-noetic-smach-ros \
@@ -45,27 +52,28 @@ RUN arduino-cli lib install "Rosserial Arduino Library@0.7.9" && \
     arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
 RUN apt-get install -y ros-noetic-rosserial-arduino
 
-# Source ROS setup.bash script
-RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 
-# Copy embedded Arduino code
-WORKDIR /root/Arduino/libraries
-COPY ./embedded_arduino /sensor_actuator_pkg
+# Copy embedded Arduino code in the Arduino libraries folder
+COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
-# Set the working directory
-WORKDIR /catkin_ws
+
 # Copy the rest of your application code
 COPY ./requirements.txt /requirements.txt
 
 # Install additional Python packages using pip
-RUN apt-get install -y python3.8
-RUN python3.8 -m pip install -r /requirements.txt
+RUN apt-get install -y python3.9
+
+# Install the default ultralytics with Pytorch Cuda dependencies.
+RUN python3.9 -m pip install  ultralytics
+RUN python3.9 -m pip install -r /requirements.txt
 
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
 RUN apt-get install -y libeigen3-dev python3-tf2-kdl
-RUN echo "source /catkin_ws/devel/setup.bash" >> /root/.bashrc
+RUN apt-get update && apt-get install -y ros-noetic-tf2-geometry-msgs
 
-
-CMD ["/catkin_ws/ros-entrypoint.sh"]
+COPY ./ /catkin_ws/src/hydrus-software-stack
+WORKDIR /catkin_ws/src/hydrus-software-stack
+RUN chmod +x ros-entrypoint.sh
+CMD ["./ros-entrypoint.sh"]
