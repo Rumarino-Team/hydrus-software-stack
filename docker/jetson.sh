@@ -29,14 +29,14 @@ echo "Waiting for ZED camera to start..."
 sleep 10
 
 # Step 3: Build and run the Hydrus container
-docker build -t hydrus -f hydrus.Dockerfile ../
+docker build -t hydrus -f ./jetson/hydrus.Dockerfile ../../hydrus-software-stack
 
 docker run -d \
   --name hydrus \
   --privileged \
   --gpus all \
   -p 8000:8000 \
-  -v "$(pwd):/catkin_ws/src" \
+  -v "$(pwd)../:/catkin_ws/src" \
   --device /dev/ttyACM0:/dev/ttyACM0 \
   --env ROS_MASTER_URI=http://ros-master:11311 \
   --env ARDUINO_BOARD=arduino:avr:mega \
