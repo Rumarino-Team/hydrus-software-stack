@@ -15,7 +15,7 @@ echo "Waiting for ROS master to start..."
 sleep 8
 
 # Step 2: Build and run the ZED camera container
-docker build -t zed-camera -f ../jetson/camera.Dockerfile ../
+docker build -t zed-camera -f docker/jetson/camera.Dockerfile .
 
 docker run -d \
   --name zed-camera \
@@ -29,14 +29,14 @@ echo "Waiting for ZED camera to start..."
 sleep 10
 
 # Step 3: Build and run the Hydrus container
-docker build -t hydrus -f ./jetson/hydrus.Dockerfile ../../hydrus-software-stack
+docker build -t hydrus -f docker/jetson/hydrus.Dockerfile .
 
 docker run -d \
   --name hydrus \
   --privileged \
   --gpus all \
   -p 8000:8000 \
-  -v "$(pwd)../:/catkin_ws/src" \
+  -v "$(pwd)/:/catkin_ws/src" \
   --device /dev/ttyACM0:/dev/ttyACM0 \
   --env ROS_MASTER_URI=http://ros-master:11311 \
   --env ARDUINO_BOARD=arduino:avr:mega \
