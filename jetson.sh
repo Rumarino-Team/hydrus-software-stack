@@ -36,10 +36,12 @@ docker run -d \
   --privileged \
   --gpus all \
   -p 8000:8000 \
-  -v "$(pwd)/:/catkin_ws/src" \
+  -v "$(pwd)/:/home/catkin_ws/src" \
   --device /dev/ttyACM0:/dev/ttyACM0 \
   --env ROS_MASTER_URI=http://ros-master:11311 \
   --env ARDUINO_BOARD=arduino:avr:mega \
   -it hydrus
+
+docker cp ./ hydrus:/catkin_ws/src/hydrus-software-stack/
 
 echo "Containers are up and running!"
