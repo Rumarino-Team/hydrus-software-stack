@@ -1,22 +1,18 @@
 # Use an official ROS image as a parent image
 FROM ros:noetic-ros-base
 
-# Print Ubuntu version
-RUN apt-get update && apt-get install -y lsb-release gnupg curl
-ENV DEBIAN_FRONTEND=noninteractive
-ENV ROS_PYTHON_VERSION=3
+# Update package list
+RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
-#Install Python 3.9
-RUN apt-get update && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
+# Add the deadsnakes PPA and install Python 3.9
+RUN add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
-    apt-get install -y python3.9 python3.9-distutils
+    apt-get install -y python3.9 python3.9-distutils python3.9-venv
 
-#Set python 3.9 as default
+# Set Python 3.9 as the default
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
 
-#Install pip for python 3.9
+# Install pip for Python 3.9
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
 
 # Camera and Computer Vision Dependencies Python-3
