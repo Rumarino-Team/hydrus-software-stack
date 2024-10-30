@@ -6,6 +6,19 @@ RUN apt-get update && apt-get install -y lsb-release gnupg curl
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_PYTHON_VERSION=3
 
+#Install Python 3.9
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y python3.9 python3.9-distutils
+
+#Set python 3.9 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
+
+#Install pip for python 3.9
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
+
 # Camera and Computer Vision Dependencies Python-3
 RUN apt-get update && apt-get install -y \
     python3-pip \
@@ -37,7 +50,7 @@ RUN /bin/bash -c 'source /opt/ros/noetic/setup.bash && \
     mkdir -p /home/catkin_ws/src && \
     cd /home/catkin_ws/ && \
     catkin_make'
-RUN echo "source /opt/ros/melodic/setup.bash" >> /root/.bashrc
+RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 
 # Install Arduino CLI and libraries
 WORKDIR /usr/local/
@@ -57,7 +70,7 @@ COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 # Copy the Python Dependencies and Install them
 COPY ./requirements.txt /requirements.txt
-RUN apt-get install -y python3
+
 # Ultralytics with NO GPU
 RUN python3 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
 RUN python3 -m pip install -r /requirements.txt
