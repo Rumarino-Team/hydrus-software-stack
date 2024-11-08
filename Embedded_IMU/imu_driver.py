@@ -1,8 +1,8 @@
 from vnpy import EzAsyncData
 
-#library says 115200 baud rate. 
+
 class IMU:
-    def __init__(self, com_port = '/dev/pts/8', baudrate = 38400):
+    def __init__(self, com_port = '/dev/ttyUSB0', baudrate = 115200):
         self.com_port = com_port
         self.baudrate = baudrate
         try:
@@ -13,13 +13,13 @@ class IMU:
      
     def grab_ypr(self):
         
-        while (self.imu.current_data.yaw_pitch_roll is None):             #needs fix  
+        while (self.imu.current_data.yaw_pitch_roll is None):             
             pass 
         self.ypr = self.imu.current_data.yaw_pitch_roll
         return self.ypr
     
 if __name__ == '__main__':
-    imu = IMU(com_port = '/dev/pts/8', baudrate = 38400)
+    imu = IMU(com_port = '/dev/pts/8', baudrate = 115200)
     while True:
         imu.grab_ypr()
         print(imu.ypr.x)
