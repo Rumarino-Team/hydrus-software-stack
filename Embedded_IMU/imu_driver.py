@@ -19,7 +19,7 @@ class IMU:
         return self.ypr
     
 if __name__ == '__main__':
-    imu = IMU(com_port = '/dev/pts/8', baudrate = 115200)
+    imu = IMU(com_port = '/dev/ttyUSB0', baudrate = 115200)
     while True:
         imu.grab_ypr()
         print(imu.ypr.x)
