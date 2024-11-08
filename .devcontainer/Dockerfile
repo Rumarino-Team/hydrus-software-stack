@@ -45,7 +45,7 @@ RUN arduino-cli lib install "Rosserial Arduino Library@0.7.9" && \
     arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
 RUN apt-get install -y ros-noetic-rosserial-arduino
 
-# Source ROS setup.bash script
+# Source ROS setup.bash scriptgit
 RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 
 # Copy embedded Arduino code
