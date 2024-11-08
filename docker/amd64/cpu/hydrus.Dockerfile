@@ -39,7 +39,8 @@ RUN apt-get install -y \
 RUN apt-get install -y --no-install-recommends \
        gcc \
        curl \
-       git
+       git \
+	libpython3.9-dev
 
 # ROS setup
 RUN /bin/bash -c 'source /opt/ros/noetic/setup.bash && \
@@ -76,6 +77,7 @@ RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/d
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
+RUN python3 /catkin_ws/src/hydrus-software-stack/Embedded_IMU/python/setup.py install 
 WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x ros-entrypoint.sh
 CMD ["./ros-entrypoint.sh"]
