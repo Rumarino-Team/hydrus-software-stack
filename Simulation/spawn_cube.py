@@ -49,7 +49,7 @@ def move_cube():
         state_msg.pose.position.z = 1.0
         state_msg.twist.linear.x = 20.0  # Move along the x-axis
         state_msg.twist.linear.y = 0.0
-        state_msg.twist.linear.z = 0.0
+        state_msg.twist.linear.z = 15.0
         state_msg.reference_frame = 'world'
         
         # Set the cube state
