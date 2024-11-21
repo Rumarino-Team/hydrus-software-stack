@@ -19,33 +19,36 @@ def update_data(output_data: OutputData, obj):
         print("coordinate system:", output_data.coordinate_system)
         print("fw major version", output_data.fw_major_version)
         print("fw minor version:", output_data.fw_minor_version)
-        print("patch version:", output_data.fw_patch_version)
-        print("build version:", output_data.fw_build_version)
         print("mean range:", output_data.mean_range)
-        print("data status:", output_data.status)
+        print("data status:", output_data.status) 
         print("input voltage:", output_data.voltage)
         print("transmit voltage:", output_data.transmit_voltage)
         print("current:", output_data.current)
-        print("serial number:", output_data.serial_number)
+        print("Depth:",calculate_depth_from_beams(beams ,30)) # estimate depth
+
+def calculate_depth_from_beams(beams, beam_angle_degrees=30):
+
+    beam_angle_radians = math.radians(beam_angle_degrees)   
+    depths = beams * np.cos(beam_angle_radians)
+    
+    depth = np.means(depths)
+    return depth
 
 if __name__ == "__main__":
     PORT = 'COM5'
 
-    # Connect to serial port
     with Dvl(PORT, 115200) as DVL:
-
         if DVL.is_connected():
 
             # Get user system setup
             if DVL.get_setup():
-                # Print setup
                 print (DVL.system_setup)
 
             # Stop pinging
             if not DVL.enter_command_mode():
                 print("Failed to stop pinging")
             # Enter command mode
-            # Reset to factory defaults (requires Wayfinder to be in 'command mode')
+            # Reset to factory defaults 
             if not DVL.reset_to_defaults():
                 print("Failed to reset to factory defaults")
 
@@ -56,11 +59,9 @@ if __name__ == "__main__":
             if not DVL.exit_command_mode():
                 print("Failed to start pinging")
 
-            # Blocking call to wait for key pressed to end program
             KEY = input("Press Enter to stop\n")
 
         else:
             print("Failed to open {0} - make sure it is not used by any other program".format(PORT))
 
-        # Unregister
         DVL.unregister_all_callbacks()
