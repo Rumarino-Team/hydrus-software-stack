@@ -1,4 +1,4 @@
-ultralytics
+
 opencv-python
 uvicorn
 fastapi

@@ -9,8 +9,8 @@ services:
 
   zed-camera:
     build:
-      context: .
-      dockerfile: camera.Dockerfile
+      context: ../
+      dockerfile: jetson/camera.Dockerfile
     privileged: true
     deploy:
       resources:
@@ -24,10 +24,10 @@ services:
     depends_on:
       - ros-master
 
-  hydrus:
+  hydrus_jetson:
     build:
-      context: .
-      dockerfile: hydrus.Dockerfile
+      context: ../
+      dockerfile:  jetson/hydrus.Dockerfile
     privileged: true
     deploy:
       resources:

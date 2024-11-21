@@ -1,8 +1,0 @@
-<launch>
-    <!-- Load parameters from YAML file -->
-    <param name="computer_vision" value="$(find computer_vision)" />
-    <!-- Start the node -->
-    <node name="detector" pkg="computer_vision" type="node.py" output="screen"/>
-  
-
-</launch>

@@ -1,1 +1,0 @@
-This module is for creating the global test files for the submarine codes. The global workflow will be if the code breaks you should either change your code because there is an error or make a pull request for changing the test. Everything that is added into the application should be first be tested by the tests in this folder.

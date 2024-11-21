@@ -6,15 +6,14 @@ services:
     command: stdbuf -o L roscore
     ports:
       - "11311:11311"
-  hydrus:
+
+  hydrus_cpu:
     build:
-      context: ../
-      dockerfile: docker/amd64/hydrus.Dockerfile
+      context: ../../hydrus-software-stack
+      dockerfile: docker/amd64/cpu/hydrus.Dockerfile
     privileged: true
     stdin_open: true
     tty: true
-    volumes:
-      - ".:/catkin_ws/src"
     ports:
       - "8000:8000"
     devices:
@@ -22,5 +21,11 @@ services:
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:mega
+      - DEPLOY
+      - VOLUME
+      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
+    volumes:
+      - "../:/home/catkin_ws/src"
+      - /tmp/.X11-unix:/tmp/.X11-unix 
     depends_on:
       - ros-master

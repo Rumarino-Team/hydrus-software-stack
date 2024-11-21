@@ -1,0 +1,18 @@
+name: PR Docker Build and Run Test
+run-name: ${{ github.actor }} is testing the building and run of Dockerfile on PR ${{ github.event.number }}
+on: [pull_request]
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Build Camera AMD64 Docker
+        run: docker build -t camera -f ./docker/amd64/cuda/camera.Dockerfile .
+      - name: Build Hydrus AMD64 Docker
+        run: docker build -t hydrus -f ./docker/amd64/cpu/hydrus.Dockerfile .
+      - name: Run catkin_make on Hydrus AMD64 Docker
+        run: sudo docker run --rm -i -v .:/home/catkin_ws/src hydrus bash -c "cd /home/catkin_ws && catkin_make"

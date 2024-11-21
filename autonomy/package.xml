@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>autonomy</name>
+    <version>0.1.0</version>
+    <description>This is a combined package that includes dependencies for various computer vision and autonomy tasks.</description>
+
+    <maintainer email="your-email@example.com">Your Name</maintainer>
+    <license>BSD</license>
+    <!-- Common build tool dependency -->
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <!-- Combined dependencies -->
+    <depend>nav_msgs</depend>
+    <depend>sensor_msgs</depend>  <!-- Added dependency -->
+    <depend>stereo_msgs</depend>
+    <depend>dynamic_reconfigure</depend>
+    <depend>diagnostic_updater</depend>
+    <depend>geometry_msgs</depend>
+    <depend>visualization_msgs</depend>
+    <depend>message_runtime</depend>
+    <depend>rospy</depend>
+    <depend>actionlib</depend>
+    <depend>actionlib_msgs</depend>
+    <depend>message_generation</depend>
+    <depend>rosbag</depend>
+    <depend>std_msgs</depend>
+    <depend>topic_tools</depend>
+
+
+</package>
