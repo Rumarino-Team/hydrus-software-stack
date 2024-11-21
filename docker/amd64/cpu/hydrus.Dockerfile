@@ -59,6 +59,10 @@ RUN apt-get install -y ros-noetic-rosserial-arduino
 # Copy embedded Arduino code in the Arduino libraries folder
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
+# Copy dvl embedded driver
+COPY ./Wayfinder /opt/Wayfinder
+WORKDIR /opt/Wayfinder
+RUN apt update -y && apt upgrade -y  && apt install python3-serial -y
 
 # Copy the Python Dependencies and Install them
 COPY ./requirements.txt /requirements.txt
