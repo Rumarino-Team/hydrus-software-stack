@@ -16,7 +16,7 @@ tracker = MultiObjectTracker(
 )
 
 def process_saved_frames(frame_folder: str):
-    frame_files = sorted([f for f in os.listdir(frame_folder) if f.endswith('.jpg')])  # List all saved frames
+    frame_files = [f for f in os.listdir(frame_folder) if f.endswith('.jpg')]  # List all saved frames
     for frame_file in frame_files:
         frame_path = os.path.join(frame_folder, frame_file)
         frame = cv2.imread(frame_path)  # Read the saved frame
@@ -95,7 +95,9 @@ def calculate_point_3d(detections: List[Detection], depth_image: np.ndarray, cam
                 detection.point = custom_types.Point3D(x=0, y=0, z=0)
 
 def main():
-    process_saved_frames("frames")
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    frame_folder = os.path.join(script_dir, "frames")
+    process_saved_frames(frame_folder)
 
 if __name__ == "__main__":
     main()

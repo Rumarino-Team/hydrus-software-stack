@@ -67,6 +67,9 @@ COPY ./requirements.txt /requirements.txt
 RUN python3 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
 RUN python3 -m pip install -r /requirements.txt
 
+# Install motpy
+RUN python3 -m pip install motpy
+
 # Install Default models for YOLO
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt

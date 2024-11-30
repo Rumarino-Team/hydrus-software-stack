@@ -66,6 +66,7 @@ RUN apt-get install -y python3.9
 # Install the default ultralytics with Pytorch Cuda dependencies.
 RUN python3.9 -m pip install  ultralytics
 RUN python3.9 -m pip install -r /requirements.txt
+RUN python3 -m pip install motpy
 
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
