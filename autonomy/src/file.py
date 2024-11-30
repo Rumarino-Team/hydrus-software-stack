@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 import numpy as np 
 import cv2
@@ -94,6 +95,7 @@ def calculate_point_3d(detections: List[Detection], depth_image: np.ndarray, cam
 
                     # Assign the calculated 3D point to the detection's point attribute
                     detection.point = custom_types.Point3D(x=x, y=y, z=z)
+                    rospy.loginfo(f"Detection 3D point added: ({x}, {y}, {z})")
                 else:
                     # Assign a default point if depth is not available
                     detection.point = custom_types.Point3D(x=0, y=0, z=0)
