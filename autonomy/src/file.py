@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import numpy as np 
 import cv2
@@ -14,26 +13,33 @@ tracker = MultiObjectTracker(
     dt=0.1,
     tracker_kwargs={'max_staleness': 5}
 )
+def process_saved_videos(video_folder: str):
+    video_files = [f for f in os.listdir(video_folder) if f.endswith('.avi') or f.endswith('.mp4')] 
+    for video_file in video_files:
+        video_path = os.path.join(video_folder, video_file)
+        cap = cv2.VideoCapture(video_path)
 
-def process_saved_frames(frame_folder: str):
-    frame_files = [f for f in os.listdir(frame_folder) if f.endswith('.jpg')]  # List all saved frames
-    for frame_file in frame_files:
-        frame_path = os.path.join(frame_folder, frame_file)
-        frame = cv2.imread(frame_path)  # Read the saved frame
-        
-        if frame is None:
-            print(f"Failed to load {frame_file}")
+        if not cap.isOpened():
+            print(f"Failed to open {video_file}")
             continue
 
-        # Detect and track objects
-        frame, detections = yolo_object_detection(frame)
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        # Show the output frame
-        cv2.imshow("YOLO + Motpy", frame)
+            # Detect and track objects
+            frame, detections = yolo_object_detection(frame)
 
-        # Wait for a key press and exit if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            # Show the output frame
+            cv2.imshow("YOLO + Motpy", frame)
+
+            # Exit on 'q' key
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        cap.release()
+        print(f"Finished processing {video_file}")
 
     cv2.destroyAllWindows()
 
@@ -96,8 +102,8 @@ def calculate_point_3d(detections: List[Detection], depth_image: np.ndarray, cam
 
 def main():
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    frame_folder = os.path.join(script_dir, "frames")
-    process_saved_frames(frame_folder)
+    frame_folder = os.path.join(script_dir, "Videos")
+    process_saved_videos(frame_folder)
 
 if __name__ == "__main__":
     main()
