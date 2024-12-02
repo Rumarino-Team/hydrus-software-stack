@@ -53,13 +53,13 @@ class ProportionalController:
         # ////////////////////////////////////
         # ////////ROS MUTABLE OBJECTS/////////
         # ////////////////////////////////////
-
+        
         self.thrusters_publishers = []
         self.server = None
         self.target_point = None
         self.submarine_pose = None
         self.thruster_values = [1500 for _ in range(8)]
-
+        rospy.loginfo(f"Runnin?({self.thruster_values})")
         self.moving: List[bool] = [False, False, False]  # [depth, rotation, linear]
 
         #//////////////////////////////////// 
@@ -72,38 +72,58 @@ class ProportionalController:
         rospy.Subscriber("/zed2i/zed_node/pose", PoseStamped, imu_pose_callback)
         self.server = actionlib.SimpleActionServer('controller_action', NavigateToWaypointAction, self.execute_callback, False)
         self.server.start()
+        
 
-
-    def execute_callback(self,goal):
+    def execute_callback(self, goal): 
         feedback = NavigateToWaypointFeedback()
         result = NavigateToWaypointResult()
 
-        # Set target point
-        target_point = Point()
-        target_point.x = goal.x
-        target_point.position.y = goal.y
-        target_point.position.z = goal.z
-        
-        rate = rospy.Rate(10)
+        # The target point is set
+        target_point = goal.target_point
+        rospy.loginfo(f"Goal received: target_point=({target_point.x}, {target_point.y}, {target_point.z})")
+
+        rate = rospy.Rate(10)  # This is set to 10 hz but you can change it if you like
 
         while not rospy.is_shutdown():
-            self.move_submarine(self.submarine_pose, target_point)
-            distance = self.calculate_distance(self.submarine_pose.position, target_point.position)
-            feedback.distance_to_target = distance
+            if self.submarine_pose is None:
+                rospy.logwarn("Submarine pose is not available yet.")
+                rate.sleep()
+                continue
+
+            # Update feedback
+            distance = self.calculate_distance(self.submarine_pose.pose.position, target_point)
+            feedback.success = distance < self.Constants.DELTA  # Update feedback so you know how close it is
+            rospy.loginfo(f"Distance to target: {distance:.2f}")
+
+            # Publish feedback
             self.server.publish_feedback(feedback)
 
-            if distance < self.Constant.DELTA:
-                result.success = True
-                self.server.set_succeeded(result)
+            # Check if the target is reached
+            if distance - self.Constants.DELTA<0.01:
                 rospy.loginfo("Target reached.")
+                result.distance_to_target = distance
+                self.server.set_succeeded(result)  # Goal is reached, YAY!
                 return
 
+            # Check for preemption
             if self.server.is_preempt_requested():
-                result.success = False
-                self.server.set_preempted(result)
-                rospy.loginfo("Goal preempted.")
+                rospy.loginfo("Goal preempted by client.")
+                result.distance_to_target = distance
+                self.server.set_preempted(result)  # Mark the goal as preempted, sad.
                 return
+
+            # Move submarine, she needs the treadmill.
+            self.move_submarine(self.submarine_pose, target_point)
+
             rate.sleep()
+
+        # In case of an unexpected exit
+        rospy.logwarn("Action server terminated unexpectedly.")
+        result.distance_to_target = -1  # Set an error code for distance
+        self.server.set_aborted(result)  # Mark the goal as aborted. 1 million babies are aborted in the US a year.
+
+
+
 
 
 
@@ -111,12 +131,13 @@ class ProportionalController:
         if current_pose is None or target_point is None:
             return
 
+        position = current_pose.pose.position
+
         if self.moving[0]:  # Move in the depth direction
             if abs(current_pose.position.z - target_point.position.z) > self.Constants.DELTA:
                 self.adjust_depth_motors(current_pose, target_point)
             else:
                 self.moving = [False, True, False]
-
         elif self.moving[1]:  # Rotate to face the target point
             if self.adjust_rotation_motors(current_pose, target_point):
                 self.moving = [False, False, True]
@@ -128,6 +149,9 @@ class ProportionalController:
 
         for i in range(len(self.thruster_values)):
             self.thrusters_publishers[i].publish(self.thruster_values[i])
+        rospy.loginfo(f"Current position: ({current_pose.pose.position.x}, {current_pose.pose.position.y}, {current_pose.pose.position.z})")
+
+
 
     def adjust_depth_motors(self, current_pose, target_point):
             if current_pose.position.z < target_point.position.z:
@@ -198,6 +222,7 @@ class ProportionalController:
     @staticmethod
     def calculate_distance(pos1, pos2):
         return math.sqrt((pos1.x - pos2.x)**2 + (pos1.y - pos2.y)**2 + (pos1.z - pos2.z)**2)
+
 
 
 
