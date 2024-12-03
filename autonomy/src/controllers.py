@@ -99,7 +99,7 @@ class ProportionalController:
             self.server.publish_feedback(feedback)
 
             # Check if the target is reached
-            if distance - self.Constants.DELTA<0.01:
+            if distance - self.Constants.DELTA<0.05:
                 rospy.loginfo("Target reached.")
                 result.distance_to_target = distance
                 self.server.set_succeeded(result)  # Goal is reached, YAY!
@@ -120,7 +120,7 @@ class ProportionalController:
         # In case of an unexpected exit
         rospy.logwarn("Action server terminated unexpectedly.")
         result.distance_to_target = -1  # Set an error code for distance
-        self.server.set_aborted(result)  # Mark the goal as aborted. 1 million babies are aborted in the US a year.
+        self.server.set_aborted(result)  # Mark the goal as aborted.
 
 
 
