@@ -29,7 +29,11 @@ RUN apt-get update && apt-get install -y \
 
 RUN apt-get update && apt-get install -y\
     ros-noetic-tf2-geometry-msgs\
-    python3-tf2-kdl
+    python3-tf2-kdl\
+    gazebo11\ 
+    ros-noetic-gazebo-ros-control\
+    ros-noetic-gazebo-ros-pkgs
+    
 
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \
