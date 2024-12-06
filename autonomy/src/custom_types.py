@@ -28,6 +28,7 @@ class Detection:
     conf: float
     depth: float = 0
     point: Optional[Point3D] = None
+    bbox3d: Optional[List[Point3D]] = None
 
 @dataclass
 class Detections:

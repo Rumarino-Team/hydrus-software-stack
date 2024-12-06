@@ -148,6 +148,43 @@ def calculate_point_3d(detections: List[custom_types.Detection], depth_image: np
                 detection.point = custom_types.Point3D(x=0, y=0, z=0)
                 detection.depth = 0
 
+def calculate_3D_BoundingBox(detections : List[custom_types.Detection], depth_image : np.ndarray, camera_intrinsic : tuple):
+    fx, fy, cx, cy = camera_intrinsic
+    for detection in detections:
+        x_min, y_min, x_max, y_max = detection.x1, detection.y1, detection.x2, detection.y2
+        if depth_image is not None:
+            x_min_int = int(x_min)
+            x_max_int = int(x_max)
+            y_min_int = int(y_min)
+            y_max_int = int(y_max)
+
+            bbox_depth = depth_image[y_min_int:y_max_int, x_min_int:x_max_int]
+            
+            if bbox_depth.size > 0:
+                mean_depth = np.nanmean(bbox_depth)
+            else:
+                mean_depth = None
+            if mean_depth is not None and not np.isnan(mean_depth):
+                        # Calculate 3D coordinates of the four corners
+                        corners = [
+                            (x_min, y_min),  
+                            (x_max, y_min),  
+                            (x_max, y_max),  
+                            (x_min, y_max)   
+                        ]
+                        bbox_3d_points = []
+                        for (u, v) in corners:
+                            z = mean_depth
+                            x = (u - cx) * z / fx
+                            y = (v - cy) * z / fy
+                            bbox_3d_points.append(custom_types.Point3D(x=x, y=y, z=z))
+
+                        # Store the calculated 3D bounding box in the detection
+                        detection.bbox3d = bbox_3d_points 
+                        rospy.loginfo(f"3D bounding box for detection: {bbox_3d_points}")
+            else:
+                rospy.logwarn("Mean depth not available or invalid, skipping 3D bounding box calculation.")
+                detection.bbox_3d = [] 
 
 def transform_to_global(detections: List[custom_types.Detection],imu_point: custom_types.Point3D, imu_rotation:custom_types.Point3D):
     translation = [imu_point.x, imu_point.y, imu_point.z]
@@ -271,6 +308,7 @@ def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
             detection_results = pipelines[i](rgb_image)  
         
         calculate_point_3d(detections=detection_results, depth_image=depth_image, camera_intrinsic=camera_intrinsics)
+        calculate_3D_BoundingBox(detections=detection_results, depth_image=depth_image, camera_intrinsic=camera_intrinsics)
 
         # Check if IMU data is available
         if imu_point is None or imu_rotation is None:
