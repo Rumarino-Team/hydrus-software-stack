@@ -44,7 +44,8 @@ if [ "$DEPLOY" == "true" ]; then
     echo "Deploy is set to true. Launching hydrus_start.launch..."
     # Compile the Arduino project
     rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
-    cd /root/Arduino/libraries/sensor_actuator_pkg/examples/Hydrus
+
+    cd /root/Arduino/libraries/embedded_arduino/Hydrus
     arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
     arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
     cd /catkin_ws

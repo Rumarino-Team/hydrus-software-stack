@@ -1,8 +1,6 @@
 # Goal
-float64 x          # Target X position
-float64 y          # Target Y position
-float64 z          # Target Z position
 
+geometry_msgs/Point target_point
 ---
 # Feedback
 float64 distance_to_target  # Current distance to the target

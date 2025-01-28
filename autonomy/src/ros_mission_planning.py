@@ -2,17 +2,14 @@ import math
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Set
 
-from autonomy.src.types import point_3d, OutputBBox
-from autonomy.src.controllers import SubController
+# ROS Dependencies
+import rospy
+import actionlib
+from geometry_msgs.msg import Point, PoseStamped
+from autonomy.msg import Detection, Detections  
 from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal, NavigateToWaypointFeedback, NavigateToWaypointResult
-
-@dataclass
-class MissionData:
-    detections: List[OutputBBox]
-    current_point: point_3d
-    check_points: List[point_3d]
 
 @dataclass
 class MissionObject:

@@ -1,5 +1,8 @@
 <launch>
     <!-- Node for computer vision publishers -->
-    <node name="cv_publishers_node" pkg="autonomy" type="cv_publishers.py"  output="screen">
-    </node>
+
+    <node name="cv_publishers_node" pkg="autonomy" type="cv_publishers.py"  output="screen"></node>
+    <node name="controllers_node" pkg="autonomy" type="controllers.py" output="screen"></node>
+    <node name="ros_mission_planning" pkg="autonomy" type="ros_mission_planning.py" output="screen"></node>
+
 </launch>
