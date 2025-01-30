@@ -1,6 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
+import rospkg
+import os
 from gazebo_msgs.srv import SpawnModel
 from geometry_msgs.msg import Pose
 
@@ -13,9 +15,13 @@ def spawn_cube():
     try:
         # Create a proxy for the spawn service
         spawn_model = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
+
+        rospack = rospkg.RosPack()
+        package_path = rospack.get_path("simulator") 
+        file_path = os.path.join(package_path, "src/cube.sdf")
         
         # Load the SDF model from file
-        with open("/cube.sdf", "r") as f:
+        with open(file_path, "r") as f:
             model_xml = f.read()
         
         # Define the initial pose of the cube
