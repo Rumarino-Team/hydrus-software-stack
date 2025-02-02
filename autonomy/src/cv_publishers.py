@@ -2,7 +2,7 @@
 # Python Dependencies
 import cv2
 import numpy as np
-from typing import List, Dict, Tuple
+from typing import List, Tuple
 from ultralytics import YOLO
 from motpy import Detection as MotpyDetection
 from motpy import MultiObjectTracker
@@ -16,7 +16,6 @@ from geometry_msgs.msg import Point, PoseStamped
 from autonomy.msg import Detection, Detections
 from autonomy.srv import  SetColorFilterResponse 
 from cv_bridge import CvBridge, CvBridgeError
-
 model = YOLO("yolo11n.pt") 
 tracker = MultiObjectTracker(
     dt = 0.1,

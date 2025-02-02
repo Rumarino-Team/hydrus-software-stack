@@ -18,8 +18,11 @@ class MissionObject:
     distance: float
 
 class TaskType(Enum):
-    MOVETOCENTER = 1
-    MOVEAROUND = 2
+    MOVE_TO_CENTER = 1    # Move directly to the center of an object
+    MOVE_AROUND = 2       # Circle around an object
+    MOVE_THROUGH = 3      # Move through an object (like a gate)
+    HOLD_POSITION = 4     # Maintain current position
+    SURFACE = 5           # Move to surface
 
 class Status(Enum):
     COMPLETED = 1
@@ -32,6 +35,14 @@ class MissionInstructions:
     object_cls: str
     conditions: Callable
     status: Status = Status.NONCALLED
+
+@dataclass
+class TaskParameters:
+    # Parameters that can be configured for different tasks
+    radius: float = 2.0           # For MOVE_AROUND - radius of circular motion
+    circle_points: int = 8        # For MOVE_AROUND - number of points in circle
+    approach_distance: float = 1.0 # Distance to maintain from target
+    hold_time: float = 5.0        # Time to hold position in seconds
 
 class PreQualificationMission:
     def __init__(self):
@@ -70,6 +81,14 @@ class PreQualificationMission:
 
         self.calculate_distance = lambda pos1, pos2: math.sqrt((pos1.x - pos2.x)**2 + (pos1.y - pos2.y)**2 + (pos1.z - pos2.z)**2)
 
+        # Add task parameters
+        self.task_params = TaskParameters()
+        
+        # Add task completion tracking
+        self.current_task_start_time = None
+        self.current_waypoint_index = 0
+        self.waypoints = []
+
     def detection_callback(self, msg):
         self.current_detections = msg
 
@@ -82,56 +101,181 @@ class PreQualificationMission:
                 return item
         return None
 
-    def execute_task(self, task: MissionInstructions):
-        if task.object_cls in self.detected_objects:
-            mission_object = self.search_mission_object(task.object_cls)
+    def generate_circle_waypoints(self, center_point: Point, radius: float, num_points: int) -> List[Point]:
+        """Generate waypoints in a circle around a center point"""
+        waypoints = []
+        for i in range(num_points):
+            angle = 2 * math.pi * i / num_points
+            x = center_point.x + radius * math.cos(angle)
+            y = center_point.y + radius * math.sin(angle)
+            z = center_point.z
+            waypoints.append(Point(x=x, y=y, z=z))
+        return waypoints
 
-            # Send goal to action server
-            goal = NavigateToWaypointGoal(target_position=mission_object.position)
+    def execute_move_to_center(self, object_position: Point) -> bool:
+        """Execute movement directly to the center of an object"""
+        goal = NavigateToWaypointGoal()
+        goal.target_point = object_position
+        self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
+        self.controller_client.wait_for_result()
+        return self.controller_client.get_result().success
+
+    def execute_move_around(self, object_position: Point) -> bool:
+        """Execute circular movement around an object"""
+        if not self.waypoints:
+            self.waypoints = self.generate_circle_waypoints(
+                object_position, 
+                self.task_params.radius,
+                self.task_params.circle_points
+            )
+            self.current_waypoint_index = 0
+
+        if self.current_waypoint_index < len(self.waypoints):
+            goal = NavigateToWaypointGoal()
+            goal.target_point = self.waypoints[self.current_waypoint_index]
             self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
+            self.controller_client.wait_for_result()
             
-            # Wait for the result
-            self.client.wait_for_result()
-            result = self.controller_client.get_result()
+            if self.controller_client.get_result().success:
+                self.current_waypoint_index += 1
+                return self.current_waypoint_index >= len(self.waypoints)
+            return False
+        return True
 
-            if result.success:
-                rospy.loginfo(f"Successfully completed task: {task.task} for object: {task.object_cls}")
-                return True
-            else:
-                rospy.logwarn(f"Failed to complete task: {task.task} for object: {task.object_cls}")
-                return False
+    def execute_hold_position(self, position: Point) -> bool:
+        """Hold position for a specified duration"""
+        if self.current_task_start_time is None:
+            self.current_task_start_time = rospy.Time.now()
+            goal = NavigateToWaypointGoal()
+            goal.target_point = position
+            self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
+
+        if (rospy.Time.now() - self.current_task_start_time).to_sec() >= self.task_params.hold_time:
+            self.current_task_start_time = None
+            return True
+        return False
+
+    def execute_task(self, task: MissionInstructions) -> bool:
+        """Enhanced task execution with different behaviors"""
+        if task.object_cls not in self.detected_objects:
+            rospy.logwarn(f"Object {task.object_cls} not detected yet")
+            return False
+
+        mission_object = self.search_mission_object(task.object_cls)
+        if not mission_object:
+            return False
+
+        success = False
+        if task.task == TaskType.MOVE_TO_CENTER:
+            success = self.execute_move_to_center(mission_object.position)
+        
+        elif task.task == TaskType.MOVE_AROUND:
+            success = self.execute_move_around(mission_object.position)
+        
+        elif task.task == TaskType.HOLD_POSITION:
+            success = self.execute_hold_position(mission_object.position)
+        
+        elif task.task == TaskType.SURFACE:
+            surface_point = Point(
+                x=self.submarine_pose.pose.position.x,
+                y=self.submarine_pose.pose.position.y,
+                z=0.0  # Assuming 0 is surface level
+            )
+            success = self.execute_move_to_center(surface_point)
+
+        if success:
+            rospy.loginfo(f"Successfully completed task: {task.task} for object: {task.object_cls}")
+            # Reset task-specific variables
+            self.waypoints = []
+            self.current_waypoint_index = 0
+            self.current_task_start_time = None
+        
+        return success
 
     def feedback_callback(self, feedback: NavigateToWaypointFeedback):
         rospy.loginfo(f"Distance to target: {feedback.distance_to_target}")
 
-    def run(self):
+    def update_detected_objects(self):
+        """Update the detected objects and mission objects based on current detections"""
         if not self.current_detections:
             return
-        
+
         for detection in self.current_detections.detections:
-            if self.cls_names[detection.cls] == "Gate" and "Gate" not in self.detected_objects:
-                self.detected_objects.add("Gate")
-                distance = self.calculate_distance(detection.point, self.submarine_pose.pose.position)
-                self.mission_objects.add(MissionObject(detection.point, "Gate", distance=distance)) 
-            elif self.cls_names[detection.cls] == "Buoy" and "Buoy" not in self.detected_objects:
-                self.detected_objects.add("Buoy")
-                distance = self.calculate_distance(detection.point, self.submarine_pose.pose.position)
-                self.mission_objects.add(MissionObject(detection.point, "Buoy", distance=distance))
+            # Get object class name from detection
+            if detection.cls not in self.cls_names:
+                rospy.logwarn(f"Unknown object class ID: {detection.cls}")
+                continue
+            
+            object_name = self.cls_names[detection.cls]
+            
+            # Add to detected objects set if not already present
+            if object_name not in self.detected_objects:
+                self.detected_objects.add(object_name)
+                rospy.loginfo(f"New object detected: {object_name}")
+                
+                # Calculate distance from submarine to object
+                if self.submarine_pose:
+                    distance = self.calculate_distance(
+                        detection.point,
+                        self.submarine_pose.pose.position
+                    )
+                    
+                    # Create new mission object
+                    mission_obj = MissionObject(
+                        position=detection.point,
+                        object_name=object_name,
+                        distance=distance
+                    )
+                    
+                    # Update or add to mission objects
+                    # Remove old instance if exists
+                    self.mission_objects = {obj for obj in self.mission_objects 
+                                         if obj.object_name != object_name}
+                    self.mission_objects.add(mission_obj)
+                    rospy.loginfo(f"Added mission object: {object_name} at distance {distance:.2f}")
+            else:
+                # Update position and distance for existing objects
+                if self.submarine_pose:
+                    distance = self.calculate_distance(
+                        detection.point,
+                        self.submarine_pose.pose.position
+                    )
+                    
+                    # Update mission object with new position and distance
+                    updated_obj = MissionObject(
+                        position=detection.point,
+                        object_name=object_name,
+                        distance=distance
+                    )
+                    
+                    # Remove old instance and add updated one
+                    self.mission_objects = {obj for obj in self.mission_objects 
+                                         if obj.object_name != object_name}
+                    self.mission_objects.add(updated_obj)
 
-        if not self.current_instruction and self.instructions:
-            self.current_instruction = self.instructions.popleft()
+    def run(self):
+        """Main mission execution loop"""
+        if not self.submarine_pose:
+            rospy.logwarn_throttle(1, "Waiting for submarine pose...")
+            return
 
+        # Update detected objects from current detections
+        self.update_detected_objects()
+
+        # Execute current instruction if available
         if self.current_instruction:
             if self.current_instruction.status == Status.NONCALLED:
                 self.current_instruction.status = Status.ONPROGRESS
                 rospy.loginfo(f"Starting task: {self.current_instruction.task} for object: {self.current_instruction.object_cls}")
 
             if self.current_instruction.status == Status.ONPROGRESS:
-                success = self.execute_task(self.current_instruction)
-                if success:
+                if self.execute_task(self.current_instruction):
                     self.current_instruction.status = Status.COMPLETED
-                    rospy.loginfo(f"Completed task: {self.current_instruction.task} for object: {self.current_instruction.object_cls}")
                     self.current_instruction = None
+        
+        # Get next instruction if available
+        elif self.instructions:
+            self.current_instruction = self.instructions.popleft()
 
 def main():
     rospy.init_node('prequalification_mission_node')
