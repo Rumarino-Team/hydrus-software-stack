@@ -47,7 +47,6 @@ RUN /bin/bash -c 'source /opt/ros/noetic/setup.bash && \
     cd /home/catkin_ws/ && \
     catkin_make'
 RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
-RUN echo "source /catkin_ws/devel/setup.bash" >> /root/.bashrc
 
 # Install Arduino CLI and libraries
 WORKDIR /usr/local/
