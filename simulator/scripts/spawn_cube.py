@@ -18,7 +18,7 @@ def spawn_cube():
 
         rospack = rospkg.RosPack()
         package_path = rospack.get_path("simulator") 
-        file_path = os.path.join(package_path, "src/cube.sdf")
+        file_path = os.path.join(package_path, "models/cube.sdf")
         
         # Load the SDF model from file
         with open(file_path, "r") as f:

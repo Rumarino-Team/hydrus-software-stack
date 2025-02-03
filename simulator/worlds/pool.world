@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<sdf version="1.4">
+  <world name="default">
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <model name="water_plane">
+      <!-- Set the model as static -->
+      <static>true</static>
+      <pose>0 0 5</pose>
+      <link name="water_plane_link">
+        <!-- Visual element to show the water -->
+        <visual name="water_plane_visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <!-- You can use a custom material or an existing one -->
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Water</name>
+            </script>
+            <!-- Adjust these parameters to tweak the water’s appearance -->
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.3 0.3 0.7 0.5</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+            <emissive>0 0 0 1</emissive>
+          </material>
+          <!-- Adjust transparency as needed -->
+          <transparency>0.5</transparency>
+        </visual>
+      </link>
+    </model>
+
+    <!-- reference to your plugin -->
+    <plugin name="buoyancy_force" filename="libbuoyancy_force.so"/>
+  </world>
+</sdf>
