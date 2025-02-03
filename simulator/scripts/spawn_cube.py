@@ -17,7 +17,7 @@ def spawn_cube():
         spawn_model = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
 
         rospack = rospkg.RosPack()
-        package_path = rospack.get_path("simulator") 
+        package_path = rospack.get_path("hydrus_simulator") 
         file_path = os.path.join(package_path, "models/cube.sdf")
         
         # Load the SDF model from file

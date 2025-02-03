@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(simulator)
+project(hydrus_simulator)
  
 ## Add support for C++11, supported in ROS Kinetic and newer
 add_definitions(-std=c++11)
