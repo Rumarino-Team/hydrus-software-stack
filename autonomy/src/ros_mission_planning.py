@@ -17,12 +17,16 @@ class MissionObject:
     object_name: str
     distance: float
 
+
+# Define TaskType (ensure names are consistent)
 class TaskType(Enum):
     MOVE_TO_CENTER = 1    # Move directly to the center of an object
     MOVE_AROUND = 2       # Circle around an object
-    MOVE_THROUGH = 3      # Move through an object (like a gate)
+    MOVE_THROUGH = 3      # Move through an object (e.g., a gate)
     HOLD_POSITION = 4     # Maintain current position
-    SURFACE = 5           # Move to surface
+    SURFACE = 5           # Move to the surface
+    SEARCH = 6            # A search pattern (new type for branch)
+
 
 class Status(Enum):
     COMPLETED = 1
