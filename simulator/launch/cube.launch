@@ -3,5 +3,5 @@
     <include file="$(find hydrus_simulator)/launch/pool_world.launch"/>
 
     <!-- Delay the spawn script to allow Gazebo to initialize -->
-    <node name="spawn_cube" pkg="simulator" type="spawn_cube.py" output="screen"/>
+    <node name="spawn_cube" pkg="hydrus_simulator" type="spawn_cube.py" output="screen"/>
 </launch>
