@@ -4,11 +4,14 @@
     <static>false</static>
     <link name="link">
       <inertial>
-        <mass>1.0</mass>
+        <mass>200</mass>
         <inertia>
-          <ixx>0.083</ixx>
-          <iyy>0.083</iyy>
-          <izz>0.083</izz>
+          <ixx>33.33</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>33.33</iyy>
+          <iyz>0</iyz>
+          <izz>33.33</izz>
         </inertia>
       </inertial>
       <collision name="collision">

@@ -1,6 +1,7 @@
 # Use an official ROS image as a parent image
 FROM ros:noetic-ros-base
 
+ARG DEBIAN_FRONTEND=noninteractive
 # Update package list
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
@@ -29,11 +30,14 @@ RUN apt-get update && apt-get install -y \
 
 RUN apt-get update && apt-get install -y\
     ros-noetic-tf2-geometry-msgs\
-    python3-tf2-kdl\
-    gazebo11\ 
-    ros-noetic-gazebo-ros-control\
-    ros-noetic-gazebo-ros-pkgs
-    
+    python3-tf2-kdl
+
+RUN sudo sh -c \
+     'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list' &&\
+      curl https://packages.osrfoundation.org/gazebo.key | sudo apt-key add - &&\
+      apt-get update && apt-get install -y ignition-fortress ros-noetic-ros-ign &&\
+      echo "export GZ_VERSION=fortress" >> /root/.bashrc
+
 
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \

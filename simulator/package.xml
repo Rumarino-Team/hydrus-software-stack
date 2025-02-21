@@ -55,9 +55,9 @@
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
-  <build_depend>gazebo_ros</build_depend>
+  <build_depend>ros_ign_gazebo</build_depend>
   <build_depend>roscpp</build_depend>
-  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>ros_ign_gazebo</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>rospy</exec_depend>

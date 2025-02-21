@@ -10,21 +10,16 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   roscpp
   std_msgs
-  gazebo_ros
+  ros_ign_gazebo
 )
- 
 # Depend on system install of Gazebo
-find_package(gazebo REQUIRED)
+find_package(ros_ign_gazebo REQUIRED)
  
-link_directories(${GAZEBO_LIBRARY_DIRS})
-include_directories(${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${GAZEBO_INCLUDE_DIRS})
- 
-# For tc_simple_world_plugin plugin
-add_library(buoyancy_force src/buoyancy_force.cpp)
-target_link_libraries(buoyancy_force ${catkin_LIBRARIES} ${GAZEBO_LIBRARIES})
+link_directories(${ROS_IGN_GAZEBO_LIBRARY_DIRS})
+include_directories(${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${ROS_IGN_GAZEBO_INCLUDE_DIRS})
  
 catkin_package(
   DEPENDS
     roscpp
-    gazebo_ros
+    ros_ign_gazebo
 )
