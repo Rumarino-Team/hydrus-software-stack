@@ -6,6 +6,10 @@ services:
     command: stdbuf -o L roscore
     ports:
       - "11311:11311"
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 524288
 
   hydrus_cpu:
     build:
@@ -18,6 +22,7 @@ services:
       - "8000:8000"
     devices:
       - "/dev/ttyACM0:/dev/ttyACM0"
+      - "/dev/dri:/dev/dri"
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:mega
@@ -29,3 +34,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix 
     depends_on:
       - ros-master
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 524288

@@ -83,6 +83,8 @@ RUN python3 -m pip install -r /requirements.txt
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
+RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
+
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x ros-entrypoint.sh
