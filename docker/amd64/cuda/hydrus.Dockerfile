@@ -1,33 +1,35 @@
 # Use an official ROS image as a parent image
 FROM ros:noetic-ros-base
 
-# Print Ubuntu version
-RUN apt-get update && apt-get install -y lsb-release gnupg curl
-ENV DEBIAN_FRONTEND=noninteractive
-ENV ROS_PYTHON_VERSION=3
+# Update package list
+RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
-# Install Python and detector node Dependencies
+# Add the deadsnakes PPA and install Python 3.8
+RUN add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y python3.8 python3.8-distutils python3.8-venv
+
+# Set Python 3.8 as the default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+
+# Install pip for Python 3.8
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
+
+# Camera and Computer Vision Dependencies Python-3
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-numpy\
     python3-opencv \
     libgl1-mesa-glx \
     ros-noetic-cv-bridge \
-#    ros-noetic-python-orocos-kdl \
+    ros-noetic-vision-opencv\
     libbullet-dev \
     python3-empy
 
-# Install Gazebo and ROS Noetic integration packages
-RUN apt-get update && apt-get install -y \
-    gazebo11 \
-    ros-noetic-gazebo-ros-pkgs \
-    ros-noetic-gazebo-ros-control \
-    && rm -rf /var/lib/apt/lists/*
 
-# Mission Node Dependencies
-RUN apt-get install -y \
-    ros-noetic-smach-ros \
-    ros-noetic-executive-smach \
-    ros-noetic-smach-viewer
+RUN apt-get update && apt-get install -y\
+    ros-noetic-tf2-geometry-msgs\
+    python3-tf2-kdl
 
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \
@@ -40,6 +42,7 @@ RUN /bin/bash -c 'source /opt/ros/noetic/setup.bash && \
     mkdir -p /home/catkin_ws/src && \
     cd /home/catkin_ws/ && \
     catkin_make'
+RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 
 # Install Arduino CLI and libraries
 WORKDIR /usr/local/
@@ -57,16 +60,14 @@ RUN apt-get install -y ros-noetic-rosserial-arduino
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 
-# Copy the rest of your application code
+# Copy the Python Dependencies and Install them
 COPY ./requirements.txt /requirements.txt
 
-# Install additional Python packages using pip
-RUN apt-get install -y python3.9
+# Ultralytics with  GPU
+RUN python3 -m pip install ultralytics
+RUN python3 -m pip install -r /requirements.txt
 
-# Install the default ultralytics with Pytorch Cuda dependencies.
-RUN python3.9 -m pip install  ultralytics
-RUN python3.9 -m pip install -r /requirements.txt
-
+# Install Default models for YOLO
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
@@ -78,4 +79,4 @@ RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x ros-entrypoint.sh
-CMD ["./ros-entrypoint.sh"]
+CMD ["/catkin_ws/src/hydrus-software-stack/ros-entrypoint.sh"]

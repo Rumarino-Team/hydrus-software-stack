@@ -81,7 +81,7 @@ def yolo_object_detection(image: np.ndarray) -> List[custom_types.Detection]:
     result_list = []
     transition_list = []
     results = model(image)  # This returns a list of results
-
+    cls_w = None
     for result in results:
         if hasattr(result, 'boxes'):  # Ensure the result has boxes
             for box in result.boxes:

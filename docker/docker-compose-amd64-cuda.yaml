@@ -25,12 +25,17 @@ services:
               capabilities: [gpu]
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
+      - DISPLAY=${DISPLAY} 
+      - ZED_OPTION=${ZED_OPTION}
     depends_on:
       - ros-master
     ulimits:
       nofile:
         soft: 1024
         hard: 524288
+    volumes:
+      - "../:/home/catkin_ws/src"
+      - /tmp/.X11-unix:/tmp/.X11-unix 
 
   hydrus_cuda:
     build:
@@ -60,6 +65,7 @@ services:
       - DEPLOY
       - VOLUME
       - NVIDIA_DRIVER_CAPABILITIES=all
+      - ZED_OPTION=${ZED_OPTION}
     depends_on:
       - ros-master
       - zed-camera
