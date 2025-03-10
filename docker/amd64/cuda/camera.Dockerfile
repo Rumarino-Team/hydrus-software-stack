@@ -38,7 +38,7 @@ catkin_make -DCMAKE_BUILD_TYPE=Release && \
 source ./devel/setup.bash"
 
 # Move the zed_camera parameters configurations into the zed_ros_wrapper
-COPY ./zed_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/common.yaml
+COPY ./common_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/common.yaml
 COPY ./zed2i_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/zed2i.yaml
 
 COPY ./camera-entrypoint.sh /camera-entrypoint.sh
