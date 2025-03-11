@@ -24,17 +24,25 @@ RUN . /opt/ros/noetic/setup.sh && \
     rosdep install --from-paths src --ignore-src -r -y
     
 #Ordep sucks eggs
+#Mas vale que no digan lo mismo de Cesar. Yo si leo los comentarios :V
 RUN apt-get install -y ros-noetic-rviz && \
     apt-get update && apt-get install -y libxcb-xinerama0
 RUN apt-get update && apt-get install -y ros-noetic-rviz-imu-plugin
 RUN cd ~/catkin_ws/src
+
+# ZED ROS EXAMPLES CONFIGURATIONS
 RUN git clone https://github.com/stereolabs/zed-ros-examples.git ~/catkin_ws/src/zed-ros-examples && \
 bash -c "source /opt/ros/noetic/setup.bash && \
 cd ~/catkin_ws/ && rosdep install --from-paths src --ignore-src -r -y && \
 catkin_make -DCMAKE_BUILD_TYPE=Release && \
 source ./devel/setup.bash"
-    
+
+# Move the zed_camera parameters configurations into the zed_ros_wrapper
+COPY ./common_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/common.yaml
+COPY ./zed2i_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/zed2i.yaml
+
 COPY ./camera-entrypoint.sh /camera-entrypoint.sh
+
 RUN chmod +x /camera-entrypoint.sh
     
 CMD ["/camera-entrypoint.sh"]
