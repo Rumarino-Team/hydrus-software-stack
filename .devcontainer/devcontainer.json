@@ -25,7 +25,7 @@
             "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
             "source=/dev/dri,target=/dev/dri,type=bind,consistency=cached"
          ],
-         "workspaceMount": "src=${localWorkspaceFolder},dst=/catkin_ws/src/,type=bind,consistency=cached",
-         "workspaceFolder": "/catkin_ws",
+         "workspaceMount": "src=${localWorkspaceFolder},dst=/home/catkin_ws/src/,type=bind,consistency=cached",
+         "workspaceFolder": "/home/catkin_ws",
          "postCreateCommand": "catkin_make"
 }
