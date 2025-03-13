@@ -51,6 +51,21 @@ To run all the ros nodes at the same time you can use the `autonomy.launch` laun
 roslaunch autonomy autonomy.launch
 ```
 
+## Using the Zed_ROS_WRAPPER NODE
+
+When running the amd64 cuda version or the jetson version we run the  [Zed Ros wrapper](https://github.com/stereolabs/zed-ros-wrapper.git)  ros node. If we want
+to change the configuration of the camera we can change them in the `common_camera_params.yaml` and the `zed2i_camera_params.yaml` files. 
+
+For example if we want to activate the zed camera object detection we can change the `od_enabled` field to true in the `common_camera_params.yaml`.
+
+```yaml
+
+object_detection:
+    od_enabled:  true       
+    model: 'MULTI_CLASS_BOX_ACCURATE'
+ ... 
+
+```
 
 ## Download ROS Bags
 

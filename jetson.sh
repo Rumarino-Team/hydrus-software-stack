@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Set environment variables
 export ROS_MASTER_URI=http://localhost:11311
@@ -15,7 +16,10 @@ echo "Waiting for ROS master to start..."
 sleep 8
 
 # Step 2: Build and run the ZED camera container
-docker build -t zed-camera -f docker/jetson/camera.Dockerfile .
+result=$( sudo docker images -q zed-camera )
+if [[ -n "$result" ]]; then
+	docker build -t zed-camera -f docker/jetson/camera.Dockerfile .
+fi
 
 docker run -d \
   --name zed-camera \
@@ -29,7 +33,10 @@ echo "Waiting for ZED camera to start..."
 sleep 10
 
 # Step 3: Build and run the Hydrus container
-docker build -t hydrus -f docker/jetson/hydrus.Dockerfile .
+result=$( sudo docker images -q hydrus )
+if [[ -n "$result" ]]; then
+	docker build -t hydrus -f docker/jetson/hydrus.Dockerfile .
+fi
 
 docker run -d \
   --name hydrus \

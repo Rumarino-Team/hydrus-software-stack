@@ -1,6 +1,7 @@
 # Use an official ROS image as a parent image
 FROM ros:noetic-ros-base
 
+ARG DEBIAN_FRONTEND=noninteractive
 # Update package list
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
@@ -31,6 +32,13 @@ RUN apt-get update && apt-get install -y\
     ros-noetic-tf2-geometry-msgs\
     python3-tf2-kdl
 
+RUN sudo sh -c \
+     'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list' &&\
+      curl https://packages.osrfoundation.org/gazebo.key | sudo apt-key add - &&\
+      apt-get update && apt-get install -y ignition-fortress ros-noetic-ros-ign &&\
+      echo "export GZ_VERSION=fortress" >> /root/.bashrc
+
+
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \
        gcc \
@@ -59,6 +67,10 @@ RUN apt-get install -y ros-noetic-rosserial-arduino
 # Copy embedded Arduino code in the Arduino libraries folder
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
+# Copy dvl embedded driver
+COPY ./DVL/Wayfinder /opt/Wayfinder
+WORKDIR /opt/Wayfinder
+RUN apt update -y && apt upgrade -y  && apt install python3-serial -y
 
 # Copy the Python Dependencies and Install them
 COPY ./requirements.txt /requirements.txt
@@ -70,6 +82,8 @@ RUN python3 -m pip install -r /requirements.txt
 # Install Default models for YOLO
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
+
+RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack

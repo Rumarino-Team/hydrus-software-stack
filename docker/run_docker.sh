@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
 # Function to check if the system is Jetson TX2
 is_jetson_tx2() {
@@ -18,14 +19,17 @@ is_wsl() {
   fi
 }
 
+
 DEPLOY=false  
 VOLUME=false  
 FORCE_CPU=false 
+ZED_OPTION=false
+
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --deploy) DEPLOY=true ;; 
-        --volume) VOLUME=true ;; 
+        --deploy) DEPLOY=true ;;
+        --volume) VOLUME=true ;;
         --force-cpu) FORCE_CPU=true ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
@@ -35,7 +39,7 @@ done
 # Check if --force-cpu was passed
 if [[ "$FORCE_CPU" == true ]]; then
   echo "Force CPU deployment selected. Running CPU version."
-  DEPLOY=$DEPLOY VOLUME=$VOLUME  docker compose -f docker-compose-amd64-cpu.yaml up
+  DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION  docker compose -f docker-compose-amd64-cpu.yaml up
 else
   # Check if system is WSL
   if is_wsl; then
@@ -44,15 +48,25 @@ else
   # Check if system is Jetson TX2
   elif is_jetson_tx2; then
     echo "Jetson TX2 detected. Running Jetson TX2 Docker Compose."
-    DEPLOY=$DEPLOY VOLUME=$VOLUME  docker compose -f docker-compose-jetson-tx2.yaml up
+    DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION  docker compose -f docker-compose-jetson-tx2.yaml up
   else
     # Check if NVIDIA GPUs are available
     if nvidia-smi > /dev/null 2>&1; then
       echo "GPU available. Running with GPU support."
-      DEPLOY=$DEPLOY VOLUME=$VOLUME  docker compose -f docker-compose-amd64-cuda.yaml up
+      while true; do
+        echo "Do you want to display the ZED2i camera in RViz?"
+        read -p "(y/n)" choice
+        case $choice in 
+          [Yy]* ) ZED_OPTION=true; break;;
+          [Nn]* ) break;;
+          * ) echo "Invalid input. Please try again.";;
+        esac
+      done
+      echo "ZED_OPTION=$ZED_OPTION"
+      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION  docker compose -f docker-compose-amd64-cuda.yaml up
     else
       echo "No GPU available. Running without GPU support."
-      DEPLOY=$DEPLOY VOLUME=$VOLUME  docker compose -f docker-compose-amd64-cpu.yaml up
+      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION docker compose -f docker-compose-amd64-cpu.yaml up
     fi
   fi
 fi
