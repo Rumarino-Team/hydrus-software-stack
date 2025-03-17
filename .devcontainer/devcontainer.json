@@ -12,13 +12,20 @@
             ]
            }
          },
+         "containerEnv": {
+            "DISPLAY": ":0"
+         }, 
          "runArgs": [
-             "--cap-add=SYS_PTRACE",
-             "--security-opt", "seccomp=unconfined",
-             "-v",
-             "${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh"
+            "--cap-add=SYS_PTRACE",
+            "--security-opt", "seccomp=unconfined",
+            "-v",
+            "${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh"
          ],
-         "workspaceMount": "src=${localWorkspaceFolder},dst=/catkin_ws/src/,type=bind,consistency=cached",
-         "workspaceFolder": "/catkin_ws",
+         "mounts": [
+            "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+            "source=/dev/dri,target=/dev/dri,type=bind,consistency=cached"
+         ],
+         "workspaceMount": "src=${localWorkspaceFolder},dst=/home/catkin_ws/src/,type=bind,consistency=cached",
+         "workspaceFolder": "/home/catkin_ws",
          "postCreateCommand": "catkin_make"
 }
