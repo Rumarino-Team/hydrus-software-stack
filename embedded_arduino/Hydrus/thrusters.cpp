@@ -4,10 +4,6 @@
 
 // Macro and enum declarations
 
-#define PWM_NEUTRAL 1500  // The thruster's output force is 0 lbf at th
-#define PWM_FORWARD 1600
-#define PWM_BACKWARDS 1400
-
 #define MOTOR_NUM 8
 #define MODEL_NAME "hydrus"
 
@@ -78,31 +74,9 @@ void setThruster(int id, const std_msgs::Int8& thrusterValue) {
 
   const int data = thrusterValue.data;
   bool forward = thrusterArr.thrusters[id].forward;
-  int value = 0;
-
-  if (data <= -5 || data >= 5) return; //Sensible values please
+  int value;
  
-  if (data == 0) {
-    value = PWM_NEUTRAL;
-  } else if (data < 0) { //If we want to go backwards
-    if (forward) {
-      /*Since motor goes forward and we want to go backwards, if data == -1, then
-      just write PWM_BACKWARDS (-1 + 1 = 0). If data < 1, then substract the PWM_VALUE to that
-      based on the data inserted. For example, -1.5 will sum 1400 + (-0.5)*50,
-      which equals 1375. */
-      value = PWM_BACKWARDS + (1+data)*50;
-    } else {
-      /*Same idea but swapped since the motor moves backwards by default.
-      It is substracted since we are dealing with negative numbers*/
-      value = PWM_FORWARD - (1+data)*50;
-    }
-  } else { //We want to go forward
-    if (forward) {
-      value = PWM_FORWARD + (1-data)*50;
-    } else {
-      value = PWM_BACKWARDS - (1-data)*50;
-    }
-  }
+  value = getPWMValue(data, forward);
   thrusterArr.thrusters[id].motor.writeMicroseconds(value);
 }
 
