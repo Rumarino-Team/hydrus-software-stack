@@ -49,8 +49,7 @@ if [ "$DEPLOY" == "true" ]; then
     arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
     arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
     cd /catkin_ws
-
-    roslaunch hydrus hydrus_start.launch _bags:=false &
+    roslaunch autonomy autonomy.launch
 else
     echo "Deploy is not set or is set to false. Skipping roslaunch."
 fi

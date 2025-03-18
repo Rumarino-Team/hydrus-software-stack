@@ -67,13 +67,16 @@ object_detection:
 
 ```
 
-## Download ROS Bags
+In order to use the cuda version you need to make sure you have installed the following dependencies.
 
-- **ZED2i Camera**: [Download here](https://drive.google.com/file/d/16Lr-CbW1rW6rKh8_mWClTQMIjm2u0y8X/view?usp=drive_link)
+ - CUDA TOOLKIT : https://developer.nvidia.com/cuda-downloads
+ - CUDA CONTAINER TOOLKIT:  https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
 
 ### Run ROS Bags
 
-1. Download the ROS bag file.
+1. Download the ROS bag file.  **ZED2i Camera**: [Download here](https://drive.google.com/file/d/16Lr-CbW1rW6rKh8_mWClTQMIjm2u0y8X/view?usp=drive_link)
+
 2. Play the bag with:
 
     ```bash
