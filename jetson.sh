@@ -102,12 +102,12 @@ echo "Waiting for ZED camera to start..."
 sleep 3
 
 # Step 3: Build the Hydrus container (Only if it doesn't exist)
-if ! docker images | grep -q "hydrus"; then
+if ! docker images hydrus:latest --format '{{.Repository}}:{{.Tag}}' | grep -q "hydrus:latest"; then
   echo "Building Hydrus image..."
   if [[ "$USE_QEMU" == "true" ]]; then
-    docker build $QEMU_ARGS -t hydrus -f docker/jetson/hydrus.Dockerfile .
+    docker build $QEMU_ARGS -t hydrus:latest -f docker/jetson/hydrus.Dockerfile .
   else
-    docker build -t hydrus -f docker/jetson/hydrus.Dockerfile .
+    docker build -t hydrus:latest -f docker/jetson/hydrus.Dockerfile .
   fi
 else
   echo "Hydrus image already exists, skipping build."
@@ -134,7 +134,7 @@ else
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
       $QEMU_ARGS \
-      -it hydrus
+      -it hydrus:latest
   else
     docker run -d \
       --name hydrus \
@@ -145,7 +145,7 @@ else
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
-      -it hydrus
+      -it hydrus:latest
   fi
 fi
 
