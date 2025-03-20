@@ -27,6 +27,7 @@ container_running() {
 ARCH=$(uname -m)
 USE_QEMU=false
 QEMU_ARGS=""
+ZED_CAMERA=false
 
 if [[ "$ARCH" == "x86_64" ]]; then
   echo "Detected x86_64 architecture. Will use QEMU for ARM emulation."
