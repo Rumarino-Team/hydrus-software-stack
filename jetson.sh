@@ -147,7 +147,6 @@ else
       --privileged \
       --gpus all \
       -p 8000:8000 \
-      -v \"$(pwd)/:/home/catkin_ws/src\" \
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
@@ -160,7 +159,6 @@ else
       --privileged \
       --gpus all \
       -p 8000:8000 \
-      -v \"$(pwd)/:/home/catkin_ws/src\" \
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
