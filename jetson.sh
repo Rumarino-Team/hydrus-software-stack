@@ -28,6 +28,7 @@ ARCH=$(uname -m)
 USE_QEMU=false
 QEMU_ARGS=""
 ZED_OPTION=false
+DEPLOY=true
 
 if [[ "$ARCH" == "x86_64" ]]; then
   echo "Detected x86_64 architecture. Will use QEMU for ARM emulation."
@@ -151,6 +152,7 @@ else
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
+      --env DEPLOY="${DEPLOY}" \
       $QEMU_ARGS \
       -it hydrus:latest
   else
@@ -163,6 +165,7 @@ else
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
+      --env DEPLOY="${DEPLOY}" \
       -it hydrus:latest
   fi
 fi

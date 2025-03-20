@@ -28,9 +28,9 @@ class ProportionalController:
 
     @dataclass(frozen=True)
     class Constants:
-        DEPTH_SPEED: int = 2
+        DEPTH_SPEED: int = 1
         ROTATION_SPEED: int = 1
-        LINEAR_SPEED: int = 2
+        LINEAR_SPEED: int = 1
         FRONT_TORPEDO_SPEED: int = 5
         BACK_TORPEDO_SPEED: int = 4
         DELTA: float = 0.01

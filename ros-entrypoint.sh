@@ -61,7 +61,29 @@ if [ "$DEPLOY" == "true" ]; then
     arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
     
     cd /catkin_ws
-    roslaunch autonomy autonomy.launch
+    
+    # Check if tmux is installed
+    if ! command -v tmux &> /dev/null; then
+        echo "tmux could not be found. Installing tmux..."
+        apt-get update && apt-get install -y tmux
+    fi
+    
+    # Create a new tmux session named 'hydrus'
+    tmux new-session -d -s hydrus
+    
+    # Split the window horizontally for controllers.py
+    tmux send-keys -t hydrus "python3 /catkin_ws/src/hydrus-software-stack/src/controllers.py" C-m
+    
+    # Split horizontally for mission_planner
+    tmux split-window -v -t hydrus
+    tmux send-keys -t hydrus:0.1 "python3 /catkin_ws/src/hydrus-software-stack/src/mission_planner/prequalification.py" C-m
+    
+    # Split horizontally again for cv_publisher
+    tmux split-window -v -t hydrus
+    tmux send-keys -t hydrus:0.2 "python3 /catkin_ws/src/hydrus-software-stack/src/cv_publisher.py" C-m
+    
+    # Attach to the tmux session
+    tmux attach-session -t hydrus
 else
     echo "Deploy is not set or is set to false. Skipping roslaunch."
 fi
