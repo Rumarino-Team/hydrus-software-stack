@@ -149,6 +149,6 @@ else
   fi
 fi
 
-docker cp ./ hydrus:/catkin_ws/src/hydrus-software-stack/
+docker cp ./ hydrus:/home/catkin_ws/src/hydrus-software-stack/
 
 echo "Containers are up and running!"
