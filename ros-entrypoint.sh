@@ -16,15 +16,25 @@ fi
 # Source the corresponding ROS setup.bash
 source /opt/ros/$ROS_DISTRO/setup.bash
 
+# Detect system architecture
+ARCH=$(uname -m)
 
-if [ "$VOLUME" == "true" ]; then
-    echo "Use the Volume directory for building the packages."
-    ROS_DIR='/home/catkin_ws'    
+# If running on ARM (Jetson), delete the simulator folder
+if [[ "$ARCH" == "aarch64" ]]; then
+    echo "Detected ARM architecture (Jetson or similar), deleting simulator folder..."
+    rm -rf /catkin_ws/src/hydrus-software-stack/simulator
 else
-    echo "Use the Copied Packages from Docker."
-    ROS_DIR='/catkin_ws'   
+    echo "Non-ARM architecture detected, keeping simulator folder."
 fi
 
+# Determine ROS directory based on volume usage
+if [ "$VOLUME" == "true" ]; then
+    echo "Using the Volume directory for building the packages."
+    ROS_DIR='/home/catkin_ws'    
+else
+    echo "Using the Copied Packages from Docker."
+    ROS_DIR='/catkin_ws'   
+fi
 
 # Start roscore in the background
 cd "$ROS_DIR"
@@ -42,12 +52,14 @@ sleep 2
 # Conditionally run the ROS launch file based on the DEPLOY environment variable
 if [ "$DEPLOY" == "true" ]; then
     echo "Deploy is set to true. Launching hydrus_start.launch..."
+    
     # Compile the Arduino project
     rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
 
     cd /root/Arduino/libraries/embedded_arduino/Hydrus
     arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
     arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
+    
     cd /catkin_ws
     roslaunch autonomy autonomy.launch
 else
