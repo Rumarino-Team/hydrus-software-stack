@@ -31,6 +31,7 @@ void setThruster_5(const std_msgs::Int8& thrusterValue);
 void setThruster_6(const std_msgs::Int8& thrusterValue);
 void setDepth(const std_msgs::Int8& thrusterValue);
 void launchTorpedo(const std_msgs::Int8& thrusterValue);
+void setCameraMotor(const std_msgs::Int8& angle);
 
 //Function that translates ROS value into PWM
 int getPWMValue(int data, bool isForward);
