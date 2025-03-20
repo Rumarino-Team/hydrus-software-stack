@@ -65,7 +65,7 @@ RUN python3 -m pip install -r /requirements.txt
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
-COPY ./ /catkin_ws/src/hydrus-software-stack
+COPY ./hydrus-software-stack /catkin_ws/src/hydrus-software-stack
 # We dont need the simulator in the jetson
 RUN rm -rf /catkin_ws/src/hydrus-software-stack/simulator
 WORKDIR /catkin_ws/src/hydrus-software-stack
