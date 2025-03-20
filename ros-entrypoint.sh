@@ -44,7 +44,7 @@ catkin_make --cmake-args \
             -DPYTHON_INCLUDE_DIR=/usr/include/python3.9 \
             -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so
 source devel/setup.bash
-roscore &
+# roscore &
 sleep 2
 
 # Run the rosserial node
