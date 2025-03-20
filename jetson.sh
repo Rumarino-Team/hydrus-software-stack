@@ -27,7 +27,7 @@ container_running() {
 ARCH=$(uname -m)
 USE_QEMU=false
 QEMU_ARGS=""
-ZED_CAMERA=false
+ZED_OPTION=false
 
 if [[ "$ARCH" == "x86_64" ]]; then
   echo "Detected x86_64 architecture. Will use QEMU for ARM emulation."
@@ -109,6 +109,7 @@ else
       --privileged \
       --gpus all \
       --env ROS_MASTER_URI=http://ros-master:11311 \
+      --env ZED_OPTION="${ZED_OPTION}" \
       zed-camera
   fi
 fi
