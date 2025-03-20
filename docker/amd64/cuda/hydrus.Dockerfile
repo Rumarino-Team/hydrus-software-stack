@@ -2,6 +2,7 @@
 FROM ros:noetic-ros-base
 
 # Update package list
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
 # Add the deadsnakes PPA and install Python 3.8
