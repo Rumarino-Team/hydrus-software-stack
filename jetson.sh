@@ -2,7 +2,16 @@
 set -e
 
 # Set environment variables
-export ROS_MASTER_URI=http://localhost:11311
+# We'll refer to the ROS Master container by its container name on the Docker network.
+# So inside the containers, the ROS Master is accessible via http://ros-master:11311.
+export ROS_MASTER_URI=http://ros-master:11311
+
+# Create a custom Docker network if it doesn't already exist
+NETWORK_NAME="ros-network"
+if ! docker network ls --format '{{.Name}}' | grep -q "^${NETWORK_NAME}$"; then
+  echo "Creating custom Docker network: ${NETWORK_NAME}"
+  docker network create "${NETWORK_NAME}"
+fi
 
 # Function to check if a container exists
 container_exists() {
@@ -40,7 +49,9 @@ if [[ "$ARCH" == "x86_64" ]]; then
   echo "QEMU emulation enabled for ARM containers."
 fi
 
+##################################################
 # Step 1: Run the ROS master container
+##################################################
 if container_exists "ros-master"; then
   if container_running "ros-master"; then
     echo "ROS master is already running."
@@ -52,6 +63,7 @@ else
   echo "Creating and starting ROS master container..."
   docker run -d \
     --name ros-master \
+    --network "${NETWORK_NAME}" \
     -p 11311:11311 \
     ros:melodic-ros-core \
     stdbuf -o L roscore
@@ -61,7 +73,9 @@ fi
 echo "Waiting for ROS master to start..."
 sleep 3
 
-# Step 2: Build the ZED camera container (Only if it doesn't exist)
+##################################################
+# Step 2: Build and run the ZED camera container
+##################################################
 if [[ "$USE_QEMU" == "true" ]]; then
   echo "Building ZED camera container with QEMU emulation..."
   docker build $QEMU_ARGS -t zed-camera -f docker/jetson/camera.Dockerfile .
@@ -69,7 +83,6 @@ else
   docker build -t zed-camera -f docker/jetson/camera.Dockerfile .
 fi
 
-# Run the ZED camera container
 if container_exists "zed-camera"; then
   if container_running "zed-camera"; then
     echo "ZED camera container is already running."
@@ -82,6 +95,7 @@ else
   if [[ "$USE_QEMU" == "true" ]]; then
     docker run -d \
       --name zed-camera \
+      --network "${NETWORK_NAME}" \
       --privileged \
       --gpus all \
       --env ROS_MASTER_URI=http://ros-master:11311 \
@@ -90,6 +104,7 @@ else
   else
     docker run -d \
       --name zed-camera \
+      --network "${NETWORK_NAME}" \
       --privileged \
       --gpus all \
       --env ROS_MASTER_URI=http://ros-master:11311 \
@@ -101,7 +116,9 @@ fi
 echo "Waiting for ZED camera to start..."
 sleep 3
 
-# Step 3: Build the Hydrus container (Only if it doesn't exist)
+##################################################
+# Step 3: Build and run the Hydrus container
+##################################################
 if ! docker images hydrus:latest --format '{{.Repository}}:{{.Tag}}' | grep -q "hydrus:latest"; then
   echo "Building Hydrus image..."
   if [[ "$USE_QEMU" == "true" ]]; then
@@ -113,7 +130,6 @@ else
   echo "Hydrus image already exists, skipping build."
 fi
 
-# Run the Hydrus container
 if container_exists "hydrus"; then
   if container_running "hydrus"; then
     echo "Hydrus container is already running."
@@ -126,10 +142,11 @@ else
   if [[ "$USE_QEMU" == "true" ]]; then
     docker run -d \
       --name hydrus \
+      --network "${NETWORK_NAME}" \
       --privileged \
       --gpus all \
       -p 8000:8000 \
-      -v "$(pwd)/:/home/catkin_ws/src" \
+      -v \"$(pwd)/:/home/catkin_ws/src\" \
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
@@ -138,10 +155,11 @@ else
   else
     docker run -d \
       --name hydrus \
+      --network "${NETWORK_NAME}" \
       --privileged \
       --gpus all \
       -p 8000:8000 \
-      -v "$(pwd)/:/home/catkin_ws/src" \
+      -v \"$(pwd)/:/home/catkin_ws/src\" \
       --device /dev/ttyACM0:/dev/ttyACM0 \
       --env ROS_MASTER_URI=http://ros-master:11311 \
       --env ARDUINO_BOARD=arduino:avr:mega \
@@ -149,6 +167,7 @@ else
   fi
 fi
 
+# If you need to copy additional files into the container, uncomment:
 # docker cp ./ hydrus:/home/catkin_ws/src/hydrus-software-stack/
 
-echo "Containers are up and running!"
+echo "Containers are up and running on network '${NETWORK_NAME}'!"
