@@ -24,7 +24,7 @@ DEPLOY=false
 VOLUME=false  
 FORCE_CPU=false 
 ZED_OPTION=false
-FORCE_JETSON=true
+FORCE_JETSON=false
 
 
 while [[ "$#" -gt 0 ]]; do

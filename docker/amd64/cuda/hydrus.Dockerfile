@@ -31,6 +31,14 @@ RUN apt-get update && apt-get install -y\
     ros-noetic-tf2-geometry-msgs\
     python3-tf2-kdl
 
+
+RUN sudo sh -c \
+    'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list' &&\
+     curl https://packages.osrfoundation.org/gazebo.key | sudo apt-key add - &&\
+     apt-get update && apt-get install -y ignition-fortress ros-noetic-ros-ign &&\
+     echo "export GZ_VERSION=fortress" >> /root/.bashrc
+
+
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \
        gcc \
