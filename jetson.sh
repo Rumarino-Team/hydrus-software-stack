@@ -53,7 +53,7 @@ else
   docker run -d \
     --name ros-master \
     -p 11311:11311 \
-    ros:noetic-ros-core \
+    ros:melodic-ros-core \
     stdbuf -o L roscore
 fi
 
