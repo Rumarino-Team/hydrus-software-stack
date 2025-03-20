@@ -22,6 +22,9 @@
     RUN . /opt/ros/melodic/setup.sh && \
         rosdep install --from-paths src --ignore-src -r -y
     COPY ./camera-entrypoint.sh /camera-entrypoint.sh
+    COPY ./common_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/common.yaml
+    COPY ./zed2i_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/zed2i.yaml
+
     RUN chmod +x /camera-entrypoint.sh
 
     CMD ["/camera-entrypoint.sh"]
