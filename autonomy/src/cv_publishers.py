@@ -47,18 +47,50 @@ def ros_img_to_cv2(msg: Image, encoding="bgr8") -> np.ndarray:
 
     dtype = dtype_map[encoding]
 
+    # Calculate expected array size based on encoding and dimensions
+    channels = 3 if encoding == "bgr8" else 1
+    expected_size = msg.height * msg.width * channels
+    actual_size = len(msg.data)
+    
+    # Debug information about the image dimensions
+    rospy.logdebug(f"Image dimensions: {msg.height}x{msg.width}, channels: {channels}")
+    rospy.logdebug(f"Expected data size: {expected_size}, actual data size: {actual_size}")
+    
+    if actual_size != expected_size:
+        rospy.logwarn(f"Data size mismatch! Expected {expected_size}, got {actual_size}. Attempting to fix...")
+        # Try to infer correct dimensions based on actual data size
+        if encoding == "bgr8" and actual_size % 3 == 0:
+            total_pixels = actual_size // 3
+            # Try to determine if width is correct but height is wrong
+            if total_pixels % msg.width == 0:
+                corrected_height = total_pixels // msg.width
+                rospy.logwarn(f"Correcting height from {msg.height} to {corrected_height}")
+                img_array = np.frombuffer(msg.data, dtype=dtype).reshape((corrected_height, msg.width, 3))
+                return img_array
+    
     # Convert the byte data to a NumPy array
     img_array = np.frombuffer(msg.data, dtype=dtype)
 
-    # Reshape based on image dimensions and encoding
-    if encoding == "bgr8":
-        # 3-channel BGR
-        img_array = img_array.reshape((msg.height, msg.width, 3))
-    else:
-        # Single-channel
-        img_array = img_array.reshape((msg.height, msg.width))
-
-    return img_array
+    try:
+        # Reshape based on image dimensions and encoding
+        if encoding == "bgr8":
+            # Use step value if available for proper alignment
+            if msg.step > 0 and msg.step >= msg.width * 3:
+                img_array = img_array.reshape((msg.height, msg.width, 3))
+            else:
+                img_array = np.reshape(img_array, (msg.height, msg.width, 3))
+        else:
+            # Single-channel
+            img_array = np.reshape(img_array, (msg.height, msg.width))
+        
+        return img_array
+    
+    except Exception as e:
+        # More detailed error information
+        rospy.logerr(f"Reshape failed: {e}")
+        rospy.logerr(f"Image info: height={msg.height}, width={msg.width}, step={msg.step}, encoding={msg.encoding}")
+        rospy.logerr(f"Data length: {len(msg.data)}, array shape before reshape: {img_array.shape}")
+        raise
 
 
 # Optionally, if you need to convert back to ROS Images:
