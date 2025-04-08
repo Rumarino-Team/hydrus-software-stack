@@ -18,6 +18,9 @@ struct Thruster {
 
 };
 
+// Change from instantiation to extern declaration
+extern ros::NodeHandle nh;
+
 // T100 thrusters declarations
 void setThruster_1(const std_msgs::Int8& thrusterValue);
 void setThruster_2(const std_msgs::Int8& thrusterValue);

@@ -2,3 +2,4 @@ opencv-python
 uvicorn
 fastapi
 matplotlib
+termcolor
