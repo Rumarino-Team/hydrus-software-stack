@@ -15,9 +15,8 @@ from sensor_msgs.msg import Image, CameraInfo, RegionOfInterest
 from geometry_msgs.msg import Point, PoseStamped
 from autonomy.msg import Detection, Detections
 from autonomy.srv import  SetColorFilterResponse 
-from cv_bridge import CvBridge, CvBridgeError
 
-model = YOLO("yolo11n.pt") 
+model = YOLO("V2.pt") 
 tracker = MultiObjectTracker(
     dt = 0.1,
     tracker_kwargs={'max_staleness': 20}
@@ -179,7 +178,7 @@ def transform_to_global(detections: List[custom_types.Detection],imu_point: cust
 #///////// ROS CODE PUBLISHERS///////////////
 # ///////////////////////////////////////////
 
-bridge = CvBridge()
+
 rgb_image: np.ndarray = None
 depth_image: np.ndarray = None
 imu_point: custom_types.Point3D = None
@@ -191,18 +190,56 @@ color_filter_config: ColorFilterConfig = ColorFilterConfig(tolerance=0.4, min_co
 def depth_image_callback(msg):
     global depth_image
     try:
-        depth_image = bridge.imgmsg_to_cv2(msg, "32FC1")
-    except CvBridgeError as e:
-        rospy.logerr("CvBridge Error: {0}".format(e))
+        height = msg.height
+        width = msg.width
+
+        # Para imágenes de profundidad en formato 32FC1
+        img_array = np.frombuffer(msg.data, dtype=np.float32)
+        expected_size = height * width
+
+        if img_array.size != expected_size:
+            rospy.logwarn(f"Unexpected depth image size: got {img_array.size}, expected {expected_size}")
+            return
+
+        depth_image = img_array.reshape((height, width))
+
+    except Exception as e:
+        rospy.logerr(f"Error converting depth image: {e}")
 
 def rgb_image_callback(msg):
     global rgb_image
     rospy.loginfo("Received RGB image message")
     try:
-        rgb_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-    except CvBridgeError as e:
-        rospy.logerr("CvBridge Error: {0}".format(e))
+        height = msg.height
+        width = msg.width
 
+        img_array = np.frombuffer(msg.data, dtype=np.uint8)
+
+        if msg.encoding in ["rgb8", "bgr8"]:
+            channels = 3
+        elif msg.encoding in ["rgba8", "bgra8"]:
+            channels = 4
+        elif msg.encoding == "mono8":
+            channels = 1
+        else:
+            rospy.logwarn(f"Unsupported RGB encoding: {msg.encoding}")
+            return
+
+        expected_size = height * width * channels
+        if img_array.size != expected_size:
+            rospy.logwarn(f"Unexpected RGB image size: got {img_array.size}, expected {expected_size}")
+            return
+
+        img_array = img_array.reshape((height, width, channels))
+
+        # Si hay canal alpha, lo eliminamos
+        if channels == 4:
+            img_array = img_array[:, :, :3]
+
+        rgb_image = img_array
+
+    except Exception as e:
+        rospy.logerr(f"Error converting RGB image: {e}")
 
 
 def camera_info_callback(msg):
