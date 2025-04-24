@@ -6,7 +6,6 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 from cv_publishers import run_detection_pipelines, initialize_subscribers
@@ -24,12 +23,41 @@ app.add_middleware(
 bridge = CvBridge()
 rgb_image = None  
 
+
 def rgb_image_callback(msg):
     global rgb_image
     try:
-        rgb_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-    except CvBridgeError as e:
-        rospy.logerr(f"CvBridge Error: {e}")
+        height = msg.height
+        width = msg.width
+
+        img_array = np.frombuffer(msg.data, dtype=np.uint8)
+
+        # Deducción de canales
+        if msg.encoding in ["rgb8", "bgr8"]:
+            channels = 3
+        elif msg.encoding in ["rgba8", "bgra8"]:
+            channels = 4
+        elif msg.encoding == "mono8":
+            channels = 1
+        else:
+            rospy.logwarn(f"Unsupported encoding: {msg.encoding}")
+            return
+
+        expected_size = height * width * channels
+        if img_array.size != expected_size:
+            rospy.logwarn(f"Unexpected image size: got {img_array.size}, expected {expected_size}")
+            return
+
+        img_array = img_array.reshape((height, width, channels))
+
+        # Si hay 4 canales, ignoramos el alpha
+        if channels == 4:
+            img_array = img_array[:, :, :3]
+
+        rgb_image = img_array
+
+    except Exception as e:
+        rospy.logerr(f"Error converting image: {e}")
 
 def generate_video_stream():
     while True:
