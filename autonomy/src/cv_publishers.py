@@ -309,20 +309,61 @@ def transform_to_global(
 ############################
 # ROS callbacks
 ############################
-def depth_image_callback(msg: Image):
+
+def depth_image_callback(msg):
     global depth_image
     try:
-        depth_image = ros_img_to_cv2(msg, "32FC1")
-    except Exception as e:
-        rospy.logerr(f"Image Conversion Error (Depth): {e}")
+        height = msg.height
+        width = msg.width
 
-def rgb_image_callback(msg: Image):
+        # Para imágenes de profundidad en formato 32FC1
+        img_array = np.frombuffer(msg.data, dtype=np.float32)
+        expected_size = height * width
+
+        if img_array.size != expected_size:
+            rospy.logwarn(f"Unexpected depth image size: got {img_array.size}, expected {expected_size}")
+            return
+
+        depth_image = img_array.reshape((height, width))
+
+    except Exception as e:
+        rospy.logerr(f"Error converting depth image: {e}")
+
+def rgb_image_callback(msg):
     global rgb_image
     rospy.loginfo("Received RGB image message")
     try:
-        rgb_image = ros_img_to_cv2(msg, "bgr8")
+        height = msg.height
+        width = msg.width
+
+        img_array = np.frombuffer(msg.data, dtype=np.uint8)
+
+        if msg.encoding in ["rgb8", "bgr8"]:
+            channels = 3
+        elif msg.encoding in ["rgba8", "bgra8"]:
+            channels = 4
+        elif msg.encoding == "mono8":
+            channels = 1
+        else:
+            rospy.logwarn(f"Unsupported RGB encoding: {msg.encoding}")
+            return
+
+        expected_size = height * width * channels
+        if img_array.size != expected_size:
+            rospy.logwarn(f"Unexpected RGB image size: got {img_array.size}, expected {expected_size}")
+            return
+
+        img_array = img_array.reshape((height, width, channels))
+
+        # Si hay canal alpha, lo eliminamos
+        if channels == 4:
+            img_array = img_array[:, :, :3]
+
+        rgb_image = img_array
+
     except Exception as e:
-        rospy.logerr(f"Image Conversion Error (RGB): {e}")
+        rospy.logerr(f"Error converting RGB image: {e}")
+
 
 def camera_info_callback(msg: CameraInfo):
     global camera_intrinsics
