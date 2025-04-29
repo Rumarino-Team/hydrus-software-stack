@@ -13,6 +13,6 @@
     type="create"
     name="$(anon ros_ign_create_box)"
     output="screen"
-    args="-world $(arg world) -file $(find hydrus_simulator)/models/cube.sdf -name cube -allow_renaming true">
+    args="-world $(arg world) -file $(find hydrus_simulator)/models/hydrus.sdf -name hydrus -allow_renaming true">
   </node>
 </launch>

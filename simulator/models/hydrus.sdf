@@ -1,0 +1,47 @@
+<sdf version="1.6">
+  <model name="hydrus">
+	<pose>0 0 0 0 1.5708 0</pose>
+	<static>false</static>
+    <!-- Define the submarine's main link -->
+    <link name="body">
+      <!-- Collision properties -->
+      <collision name="collision">
+        <pose>0 0 0 0 1.5708 0</pose>
+        <geometry>
+          <box>
+            <size>0.25 1 1</size>
+		  </box>
+        </geometry>
+      </collision>
+
+      <!-- Visual properties -->
+      <visual name="visual">
+        <pose>0 0 0 0 1.5708 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.25</radius>
+            <length>1.0</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.5 1</ambient> <!-- Dark blue color -->
+          <diffuse>0.1 0.1 0.5 1</diffuse>
+          <specular>0.1 0.1 0.5 1</specular>
+        </material>
+      </visual>
+
+      <!-- Inertial properties -->
+      <inertial>
+        <mass>10</mass> <!-- Mass in kilograms -->
+        <inertia> <!-- calculated at https://amesweb.info/inertia/mass-moment-of-inertia-cylinder.aspx -->
+          <ixx>0.989583</ixx>
+          <iyy>0.989583</iyy>
+          <izz>0.3125</izz>
+		  <ixy>0</ixy>
+		  <ixz>0</ixz>
+		  <iyz>0</iyz>
+        </inertia>
+      </inertial>
+    </link>  
+  </model>
+</sdf>
