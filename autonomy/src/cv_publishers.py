@@ -21,7 +21,7 @@ import rospy
 from sensor_msgs.msg import Image, CameraInfo, RegionOfInterest
 from geometry_msgs.msg import Point, PoseStamped
 from autonomy.msg import Detection, Detections
-from autonomy.srv import SetColorFilterResponse
+from autonomy.srv import SetColorFilter, SetColorFilterResponse
 
 ############################
 # Custom cv_bridge replacement
@@ -468,13 +468,41 @@ def publish_vision_detections():
 
 def handle_set_color_filter(req):
     global color_filter_config
-    color_filter_config = ColorFilterConfig(
-        tolerance=req.tolerance,
-        min_confidence=req.min_confidence,
-        min_area=req.min_area,
-        rgb_range=tuple(req.rgb_range)
-    )
-    return SetColorFilterResponse(success=True, message="Color filter config updated.")
+    
+    try:
+        # Parse RGB values from the integer array
+        if len(req.rgb_range) != 3:
+            return SetColorFilterResponse(success=False, message="RGB range must have exactly 3 values (R,G,B)")
+        
+        rgb_tuple = tuple(req.rgb_range)
+        
+        # Validate the RGB values
+        for val in rgb_tuple:
+            if not 0 <= val <= 255:
+                return SetColorFilterResponse(success=False, message="RGB values must be between 0 and 255")
+        
+        # Update the color filter configuration
+        color_filter_config = ColorFilterConfig(
+            tolerance=req.tolerance,
+            min_confidence=req.min_confidence,
+            min_area=req.min_area,
+            rgb_range=rgb_tuple
+        )
+        
+        rospy.loginfo(f"Color filter updated: tolerance={req.tolerance}, min_confidence={req.min_confidence}, " 
+                      f"min_area={req.min_area}, rgb_range={rgb_tuple}")
+        
+        return SetColorFilterResponse(success=True, message="Color filter config updated successfully")
+    
+    except Exception as e:
+        error_msg = f"Failed to update color filter config: {str(e)}"
+        rospy.logerr(error_msg)
+        return SetColorFilterResponse(success=False, message=error_msg)
+
+def initialize_service_servers():
+    rospy.loginfo("Initializing service servers...")
+    rospy.Service('/detector/set_color_filter', SetColorFilter, handle_set_color_filter)
+    rospy.loginfo("Service server '/detector/set_color_filter' is ready")
 
 def initialize_subscribers():
     rospy.loginfo("Initializing subscribers...")
@@ -486,6 +514,7 @@ def initialize_subscribers():
 if __name__ == "__main__":
     rospy.init_node('cv_publihser')
     initialize_subscribers()
+    initialize_service_servers()  # Add this line to initialize service servers
     rospy.sleep(3)  # Give some time to gather messages
     publish_vision_detections()
     rospy.spin()
