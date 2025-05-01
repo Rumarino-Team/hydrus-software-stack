@@ -1,264 +1,198 @@
 #!/usr/bin/env python3
 # filepath: /home/cesar/Projects/hydrus-software-stack/autonomy/scripts/controller/submarine_teleop.py
-
+import sys, tty, termios, threading, signal
 import rospy
-import sys
-import tty
-import termios
-import threading
-import signal
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32          # ← enviamos PWM
 from geometry_msgs.msg import TwistStamped
 from termcolor import colored
+from dataclasses import dataclass, field
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CONFIGURACIÓN
+# ─────────────────────────────────────────────────────────────────────────────
+@dataclass
+class TeleopConfig:
+    # Traducción de niveles de velocidad a PWM (tu tabla)
+    SPEED_TRANSLATION: dict = field(default_factory=lambda: {
+        0: 1500,   # neutral
+        1: 1550,
+        2: 1600,
+        3: 1650,
+        4: 1700,
+        -1: 1450,
+        -2: 1400,
+        -3: 1350,
+        -4: 1300,
+    })
+    MAX_LEVEL: int   =  4        # +4 → 1700
+    MIN_LEVEL: int   = -4        # –4 → 1300
+    KEY_STEP: int    =  1        # cuánto cambia por pulsación
+    RATE_HZ: int     = 10
+
 
 class SubmarineTeleop:
-    def __init__(self):
-        # Initialize the ROS node
-        rospy.init_node('submarine_teleop', anonymous=True)
-        
-        # Create publishers for each thruster
-        self.thruster_pubs = {}
-        for i in range(1, 9):
-            topic = f'/thrusters/{i}'
-            self.thruster_pubs[i] = rospy.Publisher(topic, Float32, queue_size=10)
+    # ───────────────────────────────────────────────────────────────────────
+    def __init__(self, cfg: TeleopConfig):
+        self.cfg = cfg
+        rospy.init_node("submarine_teleop", anonymous=True)
 
-        # Command velocity publisher (for visualization/debugging)
-        self.cmd_vel_pub = rospy.Publisher('/submarine/cmd_vel', TwistStamped, queue_size=10)
-        
-        # Initialize thruster values (1500 is neutral)
-        self.thruster_values = [1500 for _ in range(8)]
-        
-        # Control parameters
-        self.speed_increment = 25  # Increment for thruster adjustment
-        self.max_speed_delta = 200  # Max deviation from neutral
-        
-        # Define thruster mappings (adjust as per your configuration)
-        # As per ASCII diagram:
-        #  1 *            * 5
-        #     \          /
-        #      |________|        
-        #  2*--|        |--* 6
-        #      |        |
-        #      |        |
-        #  3*--|________|--* 7 
-        #      |        |
-        #  4 */          \* 8
-        
-        # Zero-indexed for Python (thruster IDs minus 1)
-        self.front_motors = [0, 4]      # Thrusters 1, 5
-        self.back_motors = [3, 7]       # Thrusters 4, 8
-        self.depth_motors = [1, 6]      # Thrusters 2, 7
-        self.torpedo_motors = [2, 5]    # Thrusters 3, 6
-        
-        # Control state
+        # Publishers renombrados
+        self.thruster_pubs = {
+            0: rospy.Publisher("/hydrus/thrusters/1", Float32, queue_size=10),
+            1: rospy.Publisher("/hydrus/thrusters/2", Float32, queue_size=10),
+            2: rospy.Publisher("/hydrus/thrusters/3", Float32, queue_size=10),
+            3: rospy.Publisher("/hydrus/thrusters/4", Float32, queue_size=10),
+        }
+        self.depth_pub   = rospy.Publisher("/hydrus/depth",   Float32, queue_size=10)
+        self.torpedo_pub = rospy.Publisher("/hydrus/torpedo", Float32, queue_size=10)
+        self.cmd_vel_pub = rospy.Publisher("/submarine/cmd_vel",
+                                           TwistStamped, queue_size=10)
+
+        # Estado: niveles (-4…4) que luego convertimos a PWM con SPEED_TRANSLATION
+        self.levels = [0] * 8
+
+        # Mapeos de motores
+        self.front_motors   = [0, 4]   # 1,5
+        self.back_motors    = [3, 7]   # 4,8
+        self.depth_motors   = [1, 6]   # 2,7
+        self.torpedo_motors = [2, 5]   # 3,6
+
         self.running = True
         self.key_thread = None
 
+    # ───────────────────────────────────────────────────────────────────────
     def start(self):
-        """Start the teleop node"""
-        self.display_instructions()
-        
-        # Start the keyboard listener thread
-        self.key_thread = threading.Thread(target=self.get_key_loop)
-        self.key_thread.daemon = True
+        self._print_help()
+        self.key_thread = threading.Thread(target=self._key_loop, daemon=True)
         self.key_thread.start()
-        
-        # Start the publishing thread
-        rate = rospy.Rate(10)  # 10 Hz
+
+        r = rospy.Rate(self.cfg.RATE_HZ)
         try:
             while not rospy.is_shutdown() and self.running:
-                self.publish_thruster_values()
-                rate.sleep()
-        except rospy.ROSInterruptException:
-            pass
+                self._publish_all()
+                r.sleep()
         finally:
-            self.stop()
-    
-    def display_instructions(self):
-        """Display control instructions"""
-        print(colored("\n=== SUBMARINE KEYBOARD TELEOPERATION ===", "blue", attrs=["bold"]))
-        print(colored("Control the submarine using the following keys:", "cyan"))
-        print(colored("  W/S : Move forward/backward", "yellow"))
-        print(colored("  A/D : Rotate left/right (yaw)", "yellow"))
-        print(colored("  I/K : Move up/down", "yellow"))
-        print(colored("  Q   : Quit", "yellow"))
-        print(colored("  Space : Stop all movement (neutral)", "yellow"))
-        print(colored("\nPress any key to begin...", "green"))
+            self._shutdown()
 
-    def get_key(self):
-        """Get a single keypress from terminal"""
+    # ────────────────────────  KEYBOARD HANDLING  ──────────────────────────
+    def _print_help(self):
+        print(colored("\n=== SUBMARINE KEYBOARD TELEOPERATION ===", "blue", attrs=["bold"]))
+        print(colored("W/S : forward/back  |  A/D : yaw  |  I/K : up/down", "cyan"))
+        print(colored("Space : neutral     |  Q   : quit\n", "cyan"))
+
+    @staticmethod
+    def _get_key():
         fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
+        old = termios.tcgetattr(fd)
         try:
-            tty.setraw(sys.stdin.fileno())
+            tty.setraw(fd)
             ch = sys.stdin.read(1)
         finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        return ch.lower()
 
-    def get_key_loop(self):
-        """Continuously get keypresses and process them"""
+    def _key_loop(self):
         while self.running:
-            key = self.get_key()
-            if key:
-                self.process_key(key)
-    
-    def process_key(self, key):
-        """Process a keypress and update thruster values"""
-        key = key.lower()
-        
-        # Quit on 'q'
-        if key == 'q':
+            self._handle_key(self._get_key())
+
+    # ────────────────────────  MOVEMENT COMMANDS  ─────────────────────────
+    def _clamp(self, idx, delta):
+        self.levels[idx] = max(self.cfg.MIN_LEVEL,
+                               min(self.cfg.MAX_LEVEL, self.levels[idx] + delta))
+
+    def _handle_key(self, k):
+        if k == "q":
             self.running = False
-            rospy.signal_shutdown("User requested exit")
-            return
-            
-        # Stop all thrusters on spacebar
-        elif key == ' ':
-            print(colored("STOP - All thrusters set to neutral", "red"))
-            self.reset_thrusters()
-            
-        # Forward/Backward control (W/S)
-        elif key == 'w':
-            self.move_forward()
-            print(colored("Moving FORWARD", "green"))
-        elif key == 's':
-            self.move_backward()
-            print(colored("Moving BACKWARD", "green"))
-            
-        # Rotation control (A/D)
-        elif key == 'a':
-            self.rotate_left()
-            print(colored("Rotating LEFT", "green"))
-        elif key == 'd':
-            self.rotate_right()
-            print(colored("Rotating RIGHT", "green"))
-            
-        # Depth control (I/K)
-        elif key == 'i':
-            self.move_up()
-            print(colored("Moving UP", "green"))
-        elif key == 'k':
-            self.move_down()
-            print(colored("Moving DOWN", "green"))
-    
-    def reset_thrusters(self):
-        """Set all thrusters to neutral"""
-        for i in range(8):
-            self.thruster_values[i] = 1500
-    
-    def move_forward(self):
-        """Command submarine to move forward"""
-        for motor_id in self.front_motors + self.back_motors:
-            self.thruster_values[motor_id] = 1500 + self.speed_increment
-    
-    def move_backward(self):
-        """Command submarine to move backward"""
-        for motor_id in self.front_motors + self.back_motors:
-            self.thruster_values[motor_id] = 1500 - self.speed_increment
-    
-    def rotate_left(self):
-        """Command submarine to rotate left (counterclockwise)"""
-        for motor_id in self.front_motors:
-            if motor_id % 2 == 0:  # Left side thrusters
-                self.thruster_values[motor_id] = 1500 - self.speed_increment
-            else:  # Right side thrusters
-                self.thruster_values[motor_id] = 1500 + self.speed_increment
-                
-        for motor_id in self.back_motors:
-            if motor_id % 2 == 0:  # Left side thrusters
-                self.thruster_values[motor_id] = 1500 - self.speed_increment
-            else:  # Right side thrusters
-                self.thruster_values[motor_id] = 1500 + self.speed_increment
-    
-    def rotate_right(self):
-        """Command submarine to rotate right (clockwise)"""
-        for motor_id in self.front_motors:
-            if motor_id % 2 == 0:  # Left side thrusters
-                self.thruster_values[motor_id] = 1500 + self.speed_increment
-            else:  # Right side thrusters
-                self.thruster_values[motor_id] = 1500 - self.speed_increment
-                
-        for motor_id in self.back_motors:
-            if motor_id % 2 == 0:  # Left side thrusters
-                self.thruster_values[motor_id] = 1500 + self.speed_increment
-            else:  # Right side thrusters
-                self.thruster_values[motor_id] = 1500 - self.speed_increment
-    
-    def move_up(self):
-        """Command submarine to move up"""
-        for motor_id in self.depth_motors:
-            self.thruster_values[motor_id] = 1500 + self.speed_increment
-    
-    def move_down(self):
-        """Command submarine to move down"""
-        for motor_id in self.depth_motors:
-            self.thruster_values[motor_id] = 1500 - self.speed_increment
-    
-    def publish_thruster_values(self):
-        """Publish current thruster values to ROS"""
-        for i, value in enumerate(self.thruster_values):
-            msg = Float32()
-            msg.data = value
-            self.thruster_pubs[i+1].publish(msg)
-        
-        # Also publish twist for visualization
-        self.publish_cmd_vel()
-    
-    def publish_cmd_vel(self):
-        """Publish TwistStamped message for visualization and logging"""
-        twist_msg = TwistStamped()
-        twist_msg.header.stamp = rospy.Time.now()
-        twist_msg.header.frame_id = "base_link"
-        
-        # Simple approximation of movement based on thruster values
-        # Forward/backward
-        forward_thrust = sum([self.thruster_values[i] - 1500 for i in self.front_motors + self.back_motors]) / len(self.front_motors + self.back_motors)
-        twist_msg.twist.linear.x = forward_thrust / self.max_speed_delta
-        
-        # Up/down
-        depth_thrust = sum([self.thruster_values[i] - 1500 for i in self.depth_motors]) / len(self.depth_motors)
-        twist_msg.twist.linear.z = depth_thrust / self.max_speed_delta
-        
-        # Yaw rotation
-        left_thrust = sum([self.thruster_values[i] - 1500 for i in [self.front_motors[0], self.back_motors[0]]])
-        right_thrust = sum([self.thruster_values[i] - 1500 for i in [self.front_motors[1], self.back_motors[1]]])
-        yaw_thrust = (right_thrust - left_thrust) / 4.0
-        twist_msg.twist.angular.z = yaw_thrust / self.max_speed_delta
-        
-        self.cmd_vel_pub.publish(twist_msg)
-    
-    def stop(self):
-        """Stop the teleop node cleanly"""
-        self.running = False
-        self.reset_thrusters()
-        self.publish_thruster_values()
-        print(colored("\nExiting submarine teleoperation...", "blue"))
+            rospy.signal_shutdown("User exit")
+        elif k == " ":
+            self.levels = [0] * 8
+            print(colored("STOP", "red"))
+        elif k == "w":
+            for m in self.front_motors + self.back_motors: self._clamp(m,  self.cfg.KEY_STEP)
+            print(colored("FORWARD", "green"))
+        elif k == "s":
+            for m in self.front_motors + self.back_motors: self._clamp(m, -self.cfg.KEY_STEP)
+            print(colored("BACKWARD", "green"))
+        elif k == "a":
+            for m in self.front_motors: self._clamp(m, -self.cfg.KEY_STEP)
+            for m in self.back_motors:  self._clamp(m,  self.cfg.KEY_STEP)
+            print(colored("YAW LEFT", "green"))
+        elif k == "d":
+            for m in self.front_motors: self._clamp(m,  self.cfg.KEY_STEP)
+            for m in self.back_motors:  self._clamp(m, -self.cfg.KEY_STEP)
+            print(colored("YAW RIGHT", "green"))
+        elif k == "i":
+            for m in self.depth_motors: self._clamp(m,  self.cfg.KEY_STEP)
+            print(colored("UP", "green"))
+        elif k == "k":
+            for m in self.depth_motors: self._clamp(m, -self.cfg.KEY_STEP)
+            print(colored("DOWN", "green"))
+
+    # ──────────────────────────  PUBLISHERS  ───────────────────────────────
+    def _level_to_pwm(self, lvl):
+        return self.cfg.SPEED_TRANSLATION.get(lvl, 1500)
+
+    def _publish_all(self):
+        # thrusters 1-4
+        for i in range(4):
+            pwm = self._level_to_pwm(self.levels[i])
+            self.thruster_pubs[i].publish(Float32(pwm))
+
+        # depth motores 5-6 → un único tópico
+        depth_pwm = sum(self._level_to_pwm(self.levels[m]) for m in self.depth_motors) / 2.0
+        self.depth_pub.publish(Float32(depth_pwm))
+
+        # torpedo motores 7-8
+        torp_pwm = sum(self._level_to_pwm(self.levels[m]) for m in self.torpedo_motors) / 2.0
+        self.torpedo_pub.publish(Float32(torp_pwm))
+
+        # cmd_vel (aprox.)
+        self._publish_cmd_vel()
+
+    def _publish_cmd_vel(self):
+        tw = TwistStamped()
+        tw.header.stamp = rospy.Time.now()
+        tw.header.frame_id = "base_link"
+
+        fwd = sum(self.levels[m] for m in self.front_motors + self.back_motors) / 4.0
+        tw.twist.linear.x = fwd / self.cfg.MAX_LEVEL
+
+        depth = sum(self.levels[m] for m in self.depth_motors) / 2.0
+        tw.twist.linear.z = depth / self.cfg.MAX_LEVEL
+
+        left  = sum(self.levels[m] for m in [self.front_motors[0], self.back_motors[0]])
+        right = sum(self.levels[m] for m in [self.front_motors[1], self.back_motors[1]])
+        tw.twist.angular.z = (right - left) / (2 * self.cfg.MAX_LEVEL)
+
+        self.cmd_vel_pub.publish(tw)
+
+    # ─────────────────────────  SHUTDOWN  ───────────────────────────────────
+    def _shutdown(self):
+        self.levels = [0] * 8
+        self._publish_all()
+        print(colored("\nExiting submarine teleoperation…", "blue"))
 
 
-def signal_handler(_, __):
-    """Handle system signals for clean shutdown"""
-    print(colored("\nReceived shutdown signal!", "red"))
-    rospy.signal_shutdown("Received shutdown signal!")
-    sys.exit(0)
+# ─────────────────────────────────────────────────────────────────────────────
+def _signal_handler(_, __):
+    print(colored("\nSIGINT/SIGTERM received", "red"))
+    rospy.signal_shutdown("Signal received")
 
 
 def main():
-    # Set up signal handler for clean shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Create and start the teleop node
-    teleop = SubmarineTeleop()
-    teleop.start()
+    signal.signal(signal.SIGINT,  _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+    SubmarineTeleop(TeleopConfig()).start()
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
+        # restaura terminal si crashea con tty raw
+        try:
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, termios.tcgetattr(sys.stdin.fileno()))
+        except termios.error:
+            pass
         print(f"Error: {e}")
-        # Restore terminal settings in case of crash
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
