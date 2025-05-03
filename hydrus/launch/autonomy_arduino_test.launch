@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Launch file for testing integration between autonomy and embedded_arduino -->
+  
+  <!-- Arguments -->
+  <arg name="port" default="/dev/ttyACM0" />
+  <arg name="baud" default="57600" />
+  <arg name="test_waypoint" default="true" />
+  
+  <!-- Start rosserial node to communicate with Arduino -->
+  <node name="arduino_serial" pkg="rosserial_python" type="serial_node.py" output="screen">
+    <param name="port" value="$(arg port)" />
+    <param name="baud" value="$(arg baud)" />
+  </node>
+  
+  <!-- Start the submarine controller -->
+  <node name="submarine_controller" pkg="autonomy" type="controllers.py" output="screen" />
+  
+  <!-- Optional: Start a test waypoint publisher -->
+  <node if="$(arg test_waypoint)" name="waypoint_test" pkg="rostopic" type="rostopic" 
+        args="pub -1 /controller_action/goal autonomy/NavigateToWaypointActionGoal '{header: {stamp: now}, goal_id: {stamp: now, id: &quot;test_1&quot;}, goal: {target_point: {x: 1.0, y: 0.0, z: 0.0}}}'" />
+  
+  <!-- Optional: Launch rqt_graph to visualize the ROS node connections -->
+  <!-- <node name="rqt_graph" pkg="rqt_graph" type="rqt_graph" /> -->
+</launch>
