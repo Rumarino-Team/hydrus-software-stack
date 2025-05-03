@@ -1,6 +1,10 @@
 #ifndef DEVICES_H
 #define DEVICES_H
 
+#define PWM_NEUTRAL 1500  // The thruster's output force is 0 lbf at th
+#define PWM_FORWARD 1600
+#define PWM_BACKWARDS 1400
+
 #include <ros.h>
 #include <Servo.h>
 #include <std_msgs/Int8.h>
@@ -30,6 +34,10 @@ void setThruster_5(const std_msgs::Int8& thrusterValue);
 void setThruster_6(const std_msgs::Int8& thrusterValue);
 void setDepth(const std_msgs::Int8& thrusterValue);
 void launchTorpedo(const std_msgs::Int8& thrusterValue);
+void setCameraMotor(const std_msgs::Int8& angle);
+
+//Function that translates ROS value into PWM
+int getPWMValue(int data, bool isForward);
 
 extern ros::Subscriber<std_msgs::Int8> thruster_sub_1;
 extern ros::Subscriber<std_msgs::Int8> thruster_sub_2;
