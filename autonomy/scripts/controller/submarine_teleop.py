@@ -2,7 +2,7 @@
 # filepath: /home/cesar/Projects/hydrus-software-stack/autonomy/scripts/controller/submarine_teleop.py
 import sys, tty, termios, threading, signal
 import rospy
-from std_msgs.msg import Float32          # ← enviamos PWM
+from std_msgs.msg import Int8          # ← enviamos valores de -4 a 4
 from geometry_msgs.msg import TwistStamped
 from termcolor import colored
 from dataclasses import dataclass, field
@@ -13,21 +13,10 @@ from dataclasses import dataclass, field
 # ─────────────────────────────────────────────────────────────────────────────
 @dataclass
 class TeleopConfig:
-    # Traducción de niveles de velocidad a PWM (tu tabla)
-    SPEED_TRANSLATION: dict = field(default_factory=lambda: {
-        0: 1500,   # neutral
-        1: 1550,
-        2: 1600,
-        3: 1650,
-        4: 1700,
-        -1: 1450,
-        -2: 1400,
-        -3: 1350,
-        -4: 1300,
-    })
-    MAX_LEVEL: int   =  4        # +4 → 1700
-    MIN_LEVEL: int   = -4        # –4 → 1300
-    KEY_STEP: int    =  1        # cuánto cambia por pulsación
+    # Level settings for thruster control (values -4 to 4)
+    MAX_LEVEL: int   =  4        # Maximum forward speed (4)
+    MIN_LEVEL: int   = -4        # Maximum reverse speed (-4)
+    KEY_STEP: int    =  1        # How much level changes per key press
     RATE_HZ: int     = 10
 
 
@@ -39,13 +28,13 @@ class SubmarineTeleop:
 
         # Publishers renombrados
         self.thruster_pubs = {
-            0: rospy.Publisher("/hydrus/thrusters/1", Float32, queue_size=10),
-            1: rospy.Publisher("/hydrus/thrusters/2", Float32, queue_size=10),
-            2: rospy.Publisher("/hydrus/thrusters/3", Float32, queue_size=10),
-            3: rospy.Publisher("/hydrus/thrusters/4", Float32, queue_size=10),
+            0: rospy.Publisher("/hydrus/thrusters/1", Int8, queue_size=10),
+            1: rospy.Publisher("/hydrus/thrusters/2", Int8, queue_size=10),
+            2: rospy.Publisher("/hydrus/thrusters/3", Int8, queue_size=10),
+            3: rospy.Publisher("/hydrus/thrusters/4", Int8, queue_size=10),
         }
-        self.depth_pub   = rospy.Publisher("/hydrus/depth",   Float32, queue_size=10)
-        self.torpedo_pub = rospy.Publisher("/hydrus/torpedo", Float32, queue_size=10)
+        self.depth_pub   = rospy.Publisher("/hydrus/depth",   Int8, queue_size=10)
+        self.torpedo_pub = rospy.Publisher("/hydrus/torpedo", Int8, queue_size=10)
         self.cmd_vel_pub = rospy.Publisher("/submarine/cmd_vel",
                                            TwistStamped, queue_size=10)
 
@@ -130,22 +119,18 @@ class SubmarineTeleop:
             print(colored("DOWN", "green"))
 
     # ──────────────────────────  PUBLISHERS  ───────────────────────────────
-    def _level_to_pwm(self, lvl):
-        return self.cfg.SPEED_TRANSLATION.get(lvl, 1500)
-
     def _publish_all(self):
         # thrusters 1-4
         for i in range(4):
-            pwm = self._level_to_pwm(self.levels[i])
-            self.thruster_pubs[i].publish(Float32(pwm))
+            self.thruster_pubs[i].publish(Int8(self.levels[i]))
 
-        # depth motores 5-6 → un único tópico
-        depth_pwm = sum(self._level_to_pwm(self.levels[m]) for m in self.depth_motors) / 2.0
-        self.depth_pub.publish(Float32(depth_pwm))
+        # depth motors - send average of depth motor levels
+        depth_level = int(sum(self.levels[m] for m in self.depth_motors) / len(self.depth_motors))
+        self.depth_pub.publish(Int8(depth_level))
 
-        # torpedo motores 7-8
-        torp_pwm = sum(self._level_to_pwm(self.levels[m]) for m in self.torpedo_motors) / 2.0
-        self.torpedo_pub.publish(Float32(torp_pwm))
+        # torpedo motors - send average of torpedo motor levels
+        torpedo_level = int(sum(self.levels[m] for m in self.torpedo_motors) / len(self.torpedo_motors))
+        self.torpedo_pub.publish(Int8(torpedo_level))
 
         # cmd_vel (aprox.)
         self._publish_cmd_vel()
