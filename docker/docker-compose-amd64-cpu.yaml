@@ -28,8 +28,9 @@ services:
       - ARDUINO_BOARD=arduino:avr:mega
       - DEPLOY
       - VOLUME
-      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
       - ROSBAG_PLAYBACK
+      - DEBUG_ARDUINO
+      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
     volumes:
       - "../:/home/catkin_ws/src"
       - /tmp/.X11-unix:/tmp/.X11-unix 

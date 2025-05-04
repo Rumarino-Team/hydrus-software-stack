@@ -45,20 +45,23 @@ char* depth_topic =  "/" MODEL_NAME "/depth";
 char* torpedo_topic =  "/" MODEL_NAME "/torpedo";
 char* camera_topic = "/" MODEL_NAME "/camera_motor";
 
-ros::Subscriber<std_msgs::Int8> thruster_sub_1(thruster_topics_0, setThruster_1);
-ros::Subscriber<std_msgs::Int8> thruster_sub_2(thruster_topics_1, setThruster_2);
-ros::Subscriber<std_msgs::Int8> thruster_sub_3(thruster_topics_2, setThruster_3);
-ros::Subscriber<std_msgs::Int8> thruster_sub_4(thruster_topics_3, setThruster_4);
-ros::Subscriber<std_msgs::Int8> depth_sub(depth_topic, setDepth);
-ros::Subscriber<std_msgs::Int8> torpedo_sub(torpedo_topic, launchTorpedo);
+// REMOVED duplicate subscriber definitions here
+// Using the definitions from ros_embedded_node.cpp instead
+
+// Added reference to camera subscriber that's missing in ros_embedded_node.cpp
 ros::Subscriber<std_msgs::Int8> camera_motor_sub(camera_topic, setCameraMotor);
 
 void initializeThrustersArduino(void)
 {
+    Serial.println("Initializing thrusters...");
     init_motors = true;
     for (uint8_t i = 0; i < MOTOR_NUM; i++){
         thrusterArr[i].motor.writeMicroseconds(PWM_NEUTRAL);  // This sets the thrusters output force to 0 lbf
+        Serial.print("Initialized thruster ");
+        Serial.print(i+1);
+        Serial.println(" to neutral position");
     }
+    Serial.println("All thrusters initialized successfully");
 }
 
 //----------------------
@@ -68,7 +71,11 @@ void initializeThrustersArduino(void)
 // Setter for the thruster motor PWM values
 
 void setThruster(int id, const std_msgs::Int8& thrusterValue) {
-  if(!init_motors) return;
+  if(!init_motors) {
+    Serial.print("Motors not initialized yet! Ignoring command for thruster ");
+    Serial.println(id);
+    return;
+  }
 
   const int data = thrusterValue.data;
   bool forward = thrusterArr[id-1].forward;
@@ -76,6 +83,16 @@ void setThruster(int id, const std_msgs::Int8& thrusterValue) {
  
   value = getPWMValue(data, forward);
   thrusterArr[id-1].motor.writeMicroseconds(value);
+  
+  // Debug output (comment out if causing performance issues)
+  Serial.print("Thruster ");
+  Serial.print(id);
+  Serial.print(": data=");
+  Serial.print(data);
+  Serial.print(", PWM=");
+  Serial.print(value);
+  Serial.print(", forward=");
+  Serial.println(forward ? "yes" : "no");
 }
 
 void setThruster_1(const std_msgs::Int8& thrusterValue)

@@ -66,6 +66,7 @@ services:
       - DEPLOY
       - VOLUME
       - ROSBAG_PLAYBACK
+      - DEBUG_ARDUINO
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
     depends_on:

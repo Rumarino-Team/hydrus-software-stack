@@ -45,4 +45,5 @@ extern ros::Subscriber<std_msgs::Int8> thruster_sub_3;
 extern ros::Subscriber<std_msgs::Int8> thruster_sub_4;
 extern ros::Subscriber<std_msgs::Int8> depth_sub;
 extern ros::Subscriber<std_msgs::Int8> torpedo_sub;
+extern ros::Subscriber<std_msgs::Int8> camera_motor_sub;
 #endif

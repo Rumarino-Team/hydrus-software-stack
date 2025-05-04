@@ -26,6 +26,7 @@ FORCE_CPU=false
 ZED_OPTION=false
 FORCE_JETSON=false
 ROSBAG_PLAYBACK=false
+DEBUG_ARDUINO=false
 
 
 while [[ "$#" -gt 0 ]]; do
@@ -50,10 +51,22 @@ while true; do
   esac
 done
 
+# Ask user if they want to debug Arduino serial output
+while true; do
+  echo "Do you want to monitor Arduino serial output for debugging?"
+  echo "(NOTE: This will show serial logs before ROS node starts)"
+  read -p "(y/n) " debug_choice
+  case $debug_choice in 
+    [Yy]* ) DEBUG_ARDUINO=true; break;;
+    [Nn]* ) break;;
+    * ) echo "Invalid input. Please try again.";;
+  esac
+done
+
 # Check if --force-cpu was passed
 if [[ "$FORCE_CPU" == true ]]; then
   echo "Force CPU deployment selected. Running CPU version."
-  DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK docker compose -f docker-compose-amd64-cpu.yaml up
+  DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
 # Check if --force-jetson was passed
 elif [[ "$FORCE_JETSON" == true ]]; then
   echo "Force Jetson deployment selected. Running Jetson scripts."
@@ -63,7 +76,7 @@ else
   # Check if system is WSL
   if is_wsl; then
     echo "WSL detected. Running without GPU support."
-    DEPLOY=$DEPLOY VOLUME=$VOLUME ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK docker compose -f docker-compose-amd64-cpu.yaml up
+    DEPLOY=$DEPLOY VOLUME=$VOLUME ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
   # Check if system is Jetson TX2
   elif is_jetson_tx2; then
     echo "Jetson TX2 detected. Running Jetson TX2 Docker Compose."
@@ -83,10 +96,10 @@ else
         esac
       done
       echo "ZED_OPTION=$ZED_OPTION"
-      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK docker compose -f docker-compose-amd64-cuda.yaml up
+      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cuda.yaml up
     else
       echo "No GPU available. Running without GPU support."
-      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK docker compose -f docker-compose-amd64-cpu.yaml up
+      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
     fi
   fi
 fi

@@ -47,7 +47,37 @@ source devel/setup.bash
 # roscore &
 sleep 2
 
-# Run the rosserial node
+# Conditionally run the ROS launch file based on the DEPLOY environment variable
+if [ "$DEPLOY" == "true" ]; then
+    echo "Starting rosserial_python node..."
+    rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
+    sleep 3  # Give rosserial some time to initialize
+    
+    # Compile the Arduino project
+    cd /root/Arduino/libraries/embedded_arduino/Hydrus
+    echo "Compiling Arduino sketch..."
+    arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
+    echo "Uploading Arduino sketch..."
+    arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
+    
+    # Make serial port accessible for both rosserial and our monitoring script
+    chmod +x /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh
+    chmod +x /catkin_ws/src/hydrus-software-stack/monitor_arduino_logs.sh
+    
+    # Start rosserial node
+    
+    cd /catkin_ws
+    
+    # Check if tmux is installed and run our custom tmux session script
+    echo "Setting up tmux sessions with Arduino monitoring..."
+    chmod +x /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
+    /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
+else
+    echo "Deploy is not set or is set to false. Skipping roslaunch."
+fi
+
+
+
 
 # Check if ROSBAG_PLAYBACK is enabled
 if [ "$ROSBAG_PLAYBACK" == "true" ]; then
@@ -58,69 +88,18 @@ if [ "$ROSBAG_PLAYBACK" == "true" ]; then
         echo "Found the following rosbag files:"
         find /rosbags -name "*.bag" -exec echo "  - {}" \;
         
-        # Display menu to select a rosbag file
-        echo "Select a rosbag file to play:"
-        select BAGFILE in $(find /rosbags -name "*.bag"); do
-            if [ -n "$BAGFILE" ]; then
-                echo "Selected rosbag: $BAGFILE"
+        # Get the most recent rosbag file (sorted by modification time)
+        BAGFILE=$(find /rosbags -name "*.bag" | sort -r | head -1)
+        echo "Automatically selecting most recent rosbag: $BAGFILE"
                 
-                # Ask if the user wants to loop the rosbag
-                echo "Do you want to loop the rosbag playback? (y/n)"
-                read -p "> " LOOP_CHOICE
-                
-                # Create a tmux session for rosbag playback
-                tmux new-session -d -s rosbag
-                
-                if [[ "$LOOP_CHOICE" =~ ^[Yy] ]]; then
-                    echo "Playing rosbag with loop option..."
-                    tmux send-keys -t rosbag "rosbag play $BAGFILE --loop" C-m
-                else
-                    echo "Playing rosbag once..."
-                    tmux send-keys -t rosbag "rosbag play $BAGFILE" C-m
-                fi
-                
-                echo "Rosbag playback started in background. Use 'tmux attach -t rosbag' to view playback status."
-                break
-            else
-                echo "Invalid selection. Please try again."
-            fi
-        done
+        # Start rosbag play in the background with loop mode
+        echo "Playing rosbag in loop mode..."
+        rosbag play $BAGFILE --loop &
+        
+        echo "Rosbag playback started in background."
     else
         echo "No rosbag files found in /rosbags directory. Skipping rosbag playback."
     fi
-fi
-
-# Conditionally run the ROS launch file based on the DEPLOY environment variable
-if [ "$DEPLOY" == "true" ]; then
-    echo "Deploy is set to true. Launching hydrus_start.launch..."
-    
-    # Compile the Arduino project
-    rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
-
-    cd /root/Arduino/libraries/embedded_arduino/Hydrus
-    arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
-    arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
-    
-    cd /catkin_ws
-    
-    # Check if tmux is installed
-    if ! command -v tmux &> /dev/null; then
-        echo "tmux could not be found. Installing tmux..."
-        apt-get update && apt-get install -y tmux
-    fi
-    
-    # Create a new tmux session named 'hydrus'
-    tmux new-session -d -s hydrus
-    
-    # Split the window horizontally for controllers.py
-    tmux send-keys -t hydrus "python3 /catkin_ws/src/hydrus-software-stack/src/controllers.py" C-m
-    # Split horizontally again for cv_publisher
-    tmux split-window -v -t hydrus
-    tmux send-keys -t hydrus:0.2 "python3 /catkin_ws/src/hydrus-software-stack/src/cv_publisher.py" C-m
-    # Attach to the tmux session
-    tmux attach-session -t hydrus
-else
-    echo "Deploy is not set or is set to false. Skipping roslaunch."
 fi
 
 # Keep the container running by tailing the log
