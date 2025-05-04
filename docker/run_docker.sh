@@ -24,6 +24,7 @@ DEPLOY=false
 VOLUME=false  
 FORCE_CPU=false 
 ZED_OPTION=false
+FORCE_JETSON=false
 
 
 while [[ "$#" -gt 0 ]]; do
@@ -31,6 +32,7 @@ while [[ "$#" -gt 0 ]]; do
         --deploy) DEPLOY=true ;;
         --volume) VOLUME=true ;;
         --force-cpu) FORCE_CPU=true ;;
+        --force-jetson) FORCE_JETSON=true ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -40,6 +42,11 @@ done
 if [[ "$FORCE_CPU" == true ]]; then
   echo "Force CPU deployment selected. Running CPU version."
   DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION  docker compose -f docker-compose-amd64-cpu.yaml up
+# Check if --force-jetson was passed
+elif [[ "$FORCE_JETSON" == true ]]; then
+  echo "Force Jetson deployment selected. Running Jetson scripts."
+  chmod +x ../jetson.sh
+  ../jetson.sh
 else
   # Check if system is WSL
   if is_wsl; then
@@ -48,7 +55,8 @@ else
   # Check if system is Jetson TX2
   elif is_jetson_tx2; then
     echo "Jetson TX2 detected. Running Jetson TX2 Docker Compose."
-    DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION  docker compose -f docker-compose-jetson-tx2.yaml up
+    chmod +x ../jetson.sh
+    ../jetson.sh
   else
     # Check if NVIDIA GPUs are available
     if nvidia-smi > /dev/null 2>&1; then

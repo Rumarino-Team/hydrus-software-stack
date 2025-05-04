@@ -1,5 +1,3 @@
-
-
 #ifndef ROS_DEPS_H
 
 #define ROS_DEPS_H
@@ -8,10 +6,10 @@
 
 void initializeThrustersArduino(void);
 
-extern ros::NodeHandle nh;
+// Declare the NodeHandle as extern so it can be used across multiple files
 void initRosNode(void);
 void runRosNode(void);
 
 
 
-#endif  
+#endif

@@ -2,6 +2,7 @@
 FROM ros:noetic-ros-base
 
 # Update package list
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
 # Add the deadsnakes PPA and install Python 3.8
@@ -31,6 +32,14 @@ RUN apt-get update && apt-get install -y\
     ros-noetic-tf2-geometry-msgs\
     python3-tf2-kdl
 
+
+RUN sudo sh -c \
+    'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list' &&\
+     curl https://packages.osrfoundation.org/gazebo.key | sudo apt-key add - &&\
+     apt-get update && apt-get install -y ignition-fortress ros-noetic-ros-ign &&\
+     echo "export GZ_VERSION=fortress" >> /root/.bashrc
+
+
 # Embedded Node Dependencies
 RUN apt-get install -y --no-install-recommends \
        gcc \
@@ -56,8 +65,6 @@ RUN arduino-cli lib install "Rosserial Arduino Library@0.7.9" && \
 RUN apt-get install -y ros-noetic-rosserial-arduino
 
 
-# Copy embedded Arduino code in the Arduino libraries folder
-COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 
 # Copy the Python Dependencies and Install them
@@ -75,6 +82,8 @@ RUN apt-get install -y libeigen3-dev python3-tf2-kdl
 RUN apt-get update && apt-get install -y ros-noetic-tf2-geometry-msgs
 
 RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
+# Copy embedded Arduino code in the Arduino libraries folder
+COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack

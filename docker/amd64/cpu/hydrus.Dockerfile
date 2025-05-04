@@ -14,7 +14,7 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa && \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
 
 # Install pip for Python 3.8
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
+RUN curl -sS https://bootstrap.pypa.io/pip/3.8/get-pip.py | python3.8
 
 #Add kisak-mesa PPA (for latest graphics drivers)
 RUN add-apt-repository -y ppa:kisak/kisak-mesa
