@@ -66,7 +66,7 @@ class ProportionalController:
         #////////// INIT ROS DATA////////////
         #////////////////////////////////////
         for i in range(self.Constants.TOTAL_THRUSTERS):
-            self.thrusters_publishers.append(rospy.Publisher('/thrusters/' + str(i+1), Float32, queue_size=10))
+            self.thrusters_publishers.append(rospy.Publisher('/hydrus/thrusters/' + str(i+1), Float32, queue_size=10))
         def imu_pose_callback(msg):
             self.submarine_pose = msg
         rospy.Subscriber("/zed2i/zed_node/pose", PoseStamped, imu_pose_callback)

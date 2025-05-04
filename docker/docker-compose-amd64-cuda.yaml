@@ -54,6 +54,7 @@ services:
     volumes:
       - "../:/home/catkin_ws/src"
       - /tmp/.X11-unix:/tmp/.X11-unix 
+      - "../rosbags:/rosbags"
     ports:
       - "8000:8000"
     devices:
@@ -64,6 +65,7 @@ services:
       - DISPLAY=${DISPLAY}
       - DEPLOY
       - VOLUME
+      - ROSBAG_PLAYBACK
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
     depends_on:

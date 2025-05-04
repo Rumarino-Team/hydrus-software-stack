@@ -49,6 +49,47 @@ sleep 2
 
 # Run the rosserial node
 
+# Check if ROSBAG_PLAYBACK is enabled
+if [ "$ROSBAG_PLAYBACK" == "true" ]; then
+    echo "ROSBAG playback is enabled. Looking for rosbag files in /rosbags directory..."
+    
+    # Check if the rosbags directory exists and has .bag files
+    if [ -d "/rosbags" ] && [ "$(find /rosbags -name '*.bag' | wc -l)" -gt 0 ]; then
+        echo "Found the following rosbag files:"
+        find /rosbags -name "*.bag" -exec echo "  - {}" \;
+        
+        # Display menu to select a rosbag file
+        echo "Select a rosbag file to play:"
+        select BAGFILE in $(find /rosbags -name "*.bag"); do
+            if [ -n "$BAGFILE" ]; then
+                echo "Selected rosbag: $BAGFILE"
+                
+                # Ask if the user wants to loop the rosbag
+                echo "Do you want to loop the rosbag playback? (y/n)"
+                read -p "> " LOOP_CHOICE
+                
+                # Create a tmux session for rosbag playback
+                tmux new-session -d -s rosbag
+                
+                if [[ "$LOOP_CHOICE" =~ ^[Yy] ]]; then
+                    echo "Playing rosbag with loop option..."
+                    tmux send-keys -t rosbag "rosbag play $BAGFILE --loop" C-m
+                else
+                    echo "Playing rosbag once..."
+                    tmux send-keys -t rosbag "rosbag play $BAGFILE" C-m
+                fi
+                
+                echo "Rosbag playback started in background. Use 'tmux attach -t rosbag' to view playback status."
+                break
+            else
+                echo "Invalid selection. Please try again."
+            fi
+        done
+    else
+        echo "No rosbag files found in /rosbags directory. Skipping rosbag playback."
+    fi
+fi
+
 # Conditionally run the ROS launch file based on the DEPLOY environment variable
 if [ "$DEPLOY" == "true" ]; then
     echo "Deploy is set to true. Launching hydrus_start.launch..."
@@ -73,15 +114,9 @@ if [ "$DEPLOY" == "true" ]; then
     
     # Split the window horizontally for controllers.py
     tmux send-keys -t hydrus "python3 /catkin_ws/src/hydrus-software-stack/src/controllers.py" C-m
-    
-    # Split horizontally for mission_planner
-    tmux split-window -v -t hydrus
-    tmux send-keys -t hydrus:0.1 "python3 /catkin_ws/src/hydrus-software-stack/src/mission_planner/prequalification.py" C-m
-    
     # Split horizontally again for cv_publisher
     tmux split-window -v -t hydrus
     tmux send-keys -t hydrus:0.2 "python3 /catkin_ws/src/hydrus-software-stack/src/cv_publisher.py" C-m
-    
     # Attach to the tmux session
     tmux attach-session -t hydrus
 else
