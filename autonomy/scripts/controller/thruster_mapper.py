@@ -29,8 +29,16 @@ class ThrusterMapper:
         # Create publishers for each thruster
         self.thruster_pubs = {}
         for i in range(1, 9):
-            topic = f'/thrusters/{i}'
+            topic = f'/hydrus/thrusters/{i}'
             self.thruster_pubs[i] = rospy.Publisher(topic, Int8, queue_size=10)
+            
+        # Add depth and torpedo publishers to match other components
+        self.depth_pub = rospy.Publisher('/hydrus/depth', Int8, queue_size=10)
+        self.torpedo_pub = rospy.Publisher('/hydrus/torpedo', Int8, queue_size=10)
+        
+        # Define motor groups for easier control
+        self.depth_motors = [2, 6]     # Matches indexes in submarine_teleop.py
+        self.torpedo_motors = [3, 5]   # Matches indexes in submarine_teleop.py
 
         # Wait for publishers to connect
         rospy.loginfo("Waiting for thruster publishers to connect...")
@@ -125,33 +133,103 @@ class ThrusterMapper:
         
         print(colored("\nUse this mapping to update your thruster configuration.", "green"))
 
+    def test_depth_control(self, value=2):
+        """Test depth control with a specific value."""
+        msg = Int8()
+        msg.data = value
+        
+        # Print what's being activated
+        print(colored(f"\nActivating depth control with value {value}", "green"))
+        
+        # Send command to depth motors and depth topic
+        for motor_id in self.depth_motors:
+            self.thruster_pubs[motor_id].publish(msg)
+        self.depth_pub.publish(msg)
+        
+        time.sleep(2)  # Keep running for 2 seconds
+        
+        # Stop
+        msg.data = 0
+        for motor_id in self.depth_motors:
+            self.thruster_pubs[motor_id].publish(msg)
+        self.depth_pub.publish(msg)
+        
+        # Ask user for confirmation
+        result = input(colored("\nDid you observe depth control movement? (y/n): ", "yellow"))
+        return result.lower() == 'y'
+        
+    def test_torpedo_control(self, value=2):
+        """Test torpedo control with a specific value."""
+        msg = Int8()
+        msg.data = value
+        
+        # Print what's being activated
+        print(colored(f"\nActivating torpedo control with value {value}", "green"))
+        
+        # Send command to torpedo motors and torpedo topic
+        for motor_id in self.torpedo_motors:
+            self.thruster_pubs[motor_id].publish(msg)
+        self.torpedo_pub.publish(msg)
+        
+        time.sleep(2)  # Keep running for 2 seconds
+        
+        # Stop
+        msg.data = 0
+        for motor_id in self.torpedo_motors:
+            self.thruster_pubs[motor_id].publish(msg)
+        self.torpedo_pub.publish(msg)
+        
+        # Ask user for confirmation
+        result = input(colored("\nDid you observe torpedo control movement? (y/n): ", "yellow"))
+        return result.lower() == 'y'
+
     def run_individual_test(self):
         """Test thrusters individually based on user input."""
         print(colored("\n=== INDIVIDUAL THRUSTER TEST ===", "blue", attrs=["bold"]))
-        print("Enter thruster ID (1-8) to test, or 'q' to quit")
+        print("Enter thruster ID (1-8) to test, 'depth', 'torpedo', or 'q' to quit")
         
         while not rospy.is_shutdown():
-            cmd = input(colored("\nThruster ID to test (1-8, or 'q' to quit): ", "yellow"))
+            cmd = input(colored("\nThruster ID to test (1-8, 'depth', 'torpedo', or 'q' to quit): ", "yellow"))
             
             if cmd.lower() == 'q':
                 break
-            
-            try:
-                thruster_id = int(cmd)
-                if 1 <= thruster_id <= 8:
-                    value = input(colored(f"Power value (-4 to 4, 0 for neutral): ", "yellow"))
-                    try:
-                        value = int(value)
-                        if -4 <= value <= 4:
-                            self.test_thruster(thruster_id, value)
-                        else:
-                            print(colored("Invalid power value. Please enter a number between -4 and 4.", "red"))
-                    except ValueError:
-                        print(colored("Invalid input. Please enter a number.", "red"))
-                else:
-                    print(colored("Invalid thruster ID. Please enter a number between 1 and 8.", "red"))
-            except ValueError:
-                print(colored("Invalid input. Please enter a number.", "red"))
+            elif cmd.lower() == 'depth':
+                value = input(colored(f"Power value (-4 to 4, 0 for neutral): ", "yellow"))
+                try:
+                    value = int(value)
+                    if -4 <= value <= 4:
+                        self.test_depth_control(value)
+                    else:
+                        print(colored("Invalid power value. Please enter a number between -4 and 4.", "red"))
+                except ValueError:
+                    print(colored("Invalid input. Please enter a number.", "red"))
+            elif cmd.lower() == 'torpedo':
+                value = input(colored(f"Power value (-4 to 4, 0 for neutral): ", "yellow"))
+                try:
+                    value = int(value)
+                    if -4 <= value <= 4:
+                        self.test_torpedo_control(value)
+                    else:
+                        print(colored("Invalid power value. Please enter a number between -4 and 4.", "red"))
+                except ValueError:
+                    print(colored("Invalid input. Please enter a number.", "red"))
+            else:
+                try:
+                    thruster_id = int(cmd)
+                    if 1 <= thruster_id <= 8:
+                        value = input(colored(f"Power value (-4 to 4, 0 for neutral): ", "yellow"))
+                        try:
+                            value = int(value)
+                            if -4 <= value <= 4:
+                                self.test_thruster(thruster_id, value)
+                            else:
+                                print(colored("Invalid power value. Please enter a number between -4 and 4.", "red"))
+                        except ValueError:
+                            print(colored("Invalid input. Please enter a number.", "red"))
+                    else:
+                        print(colored("Invalid thruster ID. Please enter a number between 1 and 8.", "red"))
+                except ValueError:
+                    print(colored("Invalid input. Please enter a number, 'depth', 'torpedo', or 'q'.", "red"))
 
 def main():
     try:
