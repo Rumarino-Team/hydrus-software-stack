@@ -18,6 +18,7 @@ import custom_types
 
 # ROS dependencies
 import rospy
+from visualization_msgs.msg import Marker, MarkerArray
 from sensor_msgs.msg import Image, CameraInfo, RegionOfInterest
 from geometry_msgs.msg import Point, PoseStamped
 from autonomy.msg import Detection, Detections
@@ -455,14 +456,42 @@ def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
 
 def publish_vision_detections():
     detection_pub = rospy.Publisher('/detector/box_detection', Detections, queue_size=10)
-    rate = rospy.Rate(10)
+    marker_pub = rospy.Publisher('/detector/markers', MarkerArray, queue_size=10)
+
+    rospy.init_node('vision_detector_node', anonymous=True)
+    rate = rospy.Rate(10)  # 10 Hz
+
     while not rospy.is_shutdown():
         pipelines_results = run_detection_pipelines()
-        for detector_name, detections in pipelines_results:
-            detection_msg = Detections()
-            detection_msg.detections = detections
-            detection_msg.detector_name = detector_name
-            detection_pub.publish(detection_msg)
+        for detector_name, detection_list in pipelines_results:
+            msg = Detections()
+            msg.header.stamp = rospy.Time.now()
+            msg.header.frame_id = "camera_link"  # Adjust as needed
+            msg.detections = detection_list
+
+            detection_pub.publish(msg)
+
+            # Optional: publish visualization markers
+            marker_array = MarkerArray()
+            for i, detection in enumerate(detection_list):
+                marker = Marker()
+                marker.header = msg.header
+                marker.ns = detector_name
+                marker.id = i
+                marker.type = Marker.CUBE
+                marker.action = Marker.ADD
+                marker.pose.position = detection.point
+                marker.pose.orientation.w = 1.0
+                marker.scale.x = 0.1
+                marker.scale.y = 0.1
+                marker.scale.z = 0.1
+                marker.color.r = 1.0 if detector_name == "color_detector" else 0.0
+                marker.color.g = 0.0
+                marker.color.b = 1.0 if detector_name == "yolo_detector" else 0.0
+                marker.color.a = 0.8
+                marker_array.markers.append(marker)
+
+            marker_pub.publish(marker_array)
 
         rate.sleep()
 
