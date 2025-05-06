@@ -16,17 +16,6 @@ fi
 # Source the corresponding ROS setup.bash
 source /opt/ros/$ROS_DISTRO/setup.bash
 
-# Detect system architecture
-ARCH=$(uname -m)
-
-# If running on ARM (Jetson), delete the simulator folder
-if [[ "$ARCH" == "aarch64" ]]; then
-    echo "Detected ARM architecture (Jetson or similar), deleting simulator folder..."
-    rm -rf /catkin_ws/src/hydrus-software-stack/simulator
-else
-    echo "Non-ARM architecture detected, keeping simulator folder."
-fi
-
 # Determine ROS directory based on volume usage
 if [ "$VOLUME" == "true" ]; then
     echo "Using the Volume directory for building the packages."
