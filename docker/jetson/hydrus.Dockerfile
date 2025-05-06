@@ -66,8 +66,6 @@ RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/d
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
-# We dont need the simulator in the jetson
-RUN rm -rf /catkin_ws/src/hydrus-software-stack/simulator
 RUN apt-get update && apt-get install -y tmux
 WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x ros-entrypoint.sh
