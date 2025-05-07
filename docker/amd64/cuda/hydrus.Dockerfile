@@ -61,14 +61,9 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 WORKDIR /usr/local/
 RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh && \
     arduino-cli core update-index && \
-    arduino-cli core install arduino:avr
-RUN arduino-cli lib install "Rosserial Arduino Library@0.7.9" && \
-    sed -i '/#include "ros\/node_handle.h"/a #include "geometry_msgs/Vector3.h"' /root/Arduino/libraries/Rosserial_Arduino_Library/src/ros.h && \
+    arduino-cli core install arduino:avr &&\
     arduino-cli lib install "Servo@1.2.1" && \
     arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
-RUN apt-get install -y ros-noetic-rosserial-arduino
-
-
 
 
 # Copy the Python Dependencies and Install them

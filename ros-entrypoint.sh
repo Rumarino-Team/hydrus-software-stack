@@ -50,7 +50,6 @@ sleep 2
 # Conditionally run the ROS launch file based on the DEPLOY environment variable
 if [ "$DEPLOY" == "true" ]; then
     echo "Starting rosserial_python node..."
-    rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
     sleep 3  # Give rosserial some time to initialize
     
     # Compile the Arduino project
@@ -59,7 +58,8 @@ if [ "$DEPLOY" == "true" ]; then
     arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
     echo "Uploading Arduino sketch..."
     arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
-    
+    # rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
+    # python3 /catkin_ws/src/hydrus-software-stack/autonomy/script/serial_ros_bridge.py
     # Make serial port accessible for both rosserial and our monitoring script
     chmod +x /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh
     chmod +x /catkin_ws/src/hydrus-software-stack/monitor_arduino_logs.sh
@@ -71,7 +71,7 @@ if [ "$DEPLOY" == "true" ]; then
     # Check if tmux is installed and run our custom tmux session script
     echo "Setting up tmux sessions with Arduino monitoring..."
     chmod +x /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
-    /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
+    # /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
 else
     echo "Deploy is not set or is set to false. Skipping roslaunch."
 fi

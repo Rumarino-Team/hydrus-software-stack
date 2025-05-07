@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""
+ROS to Serial Bridge for Hydrus Submarine
+
+This node subscribes to ROS topics used for controlling the submarine's thrusters
+and translates them into serial commands for the Arduino.
+
+Subscribed topics:
+- /hydrus/thrusters/1, 2, 3, 4: Individual thruster controls
+- /hydrus/depth: Depth control motors
+- /hydrus/torpedo: Torpedo control
+
+Serial command format:
+- T1:value - Thruster 1 with specified value (-4 to 4)
+- T2:value - Thruster 2 with specified value
+- T3:value - Thruster 3 with specified value
+- T4:value - Thruster 4 with specified value
+- D:value  - Depth motors with specified value
+- P:value  - Torpedo with specified value
+- C:value  - Camera motor angle (-60 to 60 degrees)
+"""
+
+import rospy
+import serial
+import time
+import threading
+from std_msgs.msg import Int8
+from termcolor import colored
+
+
+class SerialROSBridge:
+    """Bridge between ROS topics and serial commands for Arduino"""
+    
+    def __init__(self):
+        rospy.init_node('serial_ros_bridge', anonymous=True)
+        
+        # Get serial port parameters from ROS params
+        port = rospy.get_param('~port', '/dev/ttyACM0')
+        baud_rate = rospy.get_param('~baud_rate', 115200)
+        
+        # Serial connection
+        self.ser = None
+        self.is_connected = False
+        self.connect_serial(port, baud_rate)
+        
+        # Start serial reading thread
+        self.running = True
+        self.response_thread = threading.Thread(target=self._read_responses)
+        self.response_thread.daemon = True
+        self.response_thread.start()
+        
+        # ROS Subscribers
+        rospy.Subscriber("/hydrus/thrusters/1", Int8, lambda msg: self.thruster_callback(1, msg))
+        rospy.Subscriber("/hydrus/thrusters/2", Int8, lambda msg: self.thruster_callback(2, msg))
+        rospy.Subscriber("/hydrus/thrusters/3", Int8, lambda msg: self.thruster_callback(3, msg))
+        rospy.Subscriber("/hydrus/thrusters/4", Int8, lambda msg: self.thruster_callback(4, msg))
+        rospy.Subscriber("/hydrus/depth", Int8, self.depth_callback)
+        rospy.Subscriber("/hydrus/torpedo", Int8, self.torpedo_callback)
+        
+        rospy.loginfo("Serial ROS Bridge initialized. Listening for thruster commands...")
+        
+        # Register shutdown function
+        rospy.on_shutdown(self.shutdown)
+
+    def connect_serial(self, port, baud_rate):
+        """Establish a serial connection to the Arduino"""
+        try:
+            self.ser = serial.Serial(port=port, baudrate=baud_rate, timeout=1)
+            self.is_connected = True
+            rospy.loginfo(f"Connected to Arduino on {port} at {baud_rate} baud")
+            
+            # Allow time for Arduino to reset
+            time.sleep(2)
+            return True
+        except serial.SerialException as e:
+            rospy.logerr(f"Failed to connect to Arduino: {str(e)}")
+            return False
+            
+    def send_command(self, cmd):
+        """Send a command to the Arduino"""
+        if not self.is_connected or self.ser is None:
+            rospy.logwarn("Not connected to Arduino! Command not sent.")
+            return False
+            
+        try:
+            # Add newline terminator to the command
+            full_cmd = f"{cmd}\n"
+            self.ser.write(full_cmd.encode('utf-8'))
+            self.ser.flush()
+            rospy.logdebug(f"Sent to Arduino: {cmd}")
+            return True
+        except serial.SerialException as e:
+            rospy.logerr(f"Error sending command: {str(e)}")
+            self.is_connected = False
+            return False
+    
+    def _read_responses(self):
+        """Thread to read and log responses from the Arduino"""
+        while self.running and not rospy.is_shutdown():
+            try:
+                if self.is_connected and self.ser and self.ser.in_waiting > 0:
+                    line = self.ser.readline().decode('utf-8').strip()
+                    if line:
+                        rospy.loginfo(f"Arduino: {line}")
+            except Exception as e:
+                if self.running:  # Only log if we're still supposed to be running
+                    rospy.logerr(f"Error reading from Arduino: {str(e)}")
+                    self.is_connected = False
+            time.sleep(0.1)
+    
+    # Topic callbacks
+    def thruster_callback(self, thruster_num, msg):
+        """Handle thruster control messages"""
+        cmd = f"T{thruster_num}:{msg.data}"
+        self.send_command(cmd)
+        
+    def depth_callback(self, msg):
+        """Handle depth control messages"""
+        cmd = f"D:{msg.data}"
+        self.send_command(cmd)
+        
+    def torpedo_callback(self, msg):
+        """Handle torpedo control messages"""
+        cmd = f"P:{msg.data}"
+        self.send_command(cmd)
+    
+    def shutdown(self):
+        """Clean shutdown procedure"""
+        rospy.loginfo("Shutting down Serial ROS Bridge...")
+        self.running = False
+        
+        # Stop thrusters
+        if self.is_connected:
+            self.send_command("T1:0")
+            self.send_command("T2:0")
+            self.send_command("T3:0")
+            self.send_command("T4:0")
+            self.send_command("D:0")
+            self.send_command("P:0")
+        
+        # Close serial connection
+        if self.ser is not None:
+            self.ser.close()
+            self.is_connected = False
+            
+        # Wait for thread to end
+        if self.response_thread is not None:
+            self.response_thread.join(timeout=1)
+            
+
+def main():
+    try:
+        bridge = SerialROSBridge()
+        
+        # Keep the node running
+        rospy.spin()
+        
+    except rospy.ROSInterruptException:
+        pass
+    except Exception as e:
+        rospy.logerr(f"Unexpected error: {str(e)}")
+        
+
+if __name__ == "__main__":
+    main()
