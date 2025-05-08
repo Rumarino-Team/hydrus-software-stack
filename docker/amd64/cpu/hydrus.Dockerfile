@@ -84,7 +84,7 @@ RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 
 # Install additional dependencies for the embedded node
 # Install tmux, vim, git, and htop in a single RUN command
-RUN apt-get update && apt-get install -y tmux vim git htop
+RUN apt-get update && apt-get install -y tmux vim git htop socat
 
 
 

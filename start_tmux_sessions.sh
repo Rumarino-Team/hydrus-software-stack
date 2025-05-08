@@ -44,13 +44,17 @@ tmux send-keys -t serial_connection "echo 'Starting Serial ROS Bridge'; source /
 
 # Second pane: Run submarine_teleop.py
 tmux split-window -v -t serial_connection
-tmux send-keys -t serial_connection:0.1 "echo 'Starting Submarine Teleop'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/controller/submarine_teleop.py" C-m
+tmux send-keys -t serial_connection:0.1 "echo 'Starting Submarine Teleop'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/src/controllers.py" C-m
+
+# Third pane: Run thruster_visualizer.py
+tmux split-window -h -t serial_connection:0.1
+tmux send-keys -t serial_connection:0.2 "echo 'Starting Thruster Visualizer'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/controller/thruster_visualizer.py" C-m
 
 # Create a new window for Arduino monitoring with two panes
 tmux new-window -t serial_connection:1 -n "Arduino"
 
 # First pane in Arduino window: Setup serial monitor
-tmux send-keys -t serial_connection:1.0 "echo 'Setting up Arduino monitoring'; bash /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh /dev/ttyACM0" C-m
+tmux send-keys -t serial_connection:1.0 "echo 'Setting up Arduino monitoring'; bash /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh " C-m
 
 # Second pane in Arduino window: Monitor Arduino logs
 tmux split-window -h -t serial_connection:1

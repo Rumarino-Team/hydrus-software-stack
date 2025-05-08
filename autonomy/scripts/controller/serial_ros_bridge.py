@@ -11,12 +11,12 @@ Subscribed topics:
 - /hydrus/torpedo: Torpedo control
 
 Serial command format:
-- T1:value - Thruster 1 with specified value (-4 to 4)
-- T2:value - Thruster 2 with specified value
-- T3:value - Thruster 3 with specified value
-- T4:value - Thruster 4 with specified value
-- D:value  - Depth motors with specified value
-- P:value  - Torpedo with specified value
+- T1:value - Thruster 1 with specified PWM value (1000-2000)
+- T2:value - Thruster 2 with specified PWM value
+- T3:value - Thruster 3 with specified PWM value
+- T4:value - Thruster 4 with specified PWM value
+- D:value  - Depth motors with specified PWM value
+- P:value  - Torpedo with specified PWM value
 - C:value  - Camera motor angle (-60 to 60 degrees)
 """
 
@@ -24,7 +24,7 @@ import rospy
 import serial
 import time
 import threading
-from std_msgs.msg import Int8
+from std_msgs.msg import Int16
 from termcolor import colored
 
 
@@ -49,13 +49,13 @@ class SerialROSBridge:
         self.response_thread.daemon = True
         self.response_thread.start()
         
-        # ROS Subscribers
-        rospy.Subscriber("/hydrus/thrusters/1", Int8, lambda msg: self.thruster_callback(1, msg))
-        rospy.Subscriber("/hydrus/thrusters/2", Int8, lambda msg: self.thruster_callback(2, msg))
-        rospy.Subscriber("/hydrus/thrusters/3", Int8, lambda msg: self.thruster_callback(3, msg))
-        rospy.Subscriber("/hydrus/thrusters/4", Int8, lambda msg: self.thruster_callback(4, msg))
-        rospy.Subscriber("/hydrus/depth", Int8, self.depth_callback)
-        rospy.Subscriber("/hydrus/torpedo", Int8, self.torpedo_callback)
+        # ROS Subscribers - Changed to Int16 for PWM values (1000-2000)
+        rospy.Subscriber("/hydrus/thrusters/1", Int16, lambda msg: self.thruster_callback(1, msg))
+        rospy.Subscriber("/hydrus/thrusters/2", Int16, lambda msg: self.thruster_callback(2, msg))
+        rospy.Subscriber("/hydrus/thrusters/3", Int16, lambda msg: self.thruster_callback(3, msg))
+        rospy.Subscriber("/hydrus/thrusters/4", Int16, lambda msg: self.thruster_callback(4, msg))
+        rospy.Subscriber("/hydrus/depth", Int16, self.depth_callback)
+        rospy.Subscriber("/hydrus/torpedo", Int16, self.torpedo_callback)
         
         # Register shutdown function
         rospy.on_shutdown(self.shutdown)
@@ -73,17 +73,18 @@ class SerialROSBridge:
             # Error handled silently
             return False
             
-            
     def send_command(self, cmd):
         """Send a command to the Arduino"""
         if not self.is_connected or self.ser is None:
             return False
             
         try:
-            # Add newline terminator to the command
+            # Add newline terminator to the command and ensure proper formatting
             full_cmd = f"{cmd}\n"
             self.ser.write(full_cmd.encode('utf-8'))
             self.ser.flush()
+            # Add a small delay to prevent commands from merging
+            time.sleep(0.01)
             return True
         except serial.SerialException as e:
             self.is_connected = False
@@ -100,19 +101,19 @@ class SerialROSBridge:
                     self.is_connected = False
             time.sleep(0.1)
     
-    # Topic callbacks
+    # Topic callbacks - Now accepting PWM values directly
     def thruster_callback(self, thruster_num, msg):
-        """Handle thruster control messages"""
+        """Handle thruster control messages with PWM values"""
         cmd = f"T{thruster_num}:{msg.data}"
         self.send_command(cmd)
         
     def depth_callback(self, msg):
-        """Handle depth control messages"""
+        """Handle depth control messages with PWM values"""
         cmd = f"D:{msg.data}"
         self.send_command(cmd)
         
     def torpedo_callback(self, msg):
-        """Handle torpedo control messages"""
+        """Handle torpedo control messages with PWM values"""
         cmd = f"P:{msg.data}"
         self.send_command(cmd)
     
@@ -120,14 +121,14 @@ class SerialROSBridge:
         """Clean shutdown procedure"""
         self.running = False
         
-        # Stop thrusters
+        # Stop thrusters with neutral PWM value
         if self.is_connected:
-            self.send_command("T1:0")
-            self.send_command("T2:0")
-            self.send_command("T3:0")
-            self.send_command("T4:0")
-            self.send_command("D:0")
-            self.send_command("P:0")
+            self.send_command("T1:1500")
+            self.send_command("T2:1500")
+            self.send_command("T3:1500")
+            self.send_command("T4:1500")
+            self.send_command("D:1500")
+            self.send_command("P:1500")
         
         # Close serial connection
         if self.ser is not None:

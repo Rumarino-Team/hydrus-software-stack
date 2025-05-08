@@ -1,9 +1,7 @@
 #ifndef DEVICES_H
 #define DEVICES_H
 
-#define PWM_NEUTRAL 0  // The thruster's output force is 0 lbf at this value
-#define PWM_FORWARD 1600
-#define PWM_BACKWARDS 1400
+#define PWM_NEUTRAL 1500  // The thruster's output force is 0 lbf at this value
 
 #include <Arduino.h>
 #include <Servo.h>

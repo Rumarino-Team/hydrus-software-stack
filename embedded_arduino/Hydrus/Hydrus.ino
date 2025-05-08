@@ -73,8 +73,8 @@ void serialEvent() {
 // Process commands received from serial
 void processSerialCommands() {
   if (stringComplete) {
-    Serial.print("Received command: ");
-    Serial.println(inputString);
+    // Serial.print("Received command: ");
+    // Serial.println(inputString);
     
     // Command format: T1:3 (Thruster 1, value 3)
     // D:-2 (Depth motors, value -2)
