@@ -71,7 +71,7 @@ if [ "$DEPLOY" == "true" ]; then
     # Check if tmux is installed and run our custom tmux session script
     echo "Setting up tmux sessions with Arduino monitoring..."
     chmod +x /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
-    # /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
+    /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
 else
     echo "Deploy is not set or is set to false. Skipping roslaunch."
 fi

@@ -3,7 +3,7 @@
 
 # Default serial port
 ARDUINO_PORT="/dev/ttyACM0"
-BAUD_RATE=59200
+BAUD_RATE=115200
 
 # Check if a different port is provided as argument
 if [ "$1" != "" ]; then

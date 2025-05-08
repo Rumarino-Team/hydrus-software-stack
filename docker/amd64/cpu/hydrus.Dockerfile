@@ -80,8 +80,14 @@ RUN python3 -m pip install -r /requirements.txt
 # Install Default models for YOLO
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
 RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
-    
 RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
+
+# Install additional dependencies for the embedded node
+# Install tmux, vim, git, and htop in a single RUN command
+RUN apt-get update && apt-get install -y tmux vim git htop
+
+
+
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
     
 COPY ./ /catkin_ws/src/hydrus-software-stack

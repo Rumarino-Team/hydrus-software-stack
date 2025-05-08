@@ -57,8 +57,6 @@ class SerialROSBridge:
         rospy.Subscriber("/hydrus/depth", Int8, self.depth_callback)
         rospy.Subscriber("/hydrus/torpedo", Int8, self.torpedo_callback)
         
-        rospy.loginfo("Serial ROS Bridge initialized. Listening for thruster commands...")
-        
         # Register shutdown function
         rospy.on_shutdown(self.shutdown)
 
@@ -67,19 +65,18 @@ class SerialROSBridge:
         try:
             self.ser = serial.Serial(port=port, baudrate=baud_rate, timeout=1)
             self.is_connected = True
-            rospy.loginfo(f"Connected to Arduino on {port} at {baud_rate} baud")
             
             # Allow time for Arduino to reset
             time.sleep(2)
             return True
         except serial.SerialException as e:
-            rospy.logerr(f"Failed to connect to Arduino: {str(e)}")
+            # Error handled silently
             return False
+            
             
     def send_command(self, cmd):
         """Send a command to the Arduino"""
         if not self.is_connected or self.ser is None:
-            rospy.logwarn("Not connected to Arduino! Command not sent.")
             return False
             
         try:
@@ -87,10 +84,8 @@ class SerialROSBridge:
             full_cmd = f"{cmd}\n"
             self.ser.write(full_cmd.encode('utf-8'))
             self.ser.flush()
-            rospy.logdebug(f"Sent to Arduino: {cmd}")
             return True
         except serial.SerialException as e:
-            rospy.logerr(f"Error sending command: {str(e)}")
             self.is_connected = False
             return False
     
@@ -100,11 +95,8 @@ class SerialROSBridge:
             try:
                 if self.is_connected and self.ser and self.ser.in_waiting > 0:
                     line = self.ser.readline().decode('utf-8').strip()
-                    if line:
-                        rospy.loginfo(f"Arduino: {line}")
             except Exception as e:
-                if self.running:  # Only log if we're still supposed to be running
-                    rospy.logerr(f"Error reading from Arduino: {str(e)}")
+                if self.running:
                     self.is_connected = False
             time.sleep(0.1)
     
@@ -126,7 +118,6 @@ class SerialROSBridge:
     
     def shutdown(self):
         """Clean shutdown procedure"""
-        rospy.loginfo("Shutting down Serial ROS Bridge...")
         self.running = False
         
         # Stop thrusters
@@ -158,7 +149,7 @@ def main():
     except rospy.ROSInterruptException:
         pass
     except Exception as e:
-        rospy.logerr(f"Unexpected error: {str(e)}")
+        pass
         
 
 if __name__ == "__main__":

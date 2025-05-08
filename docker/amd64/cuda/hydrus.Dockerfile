@@ -79,8 +79,12 @@ RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/la
 
 RUN apt-get install -y libeigen3-dev python3-tf2-kdl
 RUN apt-get update && apt-get install -y ros-noetic-tf2-geometry-msgs
-
 RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
+
+# Install additional dependencies for the embedded node
+# Install tmux, vim, git, and htop in a single RUN command
+RUN apt-get update && apt-get install -y tmux vim git htop
+
 # Copy embedded Arduino code in the Arduino libraries folder
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 

@@ -25,7 +25,7 @@ services:
       - "/dev/dri:/dev/dri"
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
-      - ARDUINO_BOARD=arduino:avr:mega
+      - ARDUINO_BOARD=arduino:avr:uno
       - DEPLOY
       - VOLUME
       - ROSBAG_PLAYBACK
