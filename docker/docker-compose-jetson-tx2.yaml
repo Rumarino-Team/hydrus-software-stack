@@ -40,6 +40,9 @@ services:
     tty: true
     volumes:
       - ".:/catkin_ws/src"
+      - "../:/home/catkin_ws/src"
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - "../rosbags:/rosbags"
     ports:
       - "8000:8000"
     devices:
@@ -47,6 +50,7 @@ services:
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:mega
+      - ROSBAG_PLAYBACK
     depends_on:
       - ros-master
       - zed-camera
