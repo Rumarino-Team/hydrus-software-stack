@@ -20,11 +20,12 @@ import custom_types
 import rospy
 from sensor_msgs.msg import Image, CameraInfo, RegionOfInterest
 from geometry_msgs.msg import Point, PoseStamped
+from visualization_msgs.msg import Marker, MarkerArray
 from autonomy.msg import Detection, Detections
 from autonomy.srv import SetColorFilter, SetColorFilterResponse
 
 ############################
-# Custom cv_bridge replacement
+# Custom cv_bridge replacementss
 ############################
 
 # Convert ROS Image to OpenCV (numpy array)
@@ -138,6 +139,12 @@ color_filter_config: ColorFilterConfig = ColorFilterConfig(
     min_area=0.2,
     rgb_range=(255, 0, 0)
 )
+
+# Camera topic parameters with defaults (will be overridden by ROS params)
+rgb_image_topic = "/zed2i/zed_node/rgb/image_rect_color"
+depth_image_topic = "/zed2i/zed_node/depth/depth_registered"
+camera_info_topic = "/zed2i/zed_node/rgb/camera_info"
+camera_pose_topic = "/zed2i/zed_node/pose"
 
 ############################
 # Color filter detection
@@ -455,15 +462,123 @@ def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
 
 def publish_vision_detections():
     detection_pub = rospy.Publisher('/detector/box_detection', Detections, queue_size=10)
+    marker_pub = rospy.Publisher('/detector/markers', MarkerArray, queue_size=10)
     rate = rospy.Rate(10)
+    
+    # Keep a list of previously published markers to manage deletion
+    previous_marker_count = {'color_detector': 0, 'yolo_detector': 0}
+    
     while not rospy.is_shutdown():
         pipelines_results = run_detection_pipelines()
+        marker_array = MarkerArray()
+        
+        # Track current marker counts to manage stale markers
+        current_marker_count = {'color_detector': 0, 'yolo_detector': 0}
+        
         for detector_name, detections in pipelines_results:
             detection_msg = Detections()
             detection_msg.detections = detections
             detection_msg.detector_name = detector_name
             detection_pub.publish(detection_msg)
-
+            
+            # Add markers for each detection
+            for i, detection in enumerate(detections):
+                # Create point marker
+                marker = Marker()
+                marker.header.frame_id = "map"  # Use appropriate frame_id
+                marker.header.stamp = rospy.Time.now()
+                marker.ns = detector_name
+                marker.id = i
+                marker.type = Marker.SPHERE
+                marker.action = Marker.ADD
+                
+                # Set position from detection point
+                marker.pose.position.x = detection.point.x
+                marker.pose.position.y = detection.point.y
+                marker.pose.position.z = detection.point.z
+                marker.pose.orientation.w = 1.0
+                
+                # Scale marker based on confidence (bigger = more confident)
+                confidence_scale = 0.1 + (detection.confidence * 0.1)
+                marker.scale.x = confidence_scale
+                marker.scale.y = confidence_scale
+                marker.scale.z = confidence_scale
+                
+                # Set color based on detector type
+                if detector_name == 'color_detector':
+                    marker.color.r = 1.0
+                    marker.color.g = 0.0
+                    marker.color.b = 0.0
+                elif detector_name == 'yolo_detector':
+                    marker.color.r = 0.0
+                    marker.color.g = 1.0
+                    marker.color.b = 0.0
+                marker.color.a = 1.0  # Fully opaque
+                
+                # Add marker to array
+                marker_array.markers.append(marker)
+                
+                # Add text label marker
+                text_marker = Marker()
+                text_marker.header.frame_id = "map"  # Use appropriate frame_id
+                text_marker.header.stamp = rospy.Time.now()
+                text_marker.ns = f"{detector_name}_text"
+                text_marker.id = i
+                text_marker.type = Marker.TEXT_VIEW_FACING
+                text_marker.action = Marker.ADD
+                
+                # Position text slightly above the sphere
+                text_marker.pose.position.x = detection.point.x
+                text_marker.pose.position.y = detection.point.y
+                text_marker.pose.position.z = detection.point.z + confidence_scale + 0.05
+                text_marker.pose.orientation.w = 1.0
+                
+                # Set text size
+                text_marker.scale.z = 0.1  # Text height
+                
+                # Same color as the sphere
+                if detector_name == 'color_detector':
+                    text_marker.color.r = 1.0
+                    text_marker.color.g = 0.0
+                    text_marker.color.b = 0.0
+                elif detector_name == 'yolo_detector':
+                    text_marker.color.r = 0.0
+                    text_marker.color.g = 1.0
+                    text_marker.color.b = 0.0
+                text_marker.color.a = 1.0
+                
+                # Set text content (class ID and confidence)
+                text_marker.text = f"{detector_name}_{i}: {detection.cls}, {detection.confidence:.2f}"
+                marker_array.markers.append(text_marker)
+                
+                # Update marker count for this detector
+                current_marker_count[detector_name] = i + 1
+            
+            # Add DELETE markers for any stale markers
+            for j in range(current_marker_count[detector_name], previous_marker_count[detector_name]):
+                # Remove stale point markers
+                delete_marker = Marker()
+                delete_marker.header.frame_id = "map"
+                delete_marker.header.stamp = rospy.Time.now()
+                delete_marker.ns = detector_name
+                delete_marker.id = j
+                delete_marker.action = Marker.DELETE
+                marker_array.markers.append(delete_marker)
+                
+                # Remove stale text markers
+                delete_text_marker = Marker()
+                delete_text_marker.header.frame_id = "map"
+                delete_text_marker.header.stamp = rospy.Time.now()
+                delete_text_marker.ns = f"{detector_name}_text"
+                delete_text_marker.id = j
+                delete_text_marker.action = Marker.DELETE
+                marker_array.markers.append(delete_text_marker)
+        
+        # Update previous marker counts
+        previous_marker_count = current_marker_count.copy()
+        
+        # Publish marker array
+        marker_pub.publish(marker_array)
         rate.sleep()
 
 def handle_set_color_filter(req):
@@ -505,16 +620,30 @@ def initialize_service_servers():
     rospy.loginfo("Service server '/detector/set_color_filter' is ready")
 
 def initialize_subscribers():
-    rospy.loginfo("Initializing subscribers...")
-    rospy.Subscriber("/zed2i/zed_node/rgb/image_rect_color", Image, rgb_image_callback)
-    rospy.Subscriber("/zed2i/zed_node/depth/depth_registered", Image, depth_image_callback)
-    rospy.Subscriber("/zed2i/zed_node/rgb/camera_info", CameraInfo, camera_info_callback)
-    rospy.Subscriber("/zed2i/zed_node/pose", PoseStamped, imu_pose_callback)
+    global rgb_image_topic, depth_image_topic, camera_info_topic, camera_pose_topic
+    
+    # Get topic names from ROS parameters (with defaults)
+    rgb_image_topic = rospy.get_param('~rgb_image_topic', rgb_image_topic)
+    depth_image_topic = rospy.get_param('~depth_image_topic', depth_image_topic)
+    camera_info_topic = rospy.get_param('~camera_info_topic', camera_info_topic)
+    camera_pose_topic = rospy.get_param('~camera_pose_topic', camera_pose_topic)
+    
+    # Log the topic names being used
+    rospy.loginfo(f"Using RGB image topic: {rgb_image_topic}")
+    rospy.loginfo(f"Using depth image topic: {depth_image_topic}")
+    rospy.loginfo(f"Using camera info topic: {camera_info_topic}")
+    rospy.loginfo(f"Using camera pose topic: {camera_pose_topic}")
+    
+    # Subscribe to the topics
+    rospy.Subscriber(rgb_image_topic, Image, rgb_image_callback)
+    rospy.Subscriber(depth_image_topic, Image, depth_image_callback)
+    rospy.Subscriber(camera_info_topic, CameraInfo, camera_info_callback)
+    rospy.Subscriber(camera_pose_topic, PoseStamped, imu_pose_callback)
 
 if __name__ == "__main__":
-    rospy.init_node('cv_publihser')
+    rospy.init_node('cv_publisher')
     initialize_subscribers()
-    initialize_service_servers()  # Add this line to initialize service servers
+    initialize_service_servers()
     rospy.sleep(3)  # Give some time to gather messages
     publish_vision_detections()
     rospy.spin()
