@@ -43,10 +43,10 @@ class SubmarineTeleop:
         self.pwm_values = [self.cfg.PWM_NEUTRAL] * 8
 
         # Mapeos de motores
-        self.front_motors   = [0, 4]   # 1,5
-        self.back_motors    = [3, 7]   # 4,8
-        self.depth_motors   = [1, 6]   # 2,7
-        self.torpedo_motors = [2, 5]   # 3,6
+        self.front_motors   = [1, 5]   # 1,5
+        self.back_motors    = [4, 8]   # 4,8
+        self.depth_motors   = [2, 7]   # 2,7
+        self.torpedo_motors = [3, 6]   # 3,6
 
         self.running = True
         self.key_thread = None
@@ -100,24 +100,32 @@ class SubmarineTeleop:
             self.pwm_values = [self.cfg.PWM_NEUTRAL] * 8
             print(colored("STOP", "red"))
         elif k == "w":
-            for m in self.front_motors + self.back_motors: self._adjust_pwm(m, self.cfg.PWM_STEP)
+            # Forward motion: front thrusters reverse (negative PWM delta), back thrusters forward (positive PWM delta)
+            for m in self.front_motors: 
+                self._adjust_pwm(m-1, -self.cfg.PWM_STEP)  # Decrease PWM for front thrusters
+            for m in self.back_motors:  
+                self._adjust_pwm(m-1, self.cfg.PWM_STEP)   # Increase PWM for back thrusters
             print(colored("FORWARD", "green"))
         elif k == "s":
-            for m in self.front_motors + self.back_motors: self._adjust_pwm(m, -self.cfg.PWM_STEP)
+            # Backward motion: front thrusters forward (positive PWM delta), back thrusters reverse (negative PWM delta)
+            for m in self.front_motors: 
+                self._adjust_pwm(m-1, self.cfg.PWM_STEP)   # Increase PWM for front thrusters
+            for m in self.back_motors:  
+                self._adjust_pwm(m-1, -self.cfg.PWM_STEP)  # Decrease PWM for back thrusters
             print(colored("BACKWARD", "green"))
         elif k == "a":
-            for m in self.front_motors: self._adjust_pwm(m, -self.cfg.PWM_STEP)
-            for m in self.back_motors:  self._adjust_pwm(m, self.cfg.PWM_STEP)
+            for m in self.front_motors: self._adjust_pwm(m-1, -self.cfg.PWM_STEP)
+            for m in self.back_motors:  self._adjust_pwm(m-1, self.cfg.PWM_STEP)
             print(colored("YAW LEFT", "green"))
         elif k == "d":
-            for m in self.front_motors: self._adjust_pwm(m, self.cfg.PWM_STEP)
-            for m in self.back_motors:  self._adjust_pwm(m, -self.cfg.PWM_STEP)
+            for m in self.front_motors: self._adjust_pwm(m-1, self.cfg.PWM_STEP)
+            for m in self.back_motors:  self._adjust_pwm(m-1, -self.cfg.PWM_STEP)
             print(colored("YAW RIGHT", "green"))
         elif k == "i":
-            for m in self.depth_motors: self._adjust_pwm(m, self.cfg.PWM_STEP)
+            for m in self.depth_motors: self._adjust_pwm(m-1, self.cfg.PWM_STEP)
             print(colored("UP", "green"))
         elif k == "k":
-            for m in self.depth_motors: self._adjust_pwm(m, -self.cfg.PWM_STEP)
+            for m in self.depth_motors: self._adjust_pwm(m-1, -self.cfg.PWM_STEP)
             print(colored("DOWN", "green"))
 
     # ──────────────────────────  PUBLISHERS  ───────────────────────────────

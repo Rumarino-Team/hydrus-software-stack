@@ -8,28 +8,29 @@
 
 #define TORPEDO_MOTOR_NUM 2
 #define DEPTH_MOTOR_NUM 2
-const int depth_motors[DEPTH_MOTOR_NUM] = {5, 6};
-const int torpedo_motors[TORPEDO_MOTOR_NUM] = {7, 8};
+// Updated depth and torpedo motor IDs based on the table
+const int depth_motors[DEPTH_MOTOR_NUM] = {5, 6};  // Motors 5 and 6 using pins 3 and 4
+const int torpedo_motors[TORPEDO_MOTOR_NUM] = {7, 8};  // Motors 7 and 8 using pins 7 and 8
 
 Thruster thrusterArr[] = {
-  //Basically declare whether motor is forward or not, and a pin for each thruster
-  //forward motor 1
+  // Updated thruster array to match thruster numbers with pin numbers
+  // Thruster 1 - Pin 1 - Forward
   Thruster(true, 1),
-  //forward motor 2
+  // Thruster 2 - Pin 2 - Forward
   Thruster(true, 2),
-  //backward motor 1
-  Thruster(true, 5),
-  //backward motor 2
-  Thruster(false, 6),
-  //depth motor 1
-  Thruster(false, 3),
-  //depth motor 2
+  // Thruster 3 - Pin 5 - Forward
+  Thruster(true, 3),
+  // Thruster 4 - Pin 6 - Backward
   Thruster(false, 4),
-  //torpedo motor 1
+  // Thruster 5 - Pin 3 - Backward
+  Thruster(false, 5),
+  // Thruster 6 - Pin 4 - Backward
+  Thruster(false, 6),
+  // Thruster 7 - Pin 7 - Backward
   Thruster(false, 7),
-  //torpedo motor 2
+  // Thruster 8 - Pin 8 - Forward
   Thruster(true, 8),
-  //camera motor
+  // Thruster 9 - Pin 9 - Forward (Camera)
   Thruster(true, 9)
 };
 
@@ -43,7 +44,9 @@ void initializeThrustersArduino(void)
         thrusterArr[i].motor.writeMicroseconds(PWM_NEUTRAL);  // This sets the thrusters output force to 0 lbf
         Serial.print("Initialized thruster ");
         Serial.print(i+1);
-        Serial.println(" to neutral position");
+        Serial.print(" (pin ");
+        Serial.print(thrusterArr[i].pin);
+        Serial.println(") to neutral position");
     }
     Serial.println("All thrusters initialized successfully");
 }

@@ -20,6 +20,10 @@ class HydrusSerialController:
         self.is_connected = False
         self.response_thread = None
         self.running = False
+        # Define PWM constants
+        self.PWM_NEUTRAL = 1500
+        self.PWM_MIN = 1000
+        self.PWM_MAX = 2000
         
     def connect(self):
         """Establish a serial connection to the Arduino."""
@@ -70,6 +74,8 @@ class HydrusSerialController:
             # Write command to serial port
             self.ser.write(full_cmd.encode('utf-8'))
             self.ser.flush()
+            # Small delay to prevent commands from merging
+            time.sleep(0.01)
             print(f"Sent: {cmd}")
             return True
         except serial.SerialException as e:
@@ -90,20 +96,27 @@ class HydrusSerialController:
             time.sleep(0.1)
     
     # Thruster control methods
-    def set_thruster(self, thruster_num, value):
-        """Set a specific thruster to the given value."""
+    def set_thruster(self, thruster_num, pwm_value):
+        """Set a specific thruster to the given PWM value (1000-2000)."""
         if not 1 <= thruster_num <= 4:
             print(f"Invalid thruster number: {thruster_num}. Must be 1-4.")
             return False
-        return self._send_command(f"T{thruster_num}:{value}")
+        
+        # Ensure the PWM value is within valid range
+        pwm_value = max(self.PWM_MIN, min(self.PWM_MAX, pwm_value))
+        return self._send_command(f"T{thruster_num}:{pwm_value}")
     
-    def set_depth_motors(self, value):
-        """Set depth motors to the given value."""
-        return self._send_command(f"D:{value}")
+    def set_depth_motors(self, pwm_value):
+        """Set depth motors to the given PWM value (1000-2000)."""
+        # Ensure the PWM value is within valid range
+        pwm_value = max(self.PWM_MIN, min(self.PWM_MAX, pwm_value))
+        return self._send_command(f"D:{pwm_value}")
     
-    def launch_torpedo(self, value):
-        """Launch torpedo with the given value."""
-        return self._send_command(f"P:{value}")
+    def launch_torpedo(self, pwm_value):
+        """Set torpedo motors to the given PWM value (1000-2000)."""
+        # Ensure the PWM value is within valid range
+        pwm_value = max(self.PWM_MIN, min(self.PWM_MAX, pwm_value))
+        return self._send_command(f"P:{pwm_value}")
     
     def set_camera_angle(self, angle):
         """Set camera to the specified angle (-60 to 60 degrees)."""
@@ -117,13 +130,14 @@ def interactive_control(controller):
     """Interactive console for controlling the submarine."""
     print("\n=== Hydrus Serial Controller ===")
     print("Commands: ")
-    print("  t1 <value>  - Set thruster 1 (-9 to 9)")
-    print("  t2 <value>  - Set thruster 2 (-9 to 9)")
-    print("  t3 <value>  - Set thruster 3 (-9 to 9)")
-    print("  t4 <value>  - Set thruster 4 (-9 to 9)")
-    print("  d <value>   - Set depth motors (-9 to 9)")
-    print("  p <value>   - Launch torpedo (0 or 1)")
-    print("  c <value>   - Set camera angle (-60 to 60)")
+    print("  t1 <value>  - Set thruster 1 (PWM: 1000-2000, 1500 is neutral)")
+    print("  t2 <value>  - Set thruster 2 (PWM: 1000-2000, 1500 is neutral)")
+    print("  t3 <value>  - Set thruster 3 (PWM: 1000-2000, 1500 is neutral)")
+    print("  t4 <value>  - Set thruster 4 (PWM: 1000-2000, 1500 is neutral)")
+    print("  d <value>   - Set depth motors (PWM: 1000-2000, 1500 is neutral)")
+    print("  p <value>   - Set torpedo motors (PWM: 1000-2000, 1500 is neutral)")
+    print("  c <value>   - Set camera angle (-60 to 60 degrees)")
+    print("  stop        - Set all motors to neutral (1500)")
     print("  quit        - Exit the program")
     
     while True:
@@ -132,6 +146,16 @@ def interactive_control(controller):
             
             if cmd == "quit" or cmd == "exit":
                 break
+                
+            if cmd == "stop":
+                controller.set_thruster(1, 1500)
+                controller.set_thruster(2, 1500)
+                controller.set_thruster(3, 1500)
+                controller.set_thruster(4, 1500)
+                controller.set_depth_motors(1500)
+                controller.launch_torpedo(1500)
+                print("All motors set to neutral (1500)")
+                continue
             
             parts = cmd.split()
             if len(parts) != 2:
