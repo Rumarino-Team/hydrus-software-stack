@@ -4,6 +4,9 @@ project(autonomy)
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
 
+## Add Python setup to handle the mission_planner module properly
+catkin_python_setup()
+
 find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   sensor_msgs

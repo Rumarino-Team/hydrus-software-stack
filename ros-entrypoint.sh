@@ -50,7 +50,7 @@ sleep 2
 # Conditionally run the ROS launch file based on the DEPLOY environment variable
 if [ "$DEPLOY" == "true" ]; then
     echo "Starting rosserial_python node..."
-    sleep 3  # Give rosserial some time to initialize
+    sleep 1  # Give rosserial some time to initialize
     
     # Compile the Arduino project
     cd /root/Arduino/libraries/embedded_arduino/Hydrus
