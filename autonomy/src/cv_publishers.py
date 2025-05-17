@@ -9,6 +9,7 @@ Works for Python 3 with ROS Melodic.
 
 import cv2
 import numpy as np
+import os
 from typing import List, Tuple
 from ultralytics import YOLO
 from dataclasses import dataclass
@@ -23,6 +24,11 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from autonomy.msg import Detection, Detections
 from autonomy.srv import SetColorFilter, SetColorFilterResponse
+from autonomy.srv import SetYoloModel, SetYoloModelResponse
+
+# Add constants for YOLO model directory
+YOLO_MODEL_DIR = "/yolo_models"
+DEFAULT_YOLO_MODEL = "yolov8n.pt"
 
 ############################
 # Custom cv_bridge replacementss
@@ -614,10 +620,36 @@ def handle_set_color_filter(req):
         rospy.logerr(error_msg)
         return SetColorFilterResponse(success=False, message=error_msg)
 
+def handle_set_yolo_model(req):
+    global model
+    
+    try:
+        # Validate the model name
+        if not req.model_name.endswith('.pt'):
+            return SetYoloModelResponse(success=False, message="Model name must end with .pt")
+        
+        model_path = os.path.join(YOLO_MODEL_DIR, req.model_name)
+        
+        # Check if the model file exists
+        if not os.path.isfile(model_path):
+            return SetYoloModelResponse(success=False, message=f"Model file not found: {model_path}")
+        
+        # Load the new model
+        model = YOLO(model_path)
+        
+        rospy.loginfo(f"YOLO model switched to: {req.model_name}")
+        return SetYoloModelResponse(success=True, message=f"YOLO model switched to: {req.model_name}")
+    
+    except Exception as e:
+        error_msg = f"Failed to switch YOLO model: {str(e)}"
+        rospy.logerr(error_msg)
+        return SetYoloModelResponse(success=False, message=error_msg)
+
 def initialize_service_servers():
     rospy.loginfo("Initializing service servers...")
     rospy.Service('/detector/set_color_filter', SetColorFilter, handle_set_color_filter)
-    rospy.loginfo("Service server '/detector/set_color_filter' is ready")
+    rospy.Service('/detector/set_yolo_model', SetYoloModel, handle_set_yolo_model)
+    rospy.loginfo("Service servers are ready")
 
 def initialize_subscribers():
     global rgb_image_topic, depth_image_topic, camera_info_topic, camera_pose_topic

@@ -3,26 +3,27 @@ import asyncio
 import rospy
 import cv2
 import numpy as np
+import json
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from sensor_msgs.msg import Image
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
-from cv_publishers import run_detection_pipelines, initialize_subscribers
+from autonomy.msg import Detections
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  
+    allow_origins=["http://localhost:3000", "http://localhost:5000"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-bridge = CvBridge()
-rgb_image = None  
-
+# Global variables
+rgb_image = None
+latest_detections = []  # Store the latest detections from cv_publishers
 
 def rgb_image_callback(msg):
     global rgb_image
@@ -32,7 +33,6 @@ def rgb_image_callback(msg):
 
         img_array = np.frombuffer(msg.data, dtype=np.uint8)
 
-        # Deducción de canales
         if msg.encoding in ["rgb8", "bgr8"]:
             channels = 3
         elif msg.encoding in ["rgba8", "bgra8"]:
@@ -50,7 +50,7 @@ def rgb_image_callback(msg):
 
         img_array = img_array.reshape((height, width, channels))
 
-        # Si hay 4 canales, ignoramos el alpha
+        # Remove alpha channel if present
         if channels == 4:
             img_array = img_array[:, :, :3]
 
@@ -59,7 +59,56 @@ def rgb_image_callback(msg):
     except Exception as e:
         rospy.logerr(f"Error converting image: {e}")
 
+def detection_callback(msg):
+    """Callback for the /detector/box_detection topic"""
+    global latest_detections
+    
+    # Check if this detection is from a new detector not already in our list
+    detector_name = msg.detector_name
+    
+    # Find if we already have detections from this detector
+    found = False
+    for i, detection_data in enumerate(latest_detections):
+        if detection_data.get('detector_name') == detector_name:
+            # Update existing detector entry
+            latest_detections[i] = convert_detection_msg_to_dict(msg)
+            found = True
+            break
+            
+    # If not found, add it to the list
+    if not found:
+        latest_detections.append(convert_detection_msg_to_dict(msg))
+    
+    rospy.logdebug(f"Received detections from {detector_name}: {len(msg.detections)} objects")
+
+def convert_detection_msg_to_dict(msg):
+    """Convert a ROS Detections message to a dictionary for JSON serialization"""
+    converted_detections = []
+    
+    for det_msg in msg.detections:
+        converted_detections.append({
+            "cls": det_msg.cls,
+            "confidence": det_msg.confidence,
+            "point": {
+                "x": det_msg.point.x,
+                "y": det_msg.point.y,
+                "z": det_msg.point.z
+            },
+            "bounding_box": {
+                "x_offset": det_msg.bounding_box.x_offset,
+                "y_offset": det_msg.bounding_box.y_offset,
+                "width":   det_msg.bounding_box.width,
+                "height":  det_msg.bounding_box.height
+            }
+        })
+        
+    return {
+        "detector_name": msg.detector_name,
+        "detections": converted_detections
+    }
+
 def generate_video_stream():
+    """Generate frames for video streaming"""
     while True:
         if rgb_image is not None:
             _, jpeg = cv2.imencode('.jpg', rgb_image)
@@ -67,53 +116,39 @@ def generate_video_stream():
                    b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
         else:
             rospy.logwarn("No image received yet")
-        asyncio.sleep(0.1)
+            # Wait a bit before trying again
+            asyncio.sleep(0.1)
 
 @app.get("/video_feed")
 def video_feed():
+    """Endpoint to stream video frames"""
     return StreamingResponse(generate_video_stream(), media_type="multipart/x-mixed-replace; boundary=frame")
 
-def convert_detections_to_dict(pipeline_results) -> List[Dict[str, Any]]:
-    output = []
-    for detector_name, detection_list in pipeline_results:
-        converted_detections = []
-        for det_msg in detection_list:
-            converted_detections.append({
-                "cls": det_msg.cls,
-                "confidence": det_msg.confidence,
-                "point": {
-                    "x": det_msg.point.x,
-                    "y": det_msg.point.y,
-                    "z": det_msg.point.z
-                },
-                "bounding_box": {
-                    "x_offset": det_msg.bounding_box.x_offset,
-                    "y_offset": det_msg.bounding_box.y_offset,
-                    "width":   det_msg.bounding_box.width,
-                    "height":  det_msg.bounding_box.height
-                }
-            })
-        output.append({
-            "detector_name": detector_name,
-            "detections": converted_detections
-        })
-    return output
-
 async def sse_generator():
+    """Generate Server-Sent Events with detection data"""
     while True:
-        pipeline_results = run_detection_pipelines()
-        data = convert_detections_to_dict(pipeline_results)
-        import json
-        json_str = json.dumps(data)
+        # Use the latest detections received from callbacks
+        json_str = json.dumps(latest_detections)
         yield f"data: {json_str}\n\n"
         await asyncio.sleep(0.1)
 
 @app.get("/detections/stream")
 def get_detections_stream():
+    """Endpoint to stream detection data as server-sent events"""
     return StreamingResponse(sse_generator(), media_type="text/event-stream")
 
 if __name__ == "__main__":
-    rospy.init_node('cv_publisher', anonymous=True)
-    rospy.Subscriber("/zed2i/zed_node/rgb/image_rect_color", Image, rgb_image_callback)
-    initialize_subscribers()
+    rospy.init_node('detection_api', anonymous=True)
+    
+    # Subscribe to the video feed
+    rgb_topic = rospy.get_param('~rgb_image_topic', '/zed2i/zed_node/rgb/image_rect_color')
+    rospy.Subscriber(rgb_topic, Image, rgb_image_callback)
+    
+    # Subscribe to the detections from cv_publishers.py
+    rospy.Subscriber('/detector/box_detection', Detections, detection_callback)
+    
+    rospy.loginfo(f"API server initialized. Subscribing to RGB image: {rgb_topic}")
+    rospy.loginfo("Subscribing to detections from cv_publishers at: /detector/box_detection")
+    
+    # Start the FastAPI server
     uvicorn.run(app, host="0.0.0.0", port=8000)

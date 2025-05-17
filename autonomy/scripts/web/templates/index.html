@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydrus Detection Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #03a9f4;
+            text-align: center;
+        }
+        .video-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .video-feed {
+            max-width: 100%;
+            border: 3px solid #333;
+            border-radius: 5px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0 15px;
+        }
+        .color-box {
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+            border: 1px solid #555;
+        }
+        .red {
+            background-color: rgb(0, 0, 255);
+        }
+        .green {
+            background-color: rgb(0, 255, 0);
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #1e1e1e;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hydrus Detection Viewer</h1>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="color-box red"></div>
+                <span>Color Detector</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box green"></div>
+                <span>YOLO Detector</span>
+            </div>
+        </div>
+        
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Video Feed">
+        </div>
+        
+        <div class="info">
+            <p>Live detection feed from Hydrus Submarine</p>
+            <p><small>Connecting to API at port 8000 • Drawing detections in real-time</small></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -55,6 +55,7 @@ services:
       - "../:/home/catkin_ws/src"
       - /tmp/.X11-unix:/tmp/.X11-unix 
       - "../rosbags:/rosbags"
+      - "../yolo_models:/yolo_models"  # Volume for YOLO models
     ports:
       - "8000:8000"
     devices:

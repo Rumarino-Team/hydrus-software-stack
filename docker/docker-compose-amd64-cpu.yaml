@@ -20,6 +20,7 @@ services:
     tty: true
     ports:
       - "8000:8000"
+      - "5000:5000"  # Added port for Flask detection viewer
     devices:
       - "/dev/ttyACM0:/dev/ttyACM0"
       - "/dev/ttyACM1:/dev/ttyACM1"  # Added ttyACM1 mapping
@@ -27,7 +28,7 @@ services:
       - "/dev/dri:/dev/dri"
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
-      - ARDUINO_BOARD=arduino:avr:mega
+      - ARDUINO_BOARD=arduino:avr:uno
       - DEPLOY
       - VOLUME
       - ROSBAG_PLAYBACK
@@ -35,8 +36,9 @@ services:
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
     volumes:
       - "../:/home/catkin_ws/src"
-      - /tmp/.X11-unix:/tmp/.X11-unix 
+      - "/tmp/.X11-unix:/tmp/.X11-unix"
       - "../rosbags:/rosbags"
+      - "../yolo_models:/yolo_models"  # Volume for YOLO models
     depends_on:
       - ros-master
     restart: unless-stopped  # Added restart policy

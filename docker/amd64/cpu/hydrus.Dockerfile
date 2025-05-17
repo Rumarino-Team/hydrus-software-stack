@@ -75,7 +75,7 @@ COPY ./requirements.txt /requirements.txt
     
 # Ultralytics with NO GPU
 RUN python3 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
-RUN python3 -m pip install -r /requirements.txt
+RUN python3 -m pip install --ignore-installed -r /requirements.txt
     
 # Install Default models for YOLO
 RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
