@@ -37,6 +37,7 @@ add_action_files(
 add_service_files(
   FILES
   SetColorFilter.srv
+  SetYoloModel.srv
 )
 
 # Generate added messages and services

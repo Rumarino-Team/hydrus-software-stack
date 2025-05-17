@@ -1,4 +1,3 @@
-
 ## Getting Started:
 
 Welcome to the Hydrus Software Stack. This is the collection of ROS packages for running RUMarino AUV.
@@ -89,61 +88,60 @@ In order to use the cuda version you need to make sure you have installed the fo
     rosbag play <file_path> --loop
     ```
 
+## Working with Docker Containers and tmux Sessions
 
-## USBIPD Installation
+### Entering the Docker Container
 
-### Prerequisites:
-- Windows 10 or later
-- x64 processor
-- WSL
-- Linux distribution (Ubuntu will be used for this example)
+After starting the Docker environment using `./run_docker.sh`, you can enter the running container with:
 
-### Installation steps
+```bash
+# List all running containers
+docker ps
 
-1. Download the installer from the [usbipd-win releases](https://github.com/dorssel/usbipd-win/releases) (.msi file).
-2. Run the installer to complete installation.
+# Enter the hydrus container (replace CONTAINER_ID with the actual ID)
+docker exec -it CONTAINER_ID bash
 
-### Attaching USB devices to WSL
+# Alternatively, use the container name directly
+docker exec -it hydrus bash
+```
 
-###### Note: Make sure to have a WSL command line open, using Ubuntu.
+### Working with tmux Sessions
 
-1. Open PowerShell in **administrator mode**.
-2. List available USB devices with their bus IDs:
+The Hydrus software stack uses tmux for managing multiple terminal sessions. Here's how to work with them:
 
-    ```bash
-    usbipd list
-    ```
-    
-3. Share the USB device that you want to attach:
-
-   In this case, the device is the camera that will be used.
+1. Start the tmux sessions (if not automatically started):
 
     ```bash
-    usbipd bind --busid <busid>
+    # Inside the Docker container
+    cd /catkin_ws/src/hydrus-software-stack
+    ./start_tmux_sessions.sh
     ```
-    ###### Note: Run `usbipd list` again to make sure that the device is being shared.
 
-4. Attach the device to WSL:
+2. List available tmux sessions:
 
     ```bash
-    usbipd attach --wsl --busid <busid>
+    tmux ls
     ```
 
-5. In Ubuntu, verify that the device is attached:
+3. Attach to a specific tmux session:
 
     ```bash
-    lsusb
+    # Attach to the serial_connection session
+    tmux attach -t serial_connection
     ```
-    ###### Note: You may need to install lsusb using `sudo apt-get install usbutils`.
 
-6. Open VSCode from Ubuntu:
+4. Basic tmux navigation commands:
+   - Switch between windows: `Ctrl+B` then window number (e.g., `Ctrl+B` then `0`)
+   - Switch between panes: `Ctrl+B` then arrow keys
+   - Detach from session (without closing it): `Ctrl+B` then `D`
+   - Create a new window: `Ctrl+B` then `C`
+   - Split pane horizontally: `Ctrl+B` then `"`
+   - Split pane vertically: `Ctrl+B` then `%`
 
+5. Exit a tmux session completely:
     ```bash
-    code .
+    # First detach with Ctrl+B then D
+    # Then kill the session if needed
+    tmux kill-session -t session_name
     ```
 
-7. You can now interact with the device. Once you finish, go back to PowerShell and disconnect the device:
-
-    ```bash
-    usbipd detach --busid <busid>
-    ```
