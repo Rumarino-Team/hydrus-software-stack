@@ -22,6 +22,8 @@ services:
       - "8000:8000"
     devices:
       - "/dev/ttyACM0:/dev/ttyACM0"
+      - "/dev/ttyACM1:/dev/ttyACM1"  # Added ttyACM1 mapping
+      - "/dev/ttyUSB0:/dev/ttyUSB0"  # Added ttyUSB0 mapping
       - "/dev/dri:/dev/dri"
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
@@ -37,6 +39,7 @@ services:
       - "../rosbags:/rosbags"
     depends_on:
       - ros-master
+    restart: unless-stopped  # Added restart policy
     ulimits:
       nofile:
         soft: 1024

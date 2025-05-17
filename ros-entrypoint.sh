@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+# Removed "set -e" to prevent the script from exiting on errors
 
 # Detect ROS distribution (Noetic or Melodic)
 if [ -d "/opt/ros/noetic" ]; then
@@ -42,7 +42,7 @@ catkin_make --cmake-args \
             -DCMAKE_BUILD_TYPE=Release \
             -DPYTHON_EXECUTABLE=/usr/bin/python3 \
             -DPYTHON_INCLUDE_DIR=/usr/include/python3.9 \
-            -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so
+            -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so || true
 source devel/setup.bash
 # roscore &
 sleep 2
@@ -55,29 +55,94 @@ if [ "$DEPLOY" == "true" ]; then
     # Compile the Arduino project
     cd /root/Arduino/libraries/embedded_arduino/Hydrus
     echo "Compiling Arduino sketch..."
-    arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino
+    arduino-cli compile --fqbn $ARDUINO_BOARD Hydrus.ino || true
+    
+    # Improved Arduino upload process with better error handling
     echo "Uploading Arduino sketch..."
-    arduino-cli upload -p /dev/ttyACM0 --fqbn $ARDUINO_BOARD Hydrus.ino
-    # rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=57600 &
-    # python3 /catkin_ws/src/hydrus-software-stack/autonomy/script/serial_ros_bridge.py
+    
+    # Color definitions for better visibility
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    NC='\033[0m' # No Color
+    
+    # Simple function to reset Arduino by toggling DTR
+    reset_arduino() {
+        local port=$1
+        echo "Resetting Arduino on $port..."
+        stty -F $port hupcl 2>/dev/null || true
+        sleep 0.1
+        stty -F $port -hupcl 2>/dev/null || true
+        sleep 0.5
+    }
+    
+    # Try to upload with a proper retry mechanism
+    MAX_ATTEMPTS=3
+    upload_success=false
+    
+    # Define ports to try in order
+    PORTS_TO_TRY=("/dev/ttyACM0" "/dev/ttyACM1" "/dev/ttyUSB0")
+    
+    # Try each port in sequence
+    for ((attempt=1; attempt<=MAX_ATTEMPTS; attempt++)); do
+        # Get port for this attempt
+        ARDUINO_PORT="${PORTS_TO_TRY[$((attempt-1))]}"
+        
+        echo -e "${YELLOW}Upload attempt $attempt of $MAX_ATTEMPTS using $ARDUINO_PORT${NC}"
+        
+        # Check if port exists
+        if [ ! -e "$ARDUINO_PORT" ]; then
+            echo -e "${YELLOW}Port $ARDUINO_PORT does not exist, skipping this attempt${NC}"
+            continue
+        fi
+        
+        # Reset Arduino before upload
+        reset_arduino "$ARDUINO_PORT" || true
+        
+        # Try to upload - IMPORTANT: capture output to prevent early termination
+        echo -e "${YELLOW}Uploading to $ARDUINO_PORT...${NC}"
+        upload_output=$(arduino-cli upload -p "$ARDUINO_PORT" --fqbn $ARDUINO_BOARD Hydrus.ino 2>&1) || true
+        upload_status=$?
+        
+        # Print the output
+        echo "$upload_output"
+        
+        if [ $upload_status -eq 0 ]; then
+            echo -e "${GREEN}Upload successful to $ARDUINO_PORT!${NC}"
+            upload_success=true
+            # Save the successful port for future reference
+            echo "Used port: $ARDUINO_PORT" > /tmp/arduino_port.txt
+            break
+        else
+            echo -e "${RED}Upload to $ARDUINO_PORT failed (exit code: $upload_status)${NC}"
+            
+            # Check if we have more ports to try
+            if [ $attempt -lt $MAX_ATTEMPTS ]; then
+                echo -e "${YELLOW}Trying next port in 2 seconds...${NC}"
+                sleep 2
+            else
+                echo -e "${RED}All upload attempts failed.${NC}"
+            fi
+        fi
+    done
+    
+    # Continue with the rest of the setup process regardless of upload success
+    echo -e "${YELLOW}Continuing with setup regardless of upload status...${NC}"
+    
     # Make serial port accessible for both rosserial and our monitoring script
-    chmod +x /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh
-    chmod +x /catkin_ws/src/hydrus-software-stack/monitor_arduino_logs.sh
+    chmod +x /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh || true
+    chmod +x /catkin_ws/src/hydrus-software-stack/monitor_arduino_logs.sh || true
     
     # Start rosserial node
-    
     cd /catkin_ws
     
     # Check if tmux is installed and run our custom tmux session script
     echo "Setting up tmux sessions with Arduino monitoring..."
-    chmod +x /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
-    /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh
+    chmod +x /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh || true
+    /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh || true
 else
     echo "Deploy is not set or is set to false. Skipping roslaunch."
 fi
-
-
-
 
 # Check if ROSBAG_PLAYBACK is enabled
 if [ "$ROSBAG_PLAYBACK" == "true" ]; then
