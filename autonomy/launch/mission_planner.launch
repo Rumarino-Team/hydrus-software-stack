@@ -5,8 +5,10 @@
     This launch file starts the mission_manager node for autonomous operations
   -->
 
-  <!-- Launch the mission_manager node -->
+  <!-- Launch the mission_manager node with full package path -->
   <node pkg="autonomy" type="mission_manager.py" name="mission_manager" output="screen">
     <remap from="/mission_status" to="/mission_status" />
   </node>
+
+
 </launch>

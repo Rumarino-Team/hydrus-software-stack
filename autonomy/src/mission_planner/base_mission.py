@@ -24,6 +24,12 @@ class BaseMission:
         self.completed = False
         self.active = False
         
+        # Mission progress tracking
+        self.completion_percentage = 0.0
+        self.total_tasks = 0
+        self.completed_tasks = 0
+        self.current_task_progress = 0.0
+        
         # Configuration
         self.cls_names = {}  # To be defined by subclass
         self.mission_tree_root: Optional[MissionTreeNode] = None
@@ -59,6 +65,7 @@ class BaseMission:
         # For feedback
         self.current_task_name = "None"
         self.current_object_name = "None"
+        self.current_phase = "Initialization"
     
     # ROS Callbacks
     def detection_callback(self, msg: Detections):
@@ -114,11 +121,16 @@ class BaseMission:
             self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
             self.controller_client.wait_for_result()
             
+            # Update progress based on waypoints completed
             if self.controller_client.get_result().success:
                 self.current_waypoint_index += 1
+                if len(self.waypoints) > 0:
+                    self.current_task_progress = (self.current_waypoint_index / len(self.waypoints)) * 100
+                
                 if self.current_waypoint_index >= len(self.waypoints):
                     self.waypoints = []
                     self.current_waypoint_index = 0
+                    self.current_task_progress = 100.0
                     return True
                 return False
             return False
@@ -132,8 +144,13 @@ class BaseMission:
             goal.target_point = position
             self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
         
-        if (rospy.Time.now() - self.current_task_start_time).to_sec() >= self.task_params.hold_time:
+        # Update progress based on time elapsed
+        elapsed_time = (rospy.Time.now() - self.current_task_start_time).to_sec()
+        self.current_task_progress = min(100.0, (elapsed_time / self.task_params.hold_time) * 100)
+        
+        if elapsed_time >= self.task_params.hold_time:
             self.current_task_start_time = None
+            self.current_task_progress = 100.0
             return True
         return False
     
@@ -187,6 +204,8 @@ class BaseMission:
             self.current_task_name = task.name
             self.current_object_name = object_cls if object_cls is not None else "N/A"
             
+            task_completed = False
+            
             if task == TaskType.SURFACE:
                 if self.submarine_pose is None:
                     rospy.logwarn("Submarine pose not available for SURFACE task.")
@@ -196,7 +215,7 @@ class BaseMission:
                     y=self.submarine_pose.pose.position.y,
                     z=0.0
                 )
-                return self.execute_move_to_center(surface_point)
+                task_completed = self.execute_move_to_center(surface_point)
             else:
                 if object_cls is None:
                     rospy.logwarn(f"Object class not specified for task {task.name}")
@@ -205,15 +224,22 @@ class BaseMission:
                 if mission_object is None:
                     rospy.logwarn(f"No mission object found for {object_cls}")
                     return False
+                
                 if task == TaskType.MOVE_TO_CENTER:
-                    return self.execute_move_to_center(mission_object.position)
+                    task_completed = self.execute_move_to_center(mission_object.position)
                 elif task == TaskType.MOVE_AROUND:
-                    return self.execute_move_around(mission_object.position)
+                    task_completed = self.execute_move_around(mission_object.position)
                 elif task == TaskType.HOLD_POSITION:
-                    return self.execute_hold_position(mission_object.position)
+                    task_completed = self.execute_hold_position(mission_object.position)
                 else:
                     rospy.logwarn(f"Unsupported task: {task.name}")
                     return False
+            
+            if task_completed:
+                self.completed_tasks += 1
+                self.update_completion_percentage()
+            
+            return task_completed
         return action
     
     def execute_search(self) -> bool:
@@ -222,16 +248,46 @@ class BaseMission:
         rospy.sleep(2)  # Simulate search delay
         return True
     
+    def update_completion_percentage(self):
+        """Update the mission completion percentage"""
+        if self.total_tasks > 0:
+            self.completion_percentage = (self.completed_tasks / self.total_tasks) * 100
+        else:
+            self.completion_percentage = 0.0
+    
+    def count_total_tasks(self):
+        """Count the total number of tasks in the mission tree"""
+        self.total_tasks = 0
+        if self.mission_tree_root:
+            self._count_tasks(self.mission_tree_root)
+    
+    def _count_tasks(self, node):
+        """Recursive helper to count tasks"""
+        if node is None:
+            return
+        
+        if node.action is not None:
+            self.total_tasks += 1
+        
+        for child in node.children:
+            self._count_tasks(child)
+    
     def build_mission_tree(self) -> MissionTreeNode:
         """Build the mission tree - to be implemented by subclass"""
         raise NotImplementedError("Subclass must implement build_mission_tree()")
     
     def get_status(self) -> dict:
-        """Get the mission status - to be implemented by subclass"""
+        """Get the mission status"""
         return {
             "name": self.name,
             "completed": self.completed,
-            "active": self.active
+            "active": self.active,
+            "completion_percentage": self.completion_percentage,
+            "current_phase": self.current_phase,
+            "current_task": self.current_task_name,
+            "current_object": self.current_object_name,
+            "task_progress": self.current_task_progress,
+            "detected_objects": list(self.detected_objects)
         }
     
     def run(self):
@@ -251,6 +307,10 @@ class BaseMission:
     def reset(self):
         """Reset the mission state"""
         self.completed = False
+        self.completion_percentage = 0.0
+        self.completed_tasks = 0
+        self.current_task_progress = 0.0
+        self.current_phase = "Initialization"
         if self.mission_tree_root:
             self.mission_tree_root.reset()
         rospy.loginfo(f"Mission '{self.name}' reset")

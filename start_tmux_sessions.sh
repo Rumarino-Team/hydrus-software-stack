@@ -97,7 +97,7 @@ tmux send-keys -t hydrus:3.0 "echo 'Starting Mission Manager'; source /catkin_ws
 
 # Split window for mission visualization/status
 tmux split-window -h -t hydrus:3.0
-tmux send-keys -t hydrus:3.1 "echo 'Starting Mission Monitor'; source /catkin_ws/devel/setup.bash && rostopic echo /mission_manager/status" C-m
+tmux send-keys -t hydrus:3.1 "echo 'Starting Mission Controller'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/mission/mission_controller.py" C-m
 
 # Set a tiled layout for the Mission Planning window
 tmux select-layout -t hydrus:3 even-horizontal
