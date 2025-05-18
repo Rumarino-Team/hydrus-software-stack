@@ -9,11 +9,11 @@ if ! command -v tmux &> /dev/null; then
 fi
 
 # Setup serial monitor for Arduino if it's not already running
-# if [ ! -f "/tmp/hydrus_serial/catpid.txt" ]; then
-#     echo "Setting up Arduino serial monitoring..."
-#     bash /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh /dev/ttyACM0
-#     sleep 2  # Give some time for setup
-# fi
+if [ ! -f "/tmp/hydrus_serial/catpid.txt" ]; then
+    echo "Setting up Arduino serial monitoring..."
+    bash /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh /dev/ttyACM0
+    sleep 2  # Give some time for setup
+fi
 # ----------------------------------------------------------------------
 # Create a new tmux session named 'hydrus' for thrusters visualization
 # ----------------------------------------------------------------------
