@@ -25,7 +25,7 @@ from autonomy.msg import Detection, Detections
 from autonomy.srv import SetColorFilter, SetColorFilterResponse
 
 ############################
-# Custom cv_bridge replacementss
+# Custom cv_bridge replacements
 ############################
 
 # Convert ROS Image to OpenCV (numpy array)
