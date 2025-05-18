@@ -3,11 +3,13 @@
 import math
 import rospy
 import actionlib
+import time
 from geometry_msgs.msg import Point, PoseStamped, TwistStamped
 from std_msgs.msg import Int16
 from dataclasses import dataclass, field
 from typing import List
 from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointFeedback, NavigateToWaypointResult
+from autonomy.srv import FireTorpedo, FireTorpedoResponse
 
 
 # ASCII representation of the position of the thrusters:
@@ -31,6 +33,7 @@ class ProportionalController:
         PWM_NEUTRAL: int = 1500       # Neutral position
         PWM_MIN: int = 1300           # Max reverse
         PWM_MAX: int = 1700           # Max forward
+        PWM_TORPEDO_FIRE: int = 1800  # Value to fire torpedo
 
         DEPTH_PWM_ADJUST: int = 50       # PWM adjustment for depth
         ROTATION_PWM_ADJUST: int = 50    # PWM adjustment for rotation
@@ -43,6 +46,8 @@ class ProportionalController:
         FRONT_MOTORS_ID: list = field(default_factory=lambda: [1, 5])
         BACK_MOTORS_ID: list = field(default_factory=lambda: [4, 8])
         TORPEDO_MOTORS_ID: list = field(default_factory=lambda: [3, 6])
+        
+        TORPEDO_FIRE_DURATION: float = 1.0  # Time in seconds to keep the torpedo motors at fire PWM
 
     def __init__(self):
         # Create an instance of Constants for access to class attributes
@@ -75,10 +80,50 @@ class ProportionalController:
         
         def imu_pose_callback(msg):
             self.submarine_pose = msg
+            
         rospy.Subscriber("/zed2i/zed_node/pose", PoseStamped, imu_pose_callback)
         self.server = actionlib.SimpleActionServer('controller_action', NavigateToWaypointAction, self.execute_callback, False)
         self.server.start()
         
+        # Initialize the torpedo firing service
+        rospy.Service('fire_torpedo', FireTorpedo, self.handle_fire_torpedo)
+        rospy.loginfo("Torpedo firing service initialized and ready")
+        
+    def handle_fire_torpedo(self, req):
+        """Handle torpedo firing service requests"""
+        torpedo_number = req.torpedo_number
+        
+        if torpedo_number not in [1, 2]:
+            return FireTorpedoResponse(
+                success=False,
+                message=f"Invalid torpedo number: {torpedo_number}. Must be 1 or 2."
+            )
+        
+        try:
+            rospy.loginfo(f"Firing torpedo {torpedo_number}")
+            
+            # Send firing PWM value to torpedo motors
+            self.torpedo_pub.publish(Int16(self.const.PWM_TORPEDO_FIRE))
+            
+            # Wait for the firing duration
+            rospy.sleep(self.const.TORPEDO_FIRE_DURATION)
+            
+            # Reset to neutral PWM
+            self.torpedo_pub.publish(Int16(self.const.PWM_NEUTRAL))
+            
+            rospy.loginfo(f"Torpedo {torpedo_number} fired successfully")
+            return FireTorpedoResponse(
+                success=True,
+                message=f"Torpedo {torpedo_number} fired successfully"
+            )
+            
+        except Exception as e:
+            error_msg = f"Failed to fire torpedo {torpedo_number}: {str(e)}"
+            rospy.logerr(error_msg)
+            return FireTorpedoResponse(
+                success=False,
+                message=error_msg
+            )
 
     def execute_callback(self, goal): 
         feedback = NavigateToWaypointFeedback()

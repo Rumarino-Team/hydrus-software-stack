@@ -15,6 +15,9 @@ class TaskType(Enum):
     HOLD_POSITION = auto()
     SEARCH = auto()
     SURFACE = auto()
+    FIRE_TORPEDO = auto()
+    APPROACH_TARGET = auto()
+    IDENTIFY_TARGET = auto()
 
 @dataclass
 class MissionObject:

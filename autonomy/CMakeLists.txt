@@ -28,7 +28,6 @@ add_message_files(
   FILES
   Detection.msg
   Detections.msg
-  SimulationState.msg
 )
 
 
@@ -42,6 +41,7 @@ add_service_files(
   FILES
   SetColorFilter.srv
   SetYoloModel.srv
+  FireTorpedo.srv
 )
 
 # Generate added messages and services

@@ -10,6 +10,7 @@ from std_srvs.srv import SetBool, SetBoolResponse, Trigger, TriggerResponse
 from mission_planner.base_mission import BaseMission
 from mission_planner.prequalification_mission import PreQualificationMission
 from mission_planner.slalom_mission import SlalomMission
+from mission_planner.tagging_mission import TaggingMission
 
 class MissionManager:
     """    roslaunch autonomy mission_planner.launch
@@ -29,6 +30,7 @@ class MissionManager:
         # Register missions
         self.register_mission("prequalification", PreQualificationMission())
         self.register_mission("slalom", SlalomMission())
+        self.register_mission("tagging", TaggingMission())
         
         # Set default mission
         self.select_mission("prequalification")
