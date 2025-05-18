@@ -469,12 +469,13 @@ class MissionController:
         selected_mission = self.available_missions[self.selected_index]
         
         try:
-            # Service expects a boolean parameter but we'll use a string in data field
+            # Call the select_mission service with the mission name as data
             response = self.select_service(selected_mission)
-            if response.success:
+                
+            if response and response.success:
                 self.show_message(f"Selected mission: {selected_mission}")
             else:
-                self.show_message(f"ERROR: {response.message}")
+                self.show_message(f"ERROR: {response.message if response else 'Unknown error'}")
         except rospy.ServiceException as e:
             self.show_message(f"Service error: {e}")
     

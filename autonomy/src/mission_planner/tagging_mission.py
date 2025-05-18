@@ -74,7 +74,7 @@ class TaggingMission(BaseMission):
         self.current_phase = "Initialization"
         self.phases = [
             "Search for Board",
-            "Approach Board",
+            "Approach Board", current speed said data should be encoded in such a way that the code currently running in the sub can read it.
             "Identify First Target",
             "Fire First Torpedo",
             "Identify Second Target",
@@ -86,40 +86,40 @@ class TaggingMission(BaseMission):
     def build_mission_tree(self) -> MissionTreeNode:
         """Build the mission execution tree"""
         # Root node
-        root = MissionTreeNode("Root")
+        root = MissionTreeNode(task=TaskType.SEARCH, name="Root")
         
         # Phase 1: Search for the board
-        search_board = MissionTreeNode("Search for Board")
+        search_board = MissionTreeNode(task=TaskType.SEARCH, name="Search for Board")
         search_board.action = self.create_action(TaskType.SEARCH, "board")
         root.add_child(search_board)
         
         # Phase 2: Move to and approach the board
-        approach_board = MissionTreeNode("Approach Board")
+        approach_board = MissionTreeNode(task=TaskType.APPROACH_TARGET, name="Approach Board")
         approach_board.action = self.create_action(TaskType.APPROACH_TARGET, "board")
         search_board.add_child(approach_board)
         
         # Phase 3: Identify first target (animal chosen in previous task)
-        identify_first = MissionTreeNode(f"Identify {self.target_animal}")
+        identify_first = MissionTreeNode(task=TaskType.IDENTIFY_TARGET, name=f"Identify {self.target_animal}")
         identify_first.action = self.create_action(TaskType.IDENTIFY_TARGET, self.target_animal)
         approach_board.add_child(identify_first)
         
         # Phase 4: Fire first torpedo
-        fire_first = MissionTreeNode(f"Fire at {self.target_animal}")
+        fire_first = MissionTreeNode(task=TaskType.FIRE_TORPEDO, name=f"Fire at {self.target_animal}")
         fire_first.action = self.create_action(TaskType.FIRE_TORPEDO, self.target_animal)
         identify_first.add_child(fire_first)
         
         # Phase 5: Identify second target
-        identify_second = MissionTreeNode(f"Identify {self.second_animal}")
+        identify_second = MissionTreeNode(task=TaskType.IDENTIFY_TARGET, name=f"Identify {self.second_animal}")
         identify_second.action = self.create_action(TaskType.IDENTIFY_TARGET, self.second_animal)
         fire_first.add_child(identify_second)
         
         # Phase 6: Fire second torpedo
-        fire_second = MissionTreeNode(f"Fire at {self.second_animal}")
+        fire_second = MissionTreeNode(task=TaskType.FIRE_TORPEDO, name=f"Fire at {self.second_animal}")
         fire_second.action = self.create_action(TaskType.FIRE_TORPEDO, self.second_animal)
         identify_second.add_child(fire_second)
         
         # Phase 7: Surface after task completion
-        surface = MissionTreeNode("Surface")
+        surface = MissionTreeNode(task=TaskType.SURFACE, name="Surface")
         surface.action = self.create_action(TaskType.SURFACE, None)
         fire_second.add_child(surface)
         
