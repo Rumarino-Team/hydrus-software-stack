@@ -28,6 +28,7 @@ add_message_files(
   FILES
   Detection.msg
   Detections.msg
+  SimulationState.msg
 )
 
 
