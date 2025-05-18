@@ -9,11 +9,13 @@ if ! command -v tmux &> /dev/null; then
 fi
 
 # Setup serial monitor for Arduino if it's not already running
+set +e # Ignore errors for the next command, allows tmux to stil run even if the arduino is not connected
 if [ ! -f "/tmp/hydrus_serial/catpid.txt" ]; then
     echo "Setting up Arduino serial monitoring..."
     bash /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh /dev/ttyACM0
     sleep 2  # Give some time for setup
 fi
+set -e
 # ----------------------------------------------------------------------
 # Create a new tmux session named 'hydrus' for thrusters visualization
 # ----------------------------------------------------------------------
@@ -22,9 +24,9 @@ tmux new-session -d -s hydrus -n "Controls"
 # First pane: Run serial_ros_bridge.py
 tmux send-keys -t hydrus "echo 'Starting Serial ROS Bridge'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/controller/serial_ros_bridge.py _port:=/dev/ttyACM0 _baud_rate:=115200" C-m
 
-# Second pane: Run submarine_teleop.py
+# Second pane: Run controllers.py
 tmux split-window -v -t hydrus
-tmux send-keys -t hydrus:0.1 "echo 'Starting Submarine Teleop'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/src/controllers.py" C-m
+tmux send-keys -t hydrus:0.1 "echo 'Starting Controller Node'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/src/controllers.py" C-m
 
 # Third pane: Run thruster_visualizer.py
 tmux split-window -h -t hydrus:0.1
@@ -87,5 +89,4 @@ tmux select-window -t hydrus:0
 # Set the layout to maintain the custom sizing
 tmux select-pane -t hydrus:0.1
 
-# Attach to the hydrus tmux session (we'll let the user switch to the hydrus session manually)
-# tmux attach-session -t hydrusw
+echo "Tmux session 'hydrus' created. You can attach to it using 'tmux attach -t hydrus'."
