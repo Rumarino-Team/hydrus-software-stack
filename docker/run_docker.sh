@@ -19,6 +19,37 @@ is_wsl() {
   fi
 }
 
+# Function to check if rosbags exist and offer to download if not
+check_rosbags() {
+  # Get the directory of the script
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+  ROSBAG_DIR="$PARENT_DIR/rosbags"
+  
+  # Check if directory exists and has any .bag files
+  if [[ ! -d "$ROSBAG_DIR" ]] || [[ -z "$(find "$ROSBAG_DIR" -name "*.bag" 2>/dev/null)" ]]; then
+    echo "No ROS bag files found in $ROSBAG_DIR"
+    echo "Would you like to download the default rosbag?"
+    read -p "(y/n) " download_choice
+    case $download_choice in 
+      [Yy]* ) 
+        echo "Running download script..."
+        python3 "$PARENT_DIR/download_rosbag.py"
+        return $?
+        ;;
+      [Nn]* ) 
+        echo "Continuing without downloading rosbag files."
+        return 1
+        ;;
+      * ) 
+        echo "Invalid input. Continuing without downloading."
+        return 1
+        ;;
+    esac
+  fi
+  
+  return 0
+}
 
 DEPLOY=false  
 VOLUME=false  
@@ -45,9 +76,18 @@ while true; do
   echo "Do you want to play rosbag files from the rosbags folder?"
   read -p "(y/n) " rosbag_choice
   case $rosbag_choice in 
-    [Yy]* ) ROSBAG_PLAYBACK=true; break;;
-    [Nn]* ) break;;
-    * ) echo "Invalid input. Please try again.";;
+    [Yy]* ) 
+      ROSBAG_PLAYBACK=true
+      # Check if rosbags exist, offer to download if not
+      check_rosbags
+      break
+      ;;
+    [Nn]* ) 
+      break
+      ;;
+    * ) 
+      echo "Invalid input. Please try again."
+      ;;
   esac
 done
 
