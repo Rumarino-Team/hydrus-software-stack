@@ -35,7 +35,7 @@ services:
       - DEBUG_ARDUINO
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
     volumes:
-      - "../:/home/catkin_ws/src"
+      - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
       - "../rosbags:/rosbags"
       - "../yolo_models:/yolo_models"  # Volume for YOLO models

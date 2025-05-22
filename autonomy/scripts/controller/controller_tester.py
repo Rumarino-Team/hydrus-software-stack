@@ -3,6 +3,7 @@
 import rospy
 from geometry_msgs.msg import Point, PoseStamped, Quaternion
 from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal
+from std_msgs.msg import Int16
 import actionlib
 import random
 import math
@@ -21,7 +22,130 @@ class ControllerTester:
         rospy.loginfo("Controller action server started.")
         
         # Constants to match those in controllers.py
-        self.DELTA = 0.2  # Threshold for considering a step complete
+        self.DELTA = 0.05  # Threshold for considering a step complete
+        self.PWM_NEUTRAL = 1500
+        
+        # Current simulated position state
+        self.current_pose = PoseStamped()
+        self.current_pose.header.frame_id = "base_link"
+        self.current_pose.pose.position.x = 0.0
+        self.current_pose.pose.position.y = 0.0
+        self.current_pose.pose.position.z = 0.0
+        self.current_pose.pose.orientation = self.euler_to_quaternion(0)  # Start facing forward
+        
+        # Movement state based on thruster commands
+        self.moving_vertically = 0    # -1: down, 0: no vertical movement, 1: up
+        self.moving_forward = 0       # -1: backward, 0: no forward movement, 1: forward
+        self.rotating = 0             # -1: left, 0: no rotation, 1: right
+        
+        # Position update rates (meters per second or radians per second)
+        self.vertical_rate = 0.02     # 2 cm per update at 10Hz = 0.2 m/s
+        self.forward_rate = 0.03      # 3 cm per update at 10Hz = 0.3 m/s
+        self.rotation_rate = 0.02     # 0.02 radians per update at 10Hz = ~0.2 rad/s
+        
+        # Subscribe to thruster commands to update movement state
+        rospy.Subscriber('/hydrus/depth', Int16, self.depth_callback)
+        
+        # Subscribe to individual thruster commands to detect rotation and forward movement
+        for i in range(1, 9):
+            rospy.Subscriber(f'/hydrus/thrusters/{i}', Int16, 
+                            lambda msg, idx=i: self.thruster_callback(msg, idx))
+        
+        # Timer to update position based on current movement state
+        self.update_timer = rospy.Timer(rospy.Duration(0.1), self.update_position)  # 10 Hz updates
+
+    def depth_callback(self, msg):
+        """Update vertical movement state based on depth commands"""
+        pwm = msg.data
+        if abs(pwm - self.PWM_NEUTRAL) < 10:
+            self.moving_vertically = 0
+        elif pwm > self.PWM_NEUTRAL:
+            self.moving_vertically = 1  # Moving up
+            rospy.loginfo(f"Simulating upward movement (PWM: {pwm})")
+        else:
+            self.moving_vertically = -1  # Moving down
+            rospy.loginfo(f"Simulating downward movement (PWM: {pwm})")
+
+    def thruster_callback(self, msg, thruster_id):
+        """Update rotation and forward movement based on individual thruster commands"""
+        pwm = msg.data
+        
+        # Front motors are 1 and 5
+        if thruster_id in [1, 5]:
+            if abs(pwm - self.PWM_NEUTRAL) < 10:
+                return
+            
+            # Differential thrust for front motors affects rotation
+            if thruster_id == 1 and pwm < self.PWM_NEUTRAL:
+                self.rotating = 1  # Rotating right
+            elif thruster_id == 1 and pwm > self.PWM_NEUTRAL:
+                self.rotating = -1  # Rotating left
+            elif thruster_id == 5 and pwm < self.PWM_NEUTRAL:
+                self.rotating = -1  # Rotating left
+            elif thruster_id == 5 and pwm > self.PWM_NEUTRAL:
+                self.rotating = 1  # Rotating right
+                
+            # Front motors BELOW neutral (reverse) help move FORWARD
+            if pwm < self.PWM_NEUTRAL:
+                self.moving_forward = 1  # Move forward
+            else:
+                self.moving_forward = -1  # Move backward
+                
+        # Back motors are 4 and 8
+        elif thruster_id in [4, 8]:
+            if abs(pwm - self.PWM_NEUTRAL) < 10:
+                return
+                
+            # Differential thrust for back motors affects rotation
+            if thruster_id == 4 and pwm < self.PWM_NEUTRAL:
+                self.rotating = 1  # Rotating right
+            elif thruster_id == 4 and pwm > self.PWM_NEUTRAL:
+                self.rotating = -1  # Rotating left
+            elif thruster_id == 8 and pwm < self.PWM_NEUTRAL:
+                self.rotating = -1  # Rotating left
+            elif thruster_id == 8 and pwm > self.PWM_NEUTRAL:
+                self.rotating = 1  # Rotating right
+                
+            # Back motors ABOVE neutral (forward) help move FORWARD
+            if pwm > self.PWM_NEUTRAL:
+                self.moving_forward = 1  # Move forward
+            else:
+                self.moving_forward = -1  # Move backward
+
+    def update_position(self, event):
+        """Update the simulated position based on current movement state"""
+        if not hasattr(self, 'current_pose'):
+            return
+            
+        # Update depth position
+        if self.moving_vertically != 0:
+            self.current_pose.pose.position.z += self.moving_vertically * self.vertical_rate
+            rospy.loginfo(f"Updated depth: {self.current_pose.pose.position.z:.3f} m")
+            
+        # Get current yaw from quaternion
+        current_orientation = self.current_pose.pose.orientation
+        siny_cosp = 2 * (current_orientation.w * current_orientation.z + current_orientation.x * current_orientation.y)
+        cosy_cosp = 1 - 2 * (current_orientation.y**2 + current_orientation.z**2)
+        current_yaw = math.atan2(siny_cosp, cosy_cosp)
+        
+        # Update rotation
+        if self.rotating != 0:
+            new_yaw = current_yaw + (self.rotating * self.rotation_rate)
+            self.current_pose.pose.orientation = self.euler_to_quaternion(new_yaw)
+            rospy.loginfo(f"Updated rotation: {math.degrees(new_yaw):.1f}°")
+            
+        # Update forward position based on current orientation and movement direction
+        if self.moving_forward != 0:
+            # Move in the direction we're facing, with the sign determined by moving_forward
+            # If positive, move in the direction we're facing; if negative, move opposite
+            forward_direction = self.moving_forward
+            self.current_pose.pose.position.x += forward_direction * math.cos(current_yaw) * self.forward_rate
+            self.current_pose.pose.position.y += forward_direction * math.sin(current_yaw) * self.forward_rate
+            rospy.loginfo(f"Updated position: ({self.current_pose.pose.position.x:.3f}, {self.current_pose.pose.position.y:.3f})")
+            
+        # Always publish the pose to provide continuous position updates
+        self.current_pose.header.stamp = rospy.Time.now()
+        self.pose_publisher.publish(self.current_pose)
 
     def euler_to_quaternion(self, yaw, pitch=0, roll=0):
         """
@@ -63,18 +187,18 @@ class ControllerTester:
             time_to_reach: Total time in seconds it should take to reach the target
         """
         # Initialize pose
-        pose = PoseStamped()
-        pose.header.frame_id = "base_link"
-        pose.pose.position.x = 0.0
-        pose.pose.position.y = 0.0
-        pose.pose.position.z = 0.0
-        pose.pose.orientation = self.euler_to_quaternion(0)  # Start facing forward (0 radians)
+        self.current_pose = PoseStamped()
+        self.current_pose.header.frame_id = "base_link"
+        self.current_pose.pose.position.x = 0.0
+        self.current_pose.pose.position.y = 0.0
+        self.current_pose.pose.position.z = 0.0
+        self.current_pose.pose.orientation = self.euler_to_quaternion(0)  # Start facing forward (0 radians)
 
         # Movement states: [depth, rotation, linear]
         moving = [True, False, False]
         
         # Calculate initial distances for each phase
-        depth_distance = abs(target_point.z - pose.pose.position.z)
+        depth_distance = abs(target_point.z - self.current_pose.pose.position.z)
         
         # Allocate time for each movement phase (proportionally to distances)
         total_time = time_to_reach
@@ -85,81 +209,44 @@ class ControllerTester:
         rotation_step_size = math.pi / (time_per_phase * 10)  # Assuming max of PI radians to rotate
         
         # Calculate linear distance (after depth and rotation are complete)
-        dx = target_point.x - pose.pose.position.x
-        dy = target_point.y - pose.pose.position.y
+        dx = target_point.x - self.current_pose.pose.position.x
+        dy = target_point.y - self.current_pose.pose.position.y
         linear_distance = (dx**2 + dy**2) ** 0.5
         linear_step_size = linear_distance / (time_per_phase * 10) if linear_distance > 0 else 0.1  # 10 Hz rate
         
         rospy.loginfo(f"Simulating movement to reach target in {time_to_reach} seconds")
         rospy.loginfo(f"Movement sequence: Depth → Rotation → Linear")
-
+        
+        # NOTE: The rest of this method is just the manual simulation
+        # The real position updates will now come from the update_position method
+        # based on thruster commands, so we'll just monitor progress here
+        
+        start_time = rospy.Time.now()
         rate = rospy.Rate(10)  # 10 Hz
         
         while not rospy.is_shutdown():
-            # Update current phase based on progress
-            if moving[0]:  # Depth adjustment
-                dz = target_point.z - pose.pose.position.z
-                depth_distance = abs(dz)
-                
-                if depth_distance > self.DELTA:
-                    # Move up or down
-                    pose.pose.position.z += math.copysign(depth_step_size, dz)
-                    rospy.loginfo(f"Adjusting depth: current z={pose.pose.position.z:.2f}, target z={target_point.z:.2f}")
-                else:
-                    # Complete depth phase
-                    rospy.loginfo("Depth adjustment complete")
-                    moving = [False, True, False]  # Move to rotation phase
+            # Check if we've reached the target
+            current_pos = self.current_pose.pose.position
+            distance = math.sqrt(
+                (current_pos.x - target_point.x)**2 + 
+                (current_pos.y - target_point.y)**2 + 
+                (current_pos.z - target_point.z)**2
+            )
             
-            elif moving[1]:  # Rotation adjustment
-                # Calculate target yaw to face the target
-                target_yaw = self.calculate_yaw_to_target(pose.pose.position, target_point)
+            if distance < self.DELTA:
+                rospy.loginfo(f"Target reached! Final position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f})")
+                break
                 
-                # Extract current yaw from quaternion
-                current_orientation = pose.pose.orientation
-                siny_cosp = 2 * (current_orientation.w * current_orientation.z + current_orientation.x * current_orientation.y)
-                cosy_cosp = 1 - 2 * (current_orientation.y**2 + current_orientation.z**2)
-                current_yaw = math.atan2(siny_cosp, cosy_cosp)
+            # Check if we've timed out (3x the expected time)
+            elapsed = (rospy.Time.now() - start_time).to_sec()
+            if elapsed > time_to_reach * 3:
+                rospy.logwarn(f"Timeout reached after {elapsed:.1f} seconds. Current distance to target: {distance:.3f}")
+                break
                 
-                # Calculate angle difference
-                angle_diff = target_yaw - current_yaw
-                while angle_diff > math.pi:
-                    angle_diff -= 2.0 * math.pi
-                while angle_diff < -math.pi:
-                    angle_diff += 2.0 * math.pi
+            # Log current position periodically
+            if int(elapsed * 10) % 20 == 0:  # Every ~2 seconds
+                rospy.loginfo(f"Current position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f}), distance: {distance:.3f}")
                 
-                if abs(angle_diff) > self.DELTA:
-                    # Rotate towards target
-                    rotation_direction = 1 if angle_diff > 0 else -1
-                    new_yaw = current_yaw + rotation_direction * rotation_step_size
-                    pose.pose.orientation = self.euler_to_quaternion(new_yaw)
-                    rospy.loginfo(f"Rotating: current={math.degrees(current_yaw):.1f}°, target={math.degrees(target_yaw):.1f}°")
-                else:
-                    # Complete rotation phase
-                    rospy.loginfo("Rotation complete")
-                    moving = [False, False, True]  # Move to linear phase
-            
-            elif moving[2]:  # Linear movement
-                dx = target_point.x - pose.pose.position.x
-                dy = target_point.y - pose.pose.position.y
-                distance = (dx**2 + dy**2) ** 0.5
-                
-                if distance > self.DELTA:
-                    # Move in a straight line towards target
-                    if distance > 0:
-                        pose.pose.position.x += linear_step_size * (dx / distance)
-                        pose.pose.position.y += linear_step_size * (dy / distance)
-                    rospy.loginfo(f"Moving forward: distance={distance:.2f}")
-                else:
-                    # Complete linear phase and entire movement
-                    rospy.loginfo("Target reached")
-                    break
-            
-            # Publish the updated pose
-            self.pose_publisher.publish(pose)
-            
-            # Log current position
-            rospy.loginfo(f"Current position: ({pose.pose.position.x:.2f}, {pose.pose.position.y:.2f}, {pose.pose.position.z:.2f})")
-            
             rate.sleep()
 
     def test_controller(self, target_point, time_to_reach=10.0):

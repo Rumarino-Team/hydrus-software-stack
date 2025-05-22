@@ -5,7 +5,7 @@ import rospy
 import actionlib
 import time
 from geometry_msgs.msg import Point, PoseStamped, TwistStamped, Twist
-from std_msgs.msg import Int16
+from std_msgs.msg import Int16, Float32, Int16MultiArray
 from dataclasses import dataclass, field
 from typing import List
 from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointFeedback, NavigateToWaypointResult
@@ -39,7 +39,7 @@ class ProportionalController:
         ROTATION_PWM_ADJUST: int = 50    # PWM adjustment for rotation
         LINEAR_PWM_ADJUST: int = 50      # PWM adjustment for linear movement
         
-        DELTA: float = 0.01
+        DELTA: float = 0.05             # Distance threshold (increased from 0.01 to prevent controller from never stopping)
         
         TOTAL_THRUSTERS: int = 8
         DEPTH_MOTORS_ID: list = field(default_factory=lambda: [2, 7])
@@ -77,6 +77,11 @@ class ProportionalController:
         self.depth_pub = rospy.Publisher("/hydrus/depth", Int16, queue_size=10)
         self.torpedo_pub = rospy.Publisher("/hydrus/torpedo", Int16, queue_size=10)
         self.cmd_vel_pub = rospy.Publisher("/submarine/cmd_vel", Twist, queue_size=10)
+        
+        # Add publishers for controller state monitoring
+        self.target_pub = rospy.Publisher("/controller/target_point", Point, queue_size=10)
+        self.moving_state_pub = rospy.Publisher("/controller/moving_state", Int16MultiArray, queue_size=10)
+        self.delta_pub = rospy.Publisher("/controller/delta", Float32, queue_size=10)
         
         def imu_pose_callback(msg):
             self.submarine_pose = msg
@@ -130,8 +135,13 @@ class ProportionalController:
         result = NavigateToWaypointResult()
 
         # The target point is set
+        self.target_point = goal.target_point
         target_point = goal.target_point
         rospy.loginfo(f"Goal received: target_point=({target_point.x}, {target_point.y}, {target_point.z})")
+        
+        # Publish the target point and delta value for monitoring
+        self.target_pub.publish(self.target_point)
+        self.delta_pub.publish(Float32(self.const.DELTA))
         
         # Initialize movement sequence to start with depth control
         self.moving = [True, False, False]  # [depth, rotation, linear]
@@ -221,6 +231,17 @@ class ProportionalController:
 
         # Publish cmd_vel for visualization/tracking
         self._publish_cmd_vel()
+        
+        # Publish target point for monitoring
+        if self.target_point is not None:
+            self.target_pub.publish(Point(self.target_point.x, self.target_point.y, self.target_point.z))
+        
+        # Publish moving state
+        self.moving_state_pub.publish(Int16MultiArray(data=[int(m) for m in self.moving]))
+        
+        # Publish delta value (distance to target)
+        distance = self.calculate_distance(self.submarine_pose.pose.position, self.target_point) if self.submarine_pose and self.target_point else 0.0
+        self.delta_pub.publish(Float32(distance))
         
     def _publish_cmd_vel(self):
         tw = Twist()
