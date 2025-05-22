@@ -4,7 +4,7 @@ import math
 import rospy
 import actionlib
 import time
-from geometry_msgs.msg import Point, PoseStamped, TwistStamped
+from geometry_msgs.msg import Point, PoseStamped, TwistStamped, Twist
 from std_msgs.msg import Int16
 from dataclasses import dataclass, field
 from typing import List
@@ -76,7 +76,7 @@ class ProportionalController:
         # Add depth and torpedo publishers
         self.depth_pub = rospy.Publisher("/hydrus/depth", Int16, queue_size=10)
         self.torpedo_pub = rospy.Publisher("/hydrus/torpedo", Int16, queue_size=10)
-        self.cmd_vel_pub = rospy.Publisher("/submarine/cmd_vel", TwistStamped, queue_size=10)
+        self.cmd_vel_pub = rospy.Publisher("/submarine/cmd_vel", Twist, queue_size=10)
         
         def imu_pose_callback(msg):
             self.submarine_pose = msg
@@ -223,9 +223,7 @@ class ProportionalController:
         self._publish_cmd_vel()
         
     def _publish_cmd_vel(self):
-        tw = TwistStamped()
-        tw.header.stamp = rospy.Time.now()
-        tw.header.frame_id = "base_link"
+        tw = Twist()
 
         # Convert PWM values to normalized values for twist message
         # PWM range: PWM_MIN to PWM_MAX, normalize to -1.0 to 1.0
@@ -237,16 +235,16 @@ class ProportionalController:
         depth_motor_indices = [m-1 for m in self.const.DEPTH_MOTORS_ID]
         
         fwd_pwm = sum(self.thruster_values[m] for m in front_motor_indices + back_motor_indices) / 4.0
-        tw.twist.linear.x = (fwd_pwm - self.const.PWM_NEUTRAL) / pwm_range
+        tw.linear.x = (fwd_pwm - self.const.PWM_NEUTRAL) / pwm_range
         
         # Depth velocity - average of depth motors
         depth_pwm = sum(self.thruster_values[m] for m in depth_motor_indices) / 2.0
-        tw.twist.linear.z = (depth_pwm - self.const.PWM_NEUTRAL) / pwm_range
+        tw.linear.z = (depth_pwm - self.const.PWM_NEUTRAL) / pwm_range
         
         # Angular velocity - difference between left and right side motors
         left_pwm = sum(self.thruster_values[m] for m in [front_motor_indices[0], back_motor_indices[0]]) / 2.0
         right_pwm = sum(self.thruster_values[m] for m in [front_motor_indices[1], back_motor_indices[1]]) / 2.0
-        tw.twist.angular.z = (right_pwm - left_pwm) / pwm_range
+        tw.angular.z = (right_pwm - left_pwm) / pwm_range
         
         self.cmd_vel_pub.publish(tw)
 

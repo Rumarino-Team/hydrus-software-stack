@@ -74,7 +74,7 @@ class TaggingMission(BaseMission):
         self.current_phase = "Initialization"
         self.phases = [
             "Search for Board",
-            "Approach Board", current speed said data should be encoded in such a way that the code currently running in the sub can read it.
+            "Approach Board",
             "Identify First Target",
             "Fire First Torpedo",
             "Identify Second Target",
