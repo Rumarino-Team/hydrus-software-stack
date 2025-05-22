@@ -40,7 +40,7 @@ class TaggingMission(BaseMission):
         }
         
         # Task-specific parameters
-        self.target_animal = "reef_shark"  # Could be updated from previous mission
+        self.target_animal = "reef_shark"  # Default target - will be updated from gate mission
         self.second_animal = "sawfish"     # The other animal to target after the first
         
         # Preferred firing distance - "far" distance for more points
@@ -314,6 +314,3 @@ class TaggingMission(BaseMission):
         else:
             rospy.logwarn("[Tagging] No mission tree defined")
             self.deactivate()
-
-# For importing from mission_manager.py
-from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal

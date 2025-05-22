@@ -11,6 +11,7 @@ from mission_planner.base_mission import BaseMission
 from mission_planner.prequalification_mission import PreQualificationMission
 from mission_planner.slalom_mission import SlalomMission
 from mission_planner.tagging_mission import TaggingMission
+from mission_planner.gate_mission import GateMission
 
 class MissionManager:
     """    roslaunch autonomy mission_planner.launch
@@ -30,10 +31,16 @@ class MissionManager:
         # Register missions
         self.register_mission("prequalification", PreQualificationMission())
         self.register_mission("slalom", SlalomMission())
+        self.register_mission("gate", GateMission())
         self.register_mission("tagging", TaggingMission())
         
         # Set default mission
         self.select_mission("prequalification")
+        
+        # Mission dependencies - to share information between missions
+        self.mission_dependencies = {
+            "tagging": ["gate"]  # Tagging mission depends on Gate mission
+        }
         
         # Publishers
         self.status_pub = rospy.Publisher('/mission_manager/status', String, queue_size=10)
@@ -69,7 +76,33 @@ class MissionManager:
         self.active_mission = self.missions[mission_name]
         rospy.loginfo(f"Selected mission: {mission_name}")
         
+        # Apply mission dependencies if any
+        self.apply_mission_dependencies(mission_name)
+        
         return True
+
+    def apply_mission_dependencies(self, mission_name: str):
+        """Apply dependencies for the selected mission"""
+        if mission_name in self.mission_dependencies:
+            for dependency in self.mission_dependencies[mission_name]:
+                if dependency in self.missions:
+                    # Check if the dependent mission is completed
+                    dependency_mission = self.missions[dependency]
+                    
+                    if dependency == "gate" and mission_name == "tagging":
+                        # Gate mission dependency for Tagging mission
+                        gate_mission = self.missions["gate"]
+                        tagging_mission = self.missions["tagging"]
+                        
+                        # If gate mission is completed, get the chosen animal
+                        if gate_mission.completed:
+                            chosen_animal = gate_mission.get_chosen_animal()
+                            tagging_mission.set_target_animal(chosen_animal)
+                            rospy.loginfo(f"Applied dependency: Tagging mission will target {chosen_animal}")
+                        else:
+                            rospy.logwarn(f"Dependency '{dependency}' for mission '{mission_name}' is not completed")
+                else:
+                    rospy.logwarn(f"Dependency '{dependency}' for mission '{mission_name}' not found")
     
     def start_mission(self) -> bool:
         """Start the active mission"""
