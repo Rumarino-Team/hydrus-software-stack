@@ -34,13 +34,13 @@ class MissionManager:
         self.register_mission("gate", GateMission())
         self.register_mission("tagging", TaggingMission())
         
-        # Set default mission
-        self.select_mission("prequalification")
-        
         # Mission dependencies - to share information between missions
         self.mission_dependencies = {
             "tagging": ["gate"]  # Tagging mission depends on Gate mission
         }
+
+        # Set default mission
+        self.select_mission("prequalification")
         
         # Publishers
         self.status_pub = rospy.Publisher('/mission_manager/status', String, queue_size=10)
