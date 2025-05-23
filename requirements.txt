@@ -8,4 +8,3 @@ Flask
 requests
 numpy
 colorama
-gdown

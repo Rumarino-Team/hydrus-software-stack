@@ -87,12 +87,14 @@ class ColorFilterController:
     def switch_yolo_model(self, model_name):
         """Switch to a different YOLO model"""
         if self.set_yolo_model is None:
-            print("YOLO model service not available. Cannot switch models.")
-            return False
+            error_msg = "YOLO model service not available. Cannot switch models."
+            print(error_msg)
+            return False, error_msg
             
         if model_name not in self.yolo_models:
-            print(f"Model '{model_name}' not found! Available models: {', '.join(self.yolo_models)}")
-            return False
+            error_msg = f"Model '{model_name}' not found! Available models: {', '.join(self.yolo_models)}"
+            print(error_msg)
+            return False, error_msg
             
         try:
             request = SetYoloModelRequest()
@@ -103,13 +105,15 @@ class ColorFilterController:
                 self.current_yolo_model = model_name
                 print(f"YOLO model switched to: {model_name}")
                 print(f"Response: {response.message}")
-                return True
+                return True, f"Switched to {model_name}"
             else:
-                print(f"Failed to switch YOLO model: {response.message}")
-                return False
+                error_msg = f"Failed to switch YOLO model: {response.message}"
+                print(error_msg)
+                return False, error_msg
         except rospy.ServiceException as e:
-            print(f"Service call failed: {e}")
-            return False
+            error_msg = f"Service call failed: {e}"
+            print(error_msg)
+            return False, error_msg
 
     def load_saved_presets(self):
         """Load saved color presets from files"""
@@ -422,7 +426,7 @@ def run_curses_interface(stdscr, controller):
         input_win.clear()
         input_win.box()
         input_win.addstr(0, 2, "Input", curses.A_BOLD)
-        input_win.addstr(1, 2, "> " + command)
+        input_win.addstr(1, 2, ">" + command)
         input_win.refresh()
         
         # Refresh all windows
@@ -523,10 +527,8 @@ def run_curses_interface(stdscr, controller):
             curses.curs_set(0)  # Hide cursor
             
             if model_name:
-                if controller.switch_yolo_model(model_name):
-                    status_message = f"Switched YOLO model: {model_name}"
-                else:
-                    status_message = f"Error switching model"
+                success, message = controller.switch_yolo_model(model_name)
+                status_message = message
             command = ""
 
 def main():

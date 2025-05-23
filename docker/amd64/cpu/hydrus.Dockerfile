@@ -70,16 +70,13 @@ RUN  arduino-cli lib install "Servo@1.2.1" && \
 COPY ./DVL/Wayfinder /opt/Wayfinder
 WORKDIR /opt/Wayfinder
     
-# Copy the Python Dependencies and Install them
-COPY ./requirements.txt /requirements.txt
-    
 # Ultralytics with NO GPU
 RUN python3 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
+# Copy the Python Dependencies and Install them
+COPY ./requirements.txt /requirements.txt
 RUN python3 -m pip install --ignore-installed -r /requirements.txt
     
 # Install Default models for YOLO
-RUN curl -Lo /yolov8n.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8n.pt
-RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/latest/download/yolov8s-world.pt
 RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 
 # Install additional dependencies for the embedded node
