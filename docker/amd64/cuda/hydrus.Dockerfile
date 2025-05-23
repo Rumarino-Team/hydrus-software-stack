@@ -14,7 +14,11 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa && \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
 
 # Install pip for Python 3.8
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
+RUN curl -sS https://bootstrap.pypa.io/pip/3.8/get-pip.py | python3.8
+
+#Add kisak-mesa PPA (for latest graphics drivers)
+RUN add-apt-repository -y ppa:kisak/kisak-mesa
+
 
 # Camera and Computer Vision Dependencies Python-3
 RUN apt-get update && apt-get install -y \
@@ -57,14 +61,9 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 WORKDIR /usr/local/
 RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh && \
     arduino-cli core update-index && \
-    arduino-cli core install arduino:avr
-RUN arduino-cli lib install "Rosserial Arduino Library@0.7.9" && \
-    sed -i '/#include "ros\/node_handle.h"/a #include "geometry_msgs/Vector3.h"' /root/Arduino/libraries/Rosserial_Arduino_Library/src/ros.h && \
+    arduino-cli core install arduino:avr &&\
     arduino-cli lib install "Servo@1.2.1" && \
     arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
-RUN apt-get install -y ros-noetic-rosserial-arduino
-
-
 
 
 # Copy the Python Dependencies and Install them
@@ -80,8 +79,12 @@ RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/la
 
 RUN apt-get install -y libeigen3-dev python3-tf2-kdl
 RUN apt-get update && apt-get install -y ros-noetic-tf2-geometry-msgs
-
 RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
+
+# Install additional dependencies for the embedded node
+# Install tmux, vim, git, and htop in a single RUN command
+RUN apt-get update && apt-get install -y tmux vim git htop socat
+
 # Copy embedded Arduino code in the Arduino libraries folder
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 

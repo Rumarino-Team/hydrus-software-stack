@@ -3,3 +3,8 @@ uvicorn
 fastapi
 matplotlib
 termcolor
+pyserial
+Flask
+requests
+numpy
+colorama

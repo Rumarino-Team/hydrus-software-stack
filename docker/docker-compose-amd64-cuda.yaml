@@ -52,23 +52,31 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - "../:/home/catkin_ws/src"
+      - "../:/home/catkin_ws/src/hydrus-software-stack"
       - /tmp/.X11-unix:/tmp/.X11-unix 
+      - "../rosbags:/rosbags"
+      - "../yolo_models:/yolo_models"  # Volume for YOLO models
     ports:
       - "8000:8000"
     devices:
       - "/dev/ttyACM0:/dev/ttyACM0"
+      - "/dev/ttyACM1:/dev/ttyACM1"  # Added ttyACM1 mapping
+      - "/dev/ttyUSB0:/dev/ttyUSB0"  # Added ttyUSB0 mapping
+      - "/dev/dri:/dev/dri"
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
-      - ARDUINO_BOARD=arduino:avr:mega
+      - ARDUINO_BOARD=arduino:avr:uno
       - DISPLAY=${DISPLAY}
       - DEPLOY
       - VOLUME
+      - ROSBAG_PLAYBACK
+      - DEBUG_ARDUINO
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
     depends_on:
       - ros-master
       - zed-camera
+    restart: unless-stopped  # Added restart policy
     ulimits:
       nofile:
         soft: 1024
