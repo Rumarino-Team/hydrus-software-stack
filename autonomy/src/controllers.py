@@ -365,11 +365,11 @@ class ProportionalController:
             rospy.loginfo(f"Linear movement: distance={distance:.2f}, delta={self.const.DELTA}")
 
             if distance > self.const.DELTA:
-                # Set front motors to use negative PWM delta (below neutral)
+                # Set front motors to use positive PWM delta (above neutral), the Arduino will handle thruster orientation
                 for motor_id in self.const.FRONT_MOTORS_ID:
                     idx = motor_id - 1  # Convert 1-based to 0-based index
-                    self.thruster_values[idx] = self.const.PWM_NEUTRAL - self.const.LINEAR_PWM_ADJUST
-                    rospy.loginfo(f"Setting front motor {motor_id} to reverse: {self.const.PWM_NEUTRAL - self.const.LINEAR_PWM_ADJUST}")
+                    self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST
+                    rospy.loginfo(f"Setting back motor {motor_id} to forward: {self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST}")
                     
                 # Set back motors to use positive PWM delta (above neutral)
                 for motor_id in self.const.BACK_MOTORS_ID:
@@ -377,7 +377,7 @@ class ProportionalController:
                     self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST
                     rospy.loginfo(f"Setting back motor {motor_id} to forward: {self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST}")
                 
-                rospy.loginfo("Moving forward with differential thrust (front: reverse, back: forward)")
+                rospy.loginfo("Moving forward with differential thrust")
                 return False
             else:
                 # Stop forward movement by setting all thrusters to neutral
