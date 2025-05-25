@@ -195,21 +195,20 @@ class ProportionalController:
         # Use the proper pose attributes consistently
         position = current_pose.pose.position
 
-        if self.moving[0]:  # Move in the depth direction
-            if abs(position.z - target_point.z) > self.const.DELTA:
-                self.adjust_depth_motors(current_pose, target_point)
-            else:
-                self.moving = [False, True, False]
-                rospy.loginfo("Depth adjustment complete, switching to rotation")
-        elif self.moving[1]:  # Rotate to face the target point
-            if self.adjust_rotation_motors(current_pose, target_point):
-                self.moving = [False, False, True]
-                rospy.loginfo("Rotation complete, switching to forward movement")
-        elif self.moving[2]:  # Move forward
-            if self.adjust_linear_motors(current_pose, target_point):
-                self.moving = [True, False, False]  # Reset to depth movement if necessary
-                rospy.loginfo("Forward movement complete, rechecking depth")
-
+        if abs(position.z - target_point.z) > self.const.DELTA:
+            self.adjust_depth_motors(current_pose, target_point)
+            self.moving[0] = True
+        else:
+            self.moving[0] = False
+        rotation_done = self.adjust_rotation_motors(current_pose, target_point)
+        if rotation_done:
+            self.adjust_linear_motors(current_pose, target_point)
+            self.moving[1] = False
+            self.moving[2] = True
+        else:
+            self.moving[1] = True
+            self.moving[2] = False
+        
         # Publish thruster values
         self._publish_all()
             
@@ -369,7 +368,7 @@ class ProportionalController:
                 for motor_id in self.const.FRONT_MOTORS_ID:
                     idx = motor_id - 1  # Convert 1-based to 0-based index
                     self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST
-                    rospy.loginfo(f"Setting back motor {motor_id} to forward: {self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST}")
+                    rospy.loginfo(f"Setting front motor {motor_id} to forward: {self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST}")
                     
                 # Set back motors to use positive PWM delta (above neutral)
                 for motor_id in self.const.BACK_MOTORS_ID:
