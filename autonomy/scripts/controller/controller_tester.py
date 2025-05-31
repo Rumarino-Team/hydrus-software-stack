@@ -36,7 +36,9 @@ class ControllerTester:
         # Movement state based on thruster commands
         self.moving_vertically = 0    # -1: down, 0: no vertical movement, 1: up
         self.moving_forward = 0       # -1: backward, 0: no forward movement, 1: forward
-        self.rotating = 0             # -1: left, 0: no rotation, 1: right
+        self.pwm_front = [0, 0]
+        self.pwm_back = [0, 0]
+        self.rotating = [0, 0, 0, 0]  # -1: left, 0: no rotation, 1: right
         
         # Position update rates (meters per second or radians per second)
         self.vertical_rate = 0.02     # 2 cm per update at 10Hz = 0.2 m/s
@@ -69,48 +71,54 @@ class ControllerTester:
     def thruster_callback(self, msg, thruster_id):
         """Update rotation and forward movement based on individual thruster commands"""
         pwm = msg.data
+        if thruster_id in [2, 3, 6, 7]:
+            return
         
         # Front motors are 1 and 5
         if thruster_id in [1, 5]:
-            if abs(pwm - self.PWM_NEUTRAL) < 10:
-                return
+            if (abs(pwm - self.PWM_NEUTRAL) < 10):
+               return
             
             # Differential thrust for front motors affects rotation
-            if thruster_id == 1 and pwm < self.PWM_NEUTRAL:
-                self.rotating = 1  # Rotating right
-            elif thruster_id == 1 and pwm > self.PWM_NEUTRAL:
-                self.rotating = -1  # Rotating left
-            elif thruster_id == 5 and pwm < self.PWM_NEUTRAL:
-                self.rotating = -1  # Rotating left
-            elif thruster_id == 5 and pwm > self.PWM_NEUTRAL:
-                self.rotating = 1  # Rotating right
-                
-            # Front motors BELOW neutral (reverse) help move FORWARD
-            if pwm < self.PWM_NEUTRAL:
-                self.moving_forward = 1  # Move forward
-            else:
-                self.moving_forward = -1  # Move backward
-                
+            if thruster_id == 1:
+                self.pwm_front[0] = pwm
+                if pwm < self.PWM_NEUTRAL:
+                    self.rotating[0] =  1   # Rotating right
+                elif pwm > self.PWM_NEUTRAL:
+                    self.rotating[0] = -1   # Rotating left
+                else:
+                    self.rotating[0] =  0
+            elif thruster_id == 5:
+                self.pwm_front[1] = pwm
+                if pwm < self.PWM_NEUTRAL:
+                    self.rotating[1] = -1   # Rotating left
+                elif pwm > self.PWM_NEUTRAL:
+                    self.rotating[1] =  1   # Rotating right
+                else:
+                    self.rotating[1] = 0
+                    
         # Back motors are 4 and 8
         elif thruster_id in [4, 8]:
-            if abs(pwm - self.PWM_NEUTRAL) < 10:
+            if (abs(pwm - self.PWM_NEUTRAL) < 10):
                 return
                 
             # Differential thrust for back motors affects rotation
-            if thruster_id == 4 and pwm < self.PWM_NEUTRAL:
-                self.rotating = 1  # Rotating right
-            elif thruster_id == 4 and pwm > self.PWM_NEUTRAL:
-                self.rotating = -1  # Rotating left
-            elif thruster_id == 8 and pwm < self.PWM_NEUTRAL:
-                self.rotating = -1  # Rotating left
-            elif thruster_id == 8 and pwm > self.PWM_NEUTRAL:
-                self.rotating = 1  # Rotating right
-                
-            # Back motors ABOVE neutral (forward) help move FORWARD
-            if pwm > self.PWM_NEUTRAL:
-                self.moving_forward = 1  # Move forward
-            else:
-                self.moving_forward = -1  # Move backward
+            if thruster_id == 4:
+                self.pwm_back[0] = pwm
+                if pwm < self.PWM_NEUTRAL:
+                    self.rotating[2] =  1   # Rotating right
+                elif pwm > self.PWM_NEUTRAL:
+                    self.rotating[2] = -1   # Rotating left
+                else:
+                    self.rotating[2] =  0
+            elif thruster_id == 8:
+                self.pwm_back[1] = pwm
+                if pwm < self.PWM_NEUTRAL:
+                    self.rotating[3] = -1   # Rotating left
+                elif pwm > self.PWM_NEUTRAL:
+                    self.rotating[3] =  1   # Rotating right
+                else:
+                    self.rotating[3] = 0
 
     def update_position(self, event):
         """Update the simulated position based on current movement state"""
@@ -129,11 +137,43 @@ class ControllerTester:
         current_yaw = math.atan2(siny_cosp, cosy_cosp)
         
         # Update rotation
-        if self.rotating != 0:
-            new_yaw = current_yaw + (self.rotating * self.rotation_rate)
+        net_rotation = sum(self.rotating)
+        if net_rotation != 0:
+            rotation = 0
+            if net_rotation > 0:
+                rotation = 1
+            else:
+                rotation = -1
+            new_yaw = current_yaw + (rotation * self.rotation_rate)
             self.current_pose.pose.orientation = self.euler_to_quaternion(new_yaw)
             rospy.loginfo(f"Updated rotation: {math.degrees(new_yaw):.1f}°")
-            
+        elif 0 not in self.pwm_front and 0 not in self.pwm_back:
+            # Check for several scenarios where in real life forward or backward momentum would ocur
+            # It might be a bit overengineered but it works ¯\_(ツ)_/¯
+            first_cross_equals = (self.pwm_front[0] == self.pwm_back[1]) and (self.pwm_front[0] != self.PWM_NEUTRAL)
+            second_cross_equals = (self.pwm_front[1] == self.pwm_back[0]) and (self.pwm_front[1] != self.PWM_NEUTRAL)
+            front_equals = (self.pwm_front[0] == self.pwm_front[1]) and (self.pwm_front[0] != self.PWM_NEUTRAL)
+            back_equals = (self.pwm_back[0] == self.pwm_back[1]) and (self.pwm_back[0] != self.PWM_NEUTRAL)
+
+            if first_cross_equals or front_equals:
+                if self.pwm_front[0] > self.PWM_NEUTRAL:
+                    self.moving_forward = 1
+                elif self.pwm_front[0] < self.PWM_NEUTRAL:
+                    self.moving_forward = -1
+            elif second_cross_equals:
+                if self.pwm_front[1] > self.PWM_NEUTRAL:
+                    self.moving_forward = 1
+                elif self.pwm_front[1] < self.PWM_NEUTRAL:
+                    self.moving_forward = -1
+            elif back_equals:
+                if self.pwm_back[0] > self.PWM_NEUTRAL:
+                    self.moving_forward = 1
+                elif self.pwm_back[0] < self.PWM_NEUTRAL:
+                    self.moving_forward = -1
+            else: 
+                self.moving_forward = 0
+        else:
+            self.moving_forward = 0
         # Update forward position based on current orientation and movement direction
         if self.moving_forward != 0:
             # Move in the direction we're facing, with the sign determined by moving_forward
