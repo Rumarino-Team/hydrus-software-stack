@@ -39,7 +39,7 @@ class ProportionalController:
         ROTATION_PWM_ADJUST: int = 50    # PWM adjustment for rotation
         LINEAR_PWM_ADJUST: int = 50      # PWM adjustment for linear movement
         
-        DELTA: float = 0.05             # Distance threshold (increased from 0.01 to prevent controller from never stopping)
+        DISTANCE_THRESHOLD: float = 0.05             # Distance threshold (increased from 0.01 to prevent controller from never stopping)
         
         TOTAL_THRUSTERS: int = 8
         DEPTH_MOTORS_ID: list = field(default_factory=lambda: [2, 7])
@@ -141,7 +141,7 @@ class ProportionalController:
         
         # Publish the target point and delta value for monitoring
         self.target_pub.publish(self.target_point)
-        self.delta_pub.publish(Float32(self.const.DELTA))
+        self.delta_pub.publish(Float32(self.const.DISTANCE_THRESHOLD))
         
         # Initialize movement sequence to start with depth control
         self.moving = [True, False, False]  # [depth, rotation, linear]
@@ -157,17 +157,19 @@ class ProportionalController:
 
             # Update feedback
             distance = self.calculate_distance(self.submarine_pose.pose.position, target_point)
-            feedback.success = distance < self.const.DELTA  # Update feedback so you know how close it is
+            feedback.success = distance < self.const.DISTANCE_THRESHOLD  # Update feedback so you know how close it is
             rospy.loginfo(f"Distance to target: {distance:.2f}")
 
             # Publish feedback
             self.server.publish_feedback(feedback)
 
             # Check if the target is reached
-            if distance - self.const.DELTA<0.05:
+            if distance - self.const.DISTANCE_THRESHOLD<0.05:
                 rospy.loginfo("Target reached.")
                 result.distance_to_target = distance
                 self.server.set_succeeded(result)  # Goal is reached, YAY!
+                #TODO: In real life, it might a be a good idea to make sure submarine stays on point (due to buoyancy)
+                self.moving = [False, False, False]
                 return
 
             # Check for preemption
@@ -195,7 +197,7 @@ class ProportionalController:
         # Use the proper pose attributes consistently
         position = current_pose.pose.position
 
-        if abs(position.z - target_point.z) > self.const.DELTA:
+        if abs(position.z - target_point.z) > self.const.DISTANCE_THRESHOLD:
             self.adjust_depth_motors(current_pose, target_point)
             self.moving[0] = True
         else:
@@ -278,7 +280,7 @@ class ProportionalController:
             
             rospy.loginfo(f"Depth adjustment: current={position.z:.2f}, target={target_point.z:.2f}, distance={depth_distance:.2f}")
             
-            if depth_distance > self.const.DELTA:
+            if depth_distance > self.const.DISTANCE_THRESHOLD:
                 if dz > 0:  # Need to go up
                     for motor_id in self.const.DEPTH_MOTORS_ID:
                         # Increase PWM for upward motion
@@ -312,7 +314,7 @@ class ProportionalController:
             
             rospy.loginfo(f"Rotation adjustment: target_yaw={target_yaw:.2f}, current_yaw={current_yaw:.2f}, diff={angle_diff:.2f}")
             
-            if abs(angle_diff) > self.const.DELTA:
+            if abs(angle_diff) > self.const.DISTANCE_THRESHOLD:
                 if angle_diff > 0:
                     # Rotate right - differentially adjust PWM values
                     for motor_id in self.const.FRONT_MOTORS_ID:
@@ -361,9 +363,9 @@ class ProportionalController:
             dy = target_point.y - position.y
             distance = math.sqrt(dx**2 + dy**2)
 
-            rospy.loginfo(f"Linear movement: distance={distance:.2f}, delta={self.const.DELTA}")
+            rospy.loginfo(f"Linear movement: distance={distance:.2f}, Distance Threshold={self.const.DISTANCE_THRESHOLD}")
 
-            if distance > self.const.DELTA:
+            if distance > self.const.DISTANCE_THRESHOLD:
                 # Set front motors to use positive PWM delta (above neutral), the Arduino will handle thruster orientation
                 for motor_id in self.const.FRONT_MOTORS_ID:
                     idx = motor_id - 1  # Convert 1-based to 0-based index
