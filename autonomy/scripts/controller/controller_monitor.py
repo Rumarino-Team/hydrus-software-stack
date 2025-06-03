@@ -25,7 +25,8 @@ class ControllerMonitor:
         self.target_point = None
         self.moving_state = [False, False, False]  # [depth, rotation, linear]
         self.last_state_change = time.time()
-        self.delta = 0.05  # Default threshold (can be updated from controller)
+        self.DISTANCE_THRESHOLD = 0.05  # Default threshold (can be updated from controller)
+        self.target_distance = float('inf')
         self.distance_to_target = float('inf')
         self.depth_distance = float('inf')
         self.rotation_distance = float('inf')
@@ -37,20 +38,11 @@ class ControllerMonitor:
         rospy.Subscriber('/zed2i/zed_node/pose', PoseStamped, self.pose_callback)
         rospy.Subscriber('/controller/target_point', Point, self.target_callback)
         rospy.Subscriber('/controller/moving_state', Int16MultiArray, self.state_callback)
-        rospy.Subscriber('/controller/delta', Float32, self.delta_callback)
+        rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
         
         # Set up display refresh rate
         self.rate = rospy.Rate(5)  # 5 Hz refresh rate
         
-        # If the controller isn't publishing these topics yet, create them
-        self.check_and_create_publishers()
-
-    def check_and_create_publishers(self):
-        """Create publishers for controller state info if they don't exist"""
-        # This is a temporary solution - ideally the controller would publish this information
-        self.target_pub = rospy.Publisher('/controller/target_point', Point, queue_size=10)
-        self.state_pub = rospy.Publisher('/controller/moving_state', Int16MultiArray, queue_size=10)
-        self.delta_pub = rospy.Publisher('/controller/delta', Float32, queue_size=10)
 
     def pose_callback(self, msg):
         """Store the current submarine pose"""
@@ -68,9 +60,9 @@ class ControllerMonitor:
         self.active_state_index = self.moving_state.index(True) if True in self.moving_state else -1
         self.last_state_change = time.time()
 
-    def delta_callback(self, msg):
-        """Update the delta threshold value"""
-        self.delta = msg.data
+    def target_distance_callback(self, msg):
+        """Update the target distance value"""
+        self.target_distance = msg.data
         
     def calculate_yaw_to_target(self, current_position, target_position):
         """Calculate yaw angle to target position"""
@@ -139,9 +131,6 @@ class ControllerMonitor:
         print(f"{Fore.YELLOW}ACTIVE MOVEMENT STATE:{Style.RESET_ALL} {Fore.GREEN}{state_str}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}STATE DURATION:{Style.RESET_ALL} {time.time() - self.last_state_change:.1f} seconds")
         
-        # Display DELTA threshold
-        print(f"{Fore.YELLOW}DELTA THRESHOLD:{Style.RESET_ALL} {self.delta:.4f}")
-        
         # Display current position
         if self.submarine_pose:
             pos = self.submarine_pose.pose.position
@@ -161,37 +150,37 @@ class ControllerMonitor:
         print(f"\n{Fore.YELLOW}MOVEMENT PHASE STATUS:{Style.RESET_ALL}")
         
         # Depth phase
-        depth_status = "COMPLETE" if self.depth_distance <= self.delta else "ACTIVE" if self.moving_state[0] else "PENDING"
+        depth_status = "COMPLETE" if self.depth_distance <= self.DISTANCE_THRESHOLD else "ACTIVE" if self.moving_state[0] else "PENDING"
         depth_color = Fore.GREEN if depth_status == "COMPLETE" else Fore.CYAN if depth_status == "ACTIVE" else Fore.WHITE
         print(f"  DEPTH PHASE:    {depth_color}{depth_status}{Style.RESET_ALL}")
         print(f"    Distance: {self.depth_distance:.4f} m")
-        print(f"    Remaining: {max(0, self.depth_distance - self.delta):.4f} m")
+        print(f"    Remaining: {max(0, self.depth_distance - self.target_distance):.4f} m")
         
         # Rotation phase
-        rotation_status = "COMPLETE" if self.rotation_distance <= self.delta else "ACTIVE" if self.moving_state[1] else "PENDING"
+        rotation_status = "COMPLETE" if self.rotation_distance <= self.DISTANCE_THRESHOLD else "ACTIVE" if self.moving_state[1] else "PENDING"
         rotation_color = Fore.GREEN if rotation_status == "COMPLETE" else Fore.CYAN if rotation_status == "ACTIVE" else Fore.WHITE
         print(f"  ROTATION PHASE: {rotation_color}{rotation_status}{Style.RESET_ALL}")
         print(f"    Angle diff: {math.degrees(self.rotation_distance):.1f}°")
-        print(f"    Remaining: {max(0, math.degrees(self.rotation_distance - self.delta)):.1f}°")
+        print(f"    Remaining: {max(0, math.degrees(self.rotation_distance - self.target_distance)):.1f}°")
         
         # Linear phase
-        linear_status = "COMPLETE" if self.linear_distance <= self.delta else "ACTIVE" if self.moving_state[2] else "PENDING"
+        linear_status = "COMPLETE" if self.linear_distance <= self.DISTANCE_THRESHOLD else "ACTIVE" if self.moving_state[2] else "PENDING"
         linear_color = Fore.GREEN if linear_status == "COMPLETE" else Fore.CYAN if linear_status == "ACTIVE" else Fore.WHITE
         print(f"  LINEAR PHASE:   {linear_color}{linear_status}{Style.RESET_ALL}")
         print(f"    Distance: {self.linear_distance:.4f} m")
-        print(f"    Remaining: {max(0, self.linear_distance - self.delta):.4f} m")
+        print(f"    Remaining: {max(0, self.linear_distance - self.target_distance):.4f} m")
         
         # Overall distance
         print(f"\n{Fore.YELLOW}OVERALL STATUS:{Style.RESET_ALL}")
-        overall_status = "COMPLETE" if self.distance_to_target <= self.delta else "IN PROGRESS"
+        overall_status = "COMPLETE" if self.target_distance <= self.DISTANCE_THRESHOLD else "IN PROGRESS"
         overall_color = Fore.GREEN if overall_status == "COMPLETE" else Fore.CYAN
         print(f"  STATUS: {overall_color}{overall_status}{Style.RESET_ALL}")
         print(f"  Total Distance: {self.distance_to_target:.4f} m")
-        print(f"  Completion: {min(100, max(0, (1 - (self.distance_to_target / (self.depth_distance + self.linear_distance + 0.001))) * 100)):.1f}%")
+        print(f"  Completion: {min(100, max(0, (1 - (self.target_distance / (self.depth_distance + self.linear_distance + 0.001))) * 100)):.1f}%")
 
         # Help information at bottom
-        print(f"\n{Fore.YELLOW}NOTE:{Style.RESET_ALL} If controller never stops updating, try increasing DELTA in controllers.py")
-        print(f"{Fore.YELLOW}DELTA location:{Style.RESET_ALL} controllers.py -> Constants class -> DELTA attribute (currently {self.delta})")
+        print(f"\n{Fore.YELLOW}NOTE:{Style.RESET_ALL} If controller never stops updating, try increasing DISTANCE_THRESHOLD in controllers.py")
+        print(f"{Fore.YELLOW}DELTA location:{Style.RESET_ALL} controllers.py -> Constants class -> DELTA attribute (currently {self.DISTANCE_THRESHOLD})")
 
     def run(self):
         """Main run loop"""

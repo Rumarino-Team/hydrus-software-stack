@@ -81,7 +81,7 @@ class ProportionalController:
         # Add publishers for controller state monitoring
         self.target_pub = rospy.Publisher("/controller/target_point", Point, queue_size=10)
         self.moving_state_pub = rospy.Publisher("/controller/moving_state", Int16MultiArray, queue_size=10)
-        self.delta_pub = rospy.Publisher("/controller/delta", Float32, queue_size=10)
+        self.target_distance_pub = rospy.Publisher("/controller/target_distance", Float32, queue_size=10)
         
         def imu_pose_callback(msg):
             self.submarine_pose = msg
@@ -139,9 +139,8 @@ class ProportionalController:
         target_point = goal.target_point
         rospy.loginfo(f"Goal received: target_point=({target_point.x}, {target_point.y}, {target_point.z})")
         
-        # Publish the target point and delta value for monitoring
+        # Publish the target point
         self.target_pub.publish(self.target_point)
-        self.delta_pub.publish(Float32(self.const.DISTANCE_THRESHOLD))
         
         # Initialize movement sequence to start with depth control
         self.moving = [True, False, False]  # [depth, rotation, linear]
@@ -242,7 +241,7 @@ class ProportionalController:
         
         # Publish delta value (distance to target)
         distance = self.calculate_distance(self.submarine_pose.pose.position, self.target_point) if self.submarine_pose and self.target_point else 0.0
-        self.delta_pub.publish(Float32(distance))
+        self.target_distance_pub.publish(Float32(distance))
         
     def _publish_cmd_vel(self):
         tw = Twist()
