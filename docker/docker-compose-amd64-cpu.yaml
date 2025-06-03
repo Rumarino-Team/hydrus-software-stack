@@ -11,6 +11,29 @@ services:
         soft: 1024
         hard: 524288
 
+  zed-camera:
+    build:
+      context: ../../hydrus-software-stack
+      dockerfile: docker/amd64/cpu/camera.Dockerfile
+    privileged: true
+    stdin_open: true
+    tty: true
+    environment:
+      - ROS_MASTER_URI=http://ros-master:11311
+      - DISPLAY=${DISPLAY}  # Pass the DISPLAY
+      - ZED_OPTION=${ZED_OPTION}  # Pass ZED options if needed
+    depends_on:
+      - ros-master
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 524288
+    volumes:
+      - "../:/home/catkin_ws/src"
+      - "/tmp/.X11-unix:/tmp/.X11-unix"  # For GUI applications
+      - "../rosbags:/rosbags"  # Volume for ROS bags
+      - "../yolo_models:/yolo_models"  # Volume for YOLO models
+
   hydrus_cpu:
     build:
       context: ../../hydrus-software-stack
@@ -34,6 +57,7 @@ services:
       - ROSBAG_PLAYBACK
       - DEBUG_ARDUINO
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
+      - ZED_OPTION=${ZED_OPTION}  # Pass ZED options if needed
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
@@ -41,6 +65,7 @@ services:
       - "../yolo_models:/yolo_models"  # Volume for YOLO models
     depends_on:
       - ros-master
+      - zed-camera  # Ensure zed-camera service is started first
     restart: unless-stopped  # Added restart policy
     ulimits:
       nofile:

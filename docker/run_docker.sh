@@ -103,6 +103,17 @@ while true; do
   esac
 done
 
+while true; do
+  echo "Do you want to display the ZED2i camera in RViz?"
+  read -p "(y/n)" choice
+  case $choice in 
+    [Yy]* ) ZED_OPTION=true; break;;
+    [Nn]* ) break;;
+    * ) echo "Invalid input. Please try again.";;
+  esac
+done
+echo "ZED_OPTION=$ZED_OPTION"
+
 # Check if --force-cpu was passed
 if [[ "$FORCE_CPU" == true ]]; then
   echo "Force CPU deployment selected. Running CPU version."
@@ -116,7 +127,7 @@ else
   # Check if system is WSL
   if is_wsl; then
     echo "WSL detected. Running without GPU support."
-    DEPLOY=$DEPLOY VOLUME=$VOLUME ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
+    DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
   # Check if system is Jetson TX2
   elif is_jetson_tx2; then
     echo "Jetson TX2 detected. Running Jetson TX2 Docker Compose."
@@ -126,16 +137,6 @@ else
     # Check if NVIDIA GPUs are available
     if nvidia-smi > /dev/null 2>&1; then
       echo "GPU available. Running with GPU support."
-      while true; do
-        echo "Do you want to display the ZED2i camera in RViz?"
-        read -p "(y/n)" choice
-        case $choice in 
-          [Yy]* ) ZED_OPTION=true; break;;
-          [Nn]* ) break;;
-          * ) echo "Invalid input. Please try again.";;
-        esac
-      done
-      echo "ZED_OPTION=$ZED_OPTION"
       DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cuda.yaml up
     else
       echo "No GPU available. Running without GPU support."
