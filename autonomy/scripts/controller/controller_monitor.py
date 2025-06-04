@@ -27,6 +27,8 @@ class ControllerMonitor:
         self.last_state_change = time.time()
         self.DISTANCE_THRESHOLD = 0.05  # Default threshold (can be updated from controller)
         self.target_distance = float('inf')
+        self.original_target_distance = float('inf')
+        self.distance_from_start = float('inf')
         self.distance_to_target = float('inf')
         self.depth_distance = float('inf')
         self.rotation_distance = float('inf')
@@ -36,6 +38,8 @@ class ControllerMonitor:
         
         # Subscribers
         rospy.Subscriber('/zed2i/zed_node/pose', PoseStamped, self.pose_callback)
+        rospy.Subscriber('/controller/original_target_distance', Float32, self.original_distance_callback)
+        rospy.Subscriber('/controller/distance_from_start', Float32, self.distance_from_start_callback)
         rospy.Subscriber('/controller/target_point', Point, self.target_callback)
         rospy.Subscriber('/controller/moving_state', Int16MultiArray, self.state_callback)
         rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
@@ -53,6 +57,14 @@ class ControllerMonitor:
         """Store the current target point"""
         self.target_point = msg
         self.update_distances()
+
+    def original_distance_callback(self, msg):
+        """Store the distance from start to point"""
+        self.original_target_distance = msg.data
+
+    def distance_from_start_callback(self, msg):
+        """Store the distance from start to current position"""
+        self.distance_from_start = msg.data
 
     def state_callback(self, msg):
         """Update the movement state array"""
@@ -176,7 +188,15 @@ class ControllerMonitor:
         overall_color = Fore.GREEN if overall_status == "COMPLETE" else Fore.CYAN
         print(f"  STATUS: {overall_color}{overall_status}{Style.RESET_ALL}")
         print(f"  Total Distance: {self.distance_to_target:.4f} m")
-        print(f"  Completion: {min(100, max(0, (1 - (self.target_distance / (self.depth_distance + self.linear_distance + 0.001))) * 100)):.1f}%")
+        if (self.submarine_pose):
+            if (self.distance_from_start >= self.original_target_distance - (self.original_target_distance * self.DISTANCE_THRESHOLD)):
+                percentage = 100
+            else:
+                percentage = (self.distance_from_start / self.original_target_distance) * 100
+            print(f"  Completion: {percentage:.1f}%")
+            print(f"  Original Distance: {self.original_target_distance:.1f}%")
+        else:
+            print("  Completion: N/A")
 
         # Help information at bottom
         print(f"\n{Fore.YELLOW}NOTE:{Style.RESET_ALL} If controller never stops updating, try increasing DISTANCE_THRESHOLD in controllers.py")
