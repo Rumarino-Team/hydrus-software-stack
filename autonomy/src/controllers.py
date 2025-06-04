@@ -82,6 +82,8 @@ class ProportionalController:
         self.target_pub = rospy.Publisher("/controller/target_point", Point, queue_size=10)
         self.moving_state_pub = rospy.Publisher("/controller/moving_state", Int16MultiArray, queue_size=10)
         self.target_distance_pub = rospy.Publisher("/controller/target_distance", Float32, queue_size=10)
+        self.original_distance_pub = rospy.Publisher("/controller/original_target_distance", Float32, queue_size=10)
+        self.distance_from_start_pub = rospy.Publisher("/controller/distance_from_start", Float32, queue_size=10)
         
         def imu_pose_callback(msg):
             self.submarine_pose = msg
@@ -147,12 +149,24 @@ class ProportionalController:
         rospy.loginfo("Movement sequence initialized: Depth control first")
 
         rate = rospy.Rate(10)  # This is set to 10 hz but you can change it if you like
-
+        original_recorded = False
+        original_distance = float('inf')
+        original_point = None
+        
         while not rospy.is_shutdown():
             if self.submarine_pose is None:
                 rospy.logwarn("Submarine pose is not available yet.")
                 rate.sleep()
                 continue
+
+            if (not original_recorded):
+                original_distance = self.calculate_distance(self.submarine_pose.pose.position, target_point)
+                original_point = self.submarine_pose.pose.position
+                original_recorded = True
+
+            self.original_distance_pub.publish(Float32(original_distance))
+            distance_from_start = self.calculate_distance(self.submarine_pose.pose.position, original_point)
+            self.distance_from_start_pub.publish(Float32(distance_from_start))
 
             # Update feedback
             distance = self.calculate_distance(self.submarine_pose.pose.position, target_point)
