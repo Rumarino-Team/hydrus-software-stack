@@ -2,12 +2,15 @@
 FROM ros:noetic-ros-base
 
 ARG DEBIAN_FRONTEND=noninteractive
-# Fix expired ROS GPG key before using apt-get
+
+# Install curl and gnupg before using them
+RUN apt-get update && apt-get install -y curl gnupg
+
+# Fix expired ROS GPG key before using ROS packages
 RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add -
 
-# Update package list
-RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
-
+# Now continue with the rest of the setup
+RUN apt-get install -y lsb-release software-properties-common
 # Add the deadsnakes PPA and install Python 3.8
 RUN add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
