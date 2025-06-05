@@ -77,6 +77,15 @@ class ArduinoSimulator:
     def thruster_callback(self, msg, thruster_id):
         """Update rotation and forward movement based on individual thruster commands"""
         pwm = msg.data
+        
+        # Real-time thruster validation if we're in test mode
+        if hasattr(self, 'expected_neutral_thrusters') and self.expected_neutral_thrusters:
+            if thruster_id in self.expected_neutral_thrusters:
+                if abs(pwm - self.PWM_NEUTRAL) > 10:  # Threshold for "active"
+                    error_msg = f"ASSERTION FAILED: Thruster {thruster_id} should stay neutral but got PWM {pwm} (expected ~{self.PWM_NEUTRAL})"
+                    rospy.logerr(error_msg)
+                    raise AssertionError(error_msg)
+        
         if thruster_id in [2, 3, 6, 7]:
             return
         
@@ -268,7 +277,7 @@ class ArduinoSimulator:
         # based on thruster commands, so we'll just monitor progress here
         
         start_time = rospy.Time.now()
-        rate = rospy.Rate(10)  # 10 Hz
+        rate = rospy.Rate(500)  # 500 Hz for almost instant testing
         
         while not rospy.is_shutdown():
             # Check if we've reached the target
@@ -290,16 +299,22 @@ class ArduinoSimulator:
                 
             rate.sleep()
 
-    def test_controller(self, target_point, time_to_reach=10.0):
+    def test_controller(self, target_point, time_to_reach=10.0, expected_neutral_thrusters=None):
         """
         Tests the controller by sending a target point and simulating movement.
         
         Args:
             target_point: The target Point to move towards
             time_to_reach: Time in seconds it should take to reach the target
+            expected_neutral_thrusters: List of thruster IDs that should stay neutral during this test
         """
         rospy.loginfo(f"Testing controller with target point: ({target_point.x}, {target_point.y}, {target_point.z})")
         rospy.loginfo(f"Time to reach target: {time_to_reach} seconds")
+        
+        # Set up real-time thruster validation
+        self.expected_neutral_thrusters = expected_neutral_thrusters or []
+        if self.expected_neutral_thrusters:
+            rospy.loginfo(f"Expected neutral thrusters: {self.expected_neutral_thrusters}")
 
         goal = NavigateToWaypointGoal()
         goal.target_point = target_point  # Assigning the Point object to the target_point field. Target aquiared. 
