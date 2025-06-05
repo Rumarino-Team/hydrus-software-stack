@@ -2,6 +2,9 @@
 FROM ros:noetic-ros-base
 
 ARG DEBIAN_FRONTEND=noninteractive
+# Fix expired ROS GPG key before using apt-get
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add -
+
 # Update package list
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
 
