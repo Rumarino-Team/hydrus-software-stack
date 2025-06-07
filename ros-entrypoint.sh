@@ -1,6 +1,8 @@
 #!/bin/bash
 # Removed "set -e" to prevent the script from exiting on errors
 
+: "${RVIZ_CONFIG:=cv_detection.rviz}" 
+
 # Detect ROS distribution (Noetic or Melodic)
 if [ -d "/opt/ros/noetic" ]; then
     ROS_DISTRO="noetic"
@@ -162,9 +164,18 @@ if [ "$ROSBAG_PLAYBACK" == "true" ]; then
         rosbag play $BAGFILE --loop &
         
         echo "Rosbag playback started in background."
+        
     else
         echo "No rosbag files found in /rosbags directory. Skipping rosbag playback."
     fi
+fi
+
+if [ "$RVIZ" == "true" ]; then
+    echo "Launching RViz with the specified configuration..."
+    source devel/setup.bash
+    rviz -d /catkin_ws/src/hydrus-software-stack/autonomy/config/cv_detection.rviz &
+else
+    echo "RViz is not set to true. Skipping RViz launch."
 fi
 
 # Keep the container running by tailing the log

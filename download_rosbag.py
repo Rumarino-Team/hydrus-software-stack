@@ -11,21 +11,10 @@ import requests
 from pathlib import Path
 import subprocess
 import re
-import gdown
 
 # Constants
 DEFAULT_ROSBAG_URL = "https://drive.google.com/file/d/16Lr-CbW1rW6rKh8_mWClTQMIjm2u0y8X/view?usp=drive_link"
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rosbags")
-
-def check_rosbags_exist():
-    """Check if any .bag files exist in the rosbags directory"""
-    if not os.path.exists(DOWNLOAD_DIR):
-        os.makedirs(DOWNLOAD_DIR)
-        print(f"Created directory {DOWNLOAD_DIR}")
-        return False
-    
-    bag_files = list(Path(DOWNLOAD_DIR).glob("*.bag"))
-    return len(bag_files) > 0
 
 def extract_file_id(url):
     """Extract the file ID from a Google Drive URL"""
@@ -39,6 +28,13 @@ def download_rosbag(url=DEFAULT_ROSBAG_URL):
     """Download the rosbag file from the given URL using gdown"""
     print(f"Downloading rosbag from {url}")
     print("This may take a few minutes depending on your internet connection...")
+    
+    # Import gdown here to avoid import error if not installed
+    try:
+        import gdown
+    except ImportError:
+        print("Error: gdown is not available. Please run the installation first.")
+        return False
     
     file_id = extract_file_id(url)
     if not file_id:
@@ -64,12 +60,26 @@ def download_rosbag(url=DEFAULT_ROSBAG_URL):
 def install_dependencies():
     """Install required dependencies for downloading"""
     try:
+        print("Installing gdown and requests...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "gdown", "requests"])
+        print("Dependencies installed successfully!")
         return True
     except subprocess.CalledProcessError:
         print("Failed to install dependencies. Please install them manually:")
         print("pip install gdown requests")
+        print("\nOr if you have permission issues, try:")
+        print("pip install --user gdown requests")
         return False
+
+def check_rosbags_exist():
+    """Check if any .bag files exist in the rosbags directory"""
+    if not os.path.exists(DOWNLOAD_DIR):
+        os.makedirs(DOWNLOAD_DIR)
+        print(f"Created directory {DOWNLOAD_DIR}")
+        return False
+    
+    bag_files = list(Path(DOWNLOAD_DIR).glob("*.bag"))
+    return len(bag_files) > 0
 
 def main():
     """Main function to check for and download rosbag files"""
