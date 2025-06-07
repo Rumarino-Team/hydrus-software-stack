@@ -11,6 +11,15 @@ const unsigned long printInterval = 5000; // 5 seconds
 String inputString = "";
 bool stringComplete = false;
 
+// Global variables to store thruster values
+int thruster1Value = 1500;  // PWM_NEUTRAL
+int thruster2Value = 1500;
+int thruster3Value = 1500;
+int thruster4Value = 1500;
+int depthValue = 1500;
+int torpedoValue = 1500;
+int cameraAngle = 0;
+
 void setup() 
 {
   // Initialize Serial communication for debugging
@@ -31,6 +40,15 @@ void loop()
 {
   // Process any available serial commands
   processSerialCommands();
+  
+  // Apply thruster values continuously (moved from serial processing)
+  setThruster_1(thruster1Value);
+  setThruster_2(thruster2Value);
+  setThruster_3(thruster3Value);
+  setThruster_4(thruster4Value);
+  setDepth(depthValue);
+  launchTorpedo(torpedoValue);
+  setCameraMotor(cameraAngle);
   
   // Print pin values every 5 seconds
   unsigned long currentTime = millis();
@@ -99,15 +117,15 @@ void processSerialCommands() {
               // Get thruster number
               int thrusterNum = inputString.substring(1, colonPos).toInt();
               
-              // Call the appropriate thruster function
+              // Update global thruster value variable
               if (thrusterNum == 1) {
-                setThruster_1(value);
+                thruster1Value = value;
               } else if (thrusterNum == 2) {
-                setThruster_2(value);
+                thruster2Value = value;
               } else if (thrusterNum == 3) {
-                setThruster_3(value);
+                thruster3Value = value;
               } else if (thrusterNum == 4) {
-                setThruster_4(value);
+                thruster4Value = value;
               } else {
                 Serial.println("Invalid thruster number!");
               }
@@ -115,15 +133,15 @@ void processSerialCommands() {
             break;
           
           case 'D': // Depth command
-            setDepth(value);
+            depthValue = value;
             break;
             
           case 'P': // Torpedo/propulsion command
-            launchTorpedo(value);
+            torpedoValue = value;
             break;
             
           case 'C': // Camera command
-            setCameraMotor(value);
+            cameraAngle = value;
             break;
             
           default:
