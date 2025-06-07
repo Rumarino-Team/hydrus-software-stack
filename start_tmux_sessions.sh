@@ -35,7 +35,7 @@ tmux send-keys -t hydrus "echo 'Starting Serial ROS Bridge'; source ${CATKIN_WS}
 
 # Second pane: Run controllers.py
 tmux split-window -v -t hydrus
-tmux send-keys -t hydrus:0.1 "echo 'Starting Controller Node'; source ${CATKIN_WS}/devel/setup.bash && python3 ${CATKIN_WS}/src/hydrus-software-stack/autonomy/src/controllers.py" C-m
+tmux send-keys -t hydrus:0.1 "echo 'Starting Controller Node'; source ${CATKIN_WS}/devel/setup.bash && roslaunch " C-m
 
 # Third pane: Run thruster_visualizer.py
 tmux split-window -h -t hydrus:0.1

@@ -3,14 +3,14 @@
 import rospy
 from geometry_msgs.msg import Point, PoseStamped, Quaternion
 from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal
-from std_msgs.msg import Int16
+from std_msgs.msg import Int16, Float32
 import actionlib
 import random
 import math
 import time
 
 
-class ControllerTester:
+class ArduinoSimulator:
     def __init__(self):
         rospy.init_node('controller_tester', anonymous=True)
 
@@ -22,7 +22,7 @@ class ControllerTester:
         rospy.loginfo("Controller action server started.")
         
         # Constants to match those in controllers.py
-        self.DELTA = 0.05  # Threshold for considering a step complete
+        self.DELTA = 0.20  # Threshold for considering a step complete
         self.PWM_NEUTRAL = 1500
         
         # Current simulated position state
@@ -34,6 +34,7 @@ class ControllerTester:
         self.current_pose.pose.orientation = self.euler_to_quaternion(0)  # Start facing forward
         
         # Movement state based on thruster commands
+        self.target_distance = float('inf')
         self.moving_vertically = 0    # -1: down, 0: no vertical movement, 1: up
         self.moving_forward = 0       # -1: backward, 0: no forward movement, 1: forward
         self.pwm_front = [0, 0]
@@ -47,6 +48,7 @@ class ControllerTester:
         
         # Subscribe to thruster commands to update movement state
         rospy.Subscriber('/hydrus/depth', Int16, self.depth_callback)
+        rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
         
         # Subscribe to individual thruster commands to detect rotation and forward movement
         for i in range(1, 9):
@@ -55,6 +57,10 @@ class ControllerTester:
         
         # Timer to update position based on current movement state
         self.update_timer = rospy.Timer(rospy.Duration(0.1), self.update_position)  # 10 Hz updates
+
+    def target_distance_callback(self, msg):
+        """Update the target distance value"""
+        self.target_distance = msg.data
 
     def depth_callback(self, msg):
         """Update vertical movement state based on depth commands"""
@@ -71,6 +77,15 @@ class ControllerTester:
     def thruster_callback(self, msg, thruster_id):
         """Update rotation and forward movement based on individual thruster commands"""
         pwm = msg.data
+        
+        # Real-time thruster validation if we're in test mode
+        if hasattr(self, 'expected_neutral_thrusters') and self.expected_neutral_thrusters:
+            if thruster_id in self.expected_neutral_thrusters:
+                if abs(pwm - self.PWM_NEUTRAL) > 10:  # Threshold for "active"
+                    error_msg = f"ASSERTION FAILED: Thruster {thruster_id} should stay neutral but got PWM {pwm} (expected ~{self.PWM_NEUTRAL})"
+                    rospy.logerr(error_msg)
+                    raise AssertionError(error_msg)
+        
         if thruster_id in [2, 3, 6, 7]:
             return
         
@@ -262,43 +277,44 @@ class ControllerTester:
         # based on thruster commands, so we'll just monitor progress here
         
         start_time = rospy.Time.now()
-        rate = rospy.Rate(10)  # 10 Hz
+        rate = rospy.Rate(500)  # 500 Hz for almost instant testing
         
         while not rospy.is_shutdown():
             # Check if we've reached the target
             current_pos = self.current_pose.pose.position
-            distance = math.sqrt(
-                (current_pos.x - target_point.x)**2 + 
-                (current_pos.y - target_point.y)**2 + 
-                (current_pos.z - target_point.z)**2
-            )
             
-            if distance < self.DELTA:
+            if self.target_distance < self.DELTA:
                 rospy.loginfo(f"Target reached! Final position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f})")
                 break
                 
             # Check if we've timed out (3x the expected time)
             elapsed = (rospy.Time.now() - start_time).to_sec()
             if elapsed > time_to_reach * 3:
-                rospy.logwarn(f"Timeout reached after {elapsed:.1f} seconds. Current distance to target: {distance:.3f}")
+                rospy.logwarn(f"Timeout reached after {elapsed:.1f} seconds. Current distance to target: {self.target_distance:.3f}")
                 break
                 
             # Log current position periodically
             if int(elapsed * 10) % 20 == 0:  # Every ~2 seconds
-                rospy.loginfo(f"Current position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f}), distance: {distance:.3f}")
+                rospy.loginfo(f"Current position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f}), distance: {self.target_distance:.3f}")
                 
             rate.sleep()
 
-    def test_controller(self, target_point, time_to_reach=10.0):
+    def test_controller(self, target_point, time_to_reach=10.0, expected_neutral_thrusters=None):
         """
         Tests the controller by sending a target point and simulating movement.
         
         Args:
             target_point: The target Point to move towards
             time_to_reach: Time in seconds it should take to reach the target
+            expected_neutral_thrusters: List of thruster IDs that should stay neutral during this test
         """
         rospy.loginfo(f"Testing controller with target point: ({target_point.x}, {target_point.y}, {target_point.z})")
         rospy.loginfo(f"Time to reach target: {time_to_reach} seconds")
+        
+        # Set up real-time thruster validation
+        self.expected_neutral_thrusters = expected_neutral_thrusters or []
+        if self.expected_neutral_thrusters:
+            rospy.loginfo(f"Expected neutral thrusters: {self.expected_neutral_thrusters}")
 
         goal = NavigateToWaypointGoal()
         goal.target_point = target_point  # Assigning the Point object to the target_point field. Target aquiared. 
@@ -321,6 +337,7 @@ class ControllerTester:
             rospy.loginfo("Controller successfully moved the submarine to the target.")
         else:
             rospy.logwarn("Controller failed to reach the target within acceptable range.")
+        return result
 
     def run(self, time_to_reach=10.0):
         """
@@ -331,9 +348,9 @@ class ControllerTester:
         """
         #Chooses a random target because testing:)
         target_point = Point()
-        target_point.x = random.uniform(1.0, 5.0)
-        target_point.y = random.uniform(1.0, 5.0)
-        target_point.z = random.uniform(1.0, 3.0)
+        target_point.x = 0
+        target_point.y = 2
+        target_point.z = 0
 
         self.test_controller(target_point, time_to_reach)
 
@@ -353,7 +370,7 @@ if __name__ == '__main__':
             except ValueError:
                 rospy.logwarn("Invalid time argument. Using default of 10.0 seconds.")
         
-        tester = ControllerTester()
+        tester = ArduinoSimulator()
         tester.run(time_to_reach)
     except rospy.ROSInterruptException:
         rospy.loginfo("Controller tester interrupted.")

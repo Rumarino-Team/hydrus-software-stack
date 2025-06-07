@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+  <test pkg="autonomy" type="test_controller.py" test-name="controller_unittest" time-limit="900">
+  </test>
+</launch>
