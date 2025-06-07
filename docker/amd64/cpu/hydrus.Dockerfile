@@ -72,7 +72,7 @@ RUN  arduino-cli lib install "Servo@1.2.1" && \
     
     
 # Copy embedded Arduino code in the Arduino libraries folder
-    
+
 # Copy dvl embedded driver
 COPY ./DVL/Wayfinder /opt/Wayfinder
 WORKDIR /opt/Wayfinder
@@ -90,7 +90,15 @@ RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 # Install tmux, vim, git, and htop in a single RUN command
 RUN apt-get update && apt-get install -y tmux vim git htop socat
 
-
+RUN apt-get update && apt-get install -y \
+    ros-noetic-rviz \
+    ros-noetic-rqt \
+    ros-noetic-rosbag \
+    ros-noetic-image-view \
+    ros-noetic-tf \
+    ros-noetic-tf2-ros \
+    ros-noetic-image-transport \
+    ros-noetic-laser-proc
 
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
     

@@ -54,7 +54,8 @@ check_rosbags() {
 DEPLOY=false  
 VOLUME=false  
 FORCE_CPU=false 
-ZED_OPTION=false
+RVIZ=false # This option controls whether to display RViz only (for CPU) 
+ZED_OPTION=false # This option controls whether to display the ZED2i camera in RViz
 FORCE_JETSON=false
 ROSBAG_PLAYBACK=false
 DEBUG_ARDUINO=false
@@ -103,10 +104,22 @@ while true; do
   esac
 done
 
+if [[ $FORCE_CPU == true || is_wsl]]; then
+  while true; do
+    echo "Do you want to use RViz?"
+    read -p "(y/n) " choice
+    case $choice in 
+      [Yy]* ) RVIZ=true; break;;
+      [Nn]* ) break;;
+      * ) echo "Invalid input. Please try again.";;
+    esac
+    done
+fi
+
 # Check if --force-cpu was passed
 if [[ "$FORCE_CPU" == true ]]; then
   echo "Force CPU deployment selected. Running CPU version."
-  DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
+  DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
 # Check if --force-jetson was passed
 elif [[ "$FORCE_JETSON" == true ]]; then
   echo "Force Jetson deployment selected. Running Jetson scripts."
@@ -116,7 +129,7 @@ else
   # Check if system is WSL
   if is_wsl; then
     echo "WSL detected. Running without GPU support."
-    DEPLOY=$DEPLOY VOLUME=$VOLUME ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
+    DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
   # Check if system is Jetson TX2
   elif is_jetson_tx2; then
     echo "Jetson TX2 detected. Running Jetson TX2 Docker Compose."
@@ -128,7 +141,7 @@ else
       echo "GPU available. Running with GPU support."
       while true; do
         echo "Do you want to display the ZED2i camera in RViz?"
-        read -p "(y/n)" choice
+        read -p "(y/n) " choice
         case $choice in 
           [Yy]* ) ZED_OPTION=true; break;;
           [Nn]* ) break;;
@@ -136,10 +149,10 @@ else
         esac
       done
       echo "ZED_OPTION=$ZED_OPTION"
-      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cuda.yaml up
+      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cuda.yaml up
     else
       echo "No GPU available. Running without GPU support."
-      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
+      DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO docker compose -f docker-compose-amd64-cpu.yaml up
     fi
   fi
 fi
