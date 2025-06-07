@@ -34,11 +34,11 @@ services:
       - ROSBAG_PLAYBACK
       - DEBUG_ARDUINO
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
+      - RVIZ
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
       - "../rosbags:/rosbags"
-      - "../rviz_configs:/autonomy/config"
       - "../yolo_models:/yolo_models"  # Volume for YOLO models
     depends_on:
       - ros-master
