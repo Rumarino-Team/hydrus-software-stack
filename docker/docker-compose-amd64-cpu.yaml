@@ -34,7 +34,6 @@ services:
       - ROSBAG_PLAYBACK
       - DEBUG_ARDUINO
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
-      - ZED_OPTION=${ZED_OPTION}  # Pass ZED options if needed
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
