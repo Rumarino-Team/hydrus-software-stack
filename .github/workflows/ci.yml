@@ -15,4 +15,4 @@ jobs:
       - name: Build Hydrus AMD64 Docker
         run: docker build -t hydrus -f ./docker/amd64/cpu/hydrus.Dockerfile .
       - name: Run catkin_make on Hydrus AMD64 Docker
-        run: sudo docker run --rm -i -v .:/home/catkin_ws/src hydrus bash -c "cd /home/catkin_ws && catkin_make"
+        run: sudo docker run --rm -i -v .:/home/catkin_ws/src hydrus bash -c "source /opt/ros/noetic/setup.bash && cd /home/catkin_ws && catkin_make"

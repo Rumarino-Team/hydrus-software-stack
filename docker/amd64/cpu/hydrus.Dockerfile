@@ -1,9 +1,16 @@
-# Use an official ROS image as a parent image
-FROM ros:noetic-ros-base
+# Use Ubuntu 20.04 as base image
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 # Update package list
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
+
+# Setup ROS repositories
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
+
+# Install ROS Noetic base
+RUN apt-get update && apt-get install -y ros-noetic-ros-base
 
 # Add the deadsnakes PPA and install Python 3.8
 RUN add-apt-repository -y ppa:deadsnakes/ppa && \
@@ -65,7 +72,7 @@ RUN  arduino-cli lib install "Servo@1.2.1" && \
     
     
 # Copy embedded Arduino code in the Arduino libraries folder
-    
+
 # Copy dvl embedded driver
 COPY ./DVL/Wayfinder /opt/Wayfinder
 WORKDIR /opt/Wayfinder
@@ -83,7 +90,15 @@ RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 # Install tmux, vim, git, and htop in a single RUN command
 RUN apt-get update && apt-get install -y tmux vim git htop socat
 
-
+RUN apt-get update && apt-get install -y \
+    ros-noetic-rviz \
+    ros-noetic-rqt \
+    ros-noetic-rosbag \
+    ros-noetic-image-view \
+    ros-noetic-tf \
+    ros-noetic-tf2-ros \
+    ros-noetic-image-transport \
+    ros-noetic-laser-proc
 
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
     

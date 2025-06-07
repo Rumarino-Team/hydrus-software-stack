@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-# mission_planner/slalom_mission.py
-import math
-from typing import List, Optional, Set, Callable, Dict, Tuple
 
 import rospy
-import actionlib
+import math
+from typing import List, Dict
 from geometry_msgs.msg import Point, PoseStamped
-from autonomy.msg import Detection, Detections
+from autonomy.msg import Detections
 from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal, NavigateToWaypointFeedback, NavigateToWaypointResult
 from std_msgs.msg import String
+import actionlib
 
 # Change to absolute imports
 from mission_planner.types import TaskType, MissionObject
@@ -23,7 +22,7 @@ class SlalomMission(BaseMission):
     on the same side throughout the course.
     """
     
-    def __init__(self):
+    def __init__(self, enable_action_client=True):
         # Initialize the base mission
         super().__init__(name="Slalom Navigation")
         
@@ -31,117 +30,206 @@ class SlalomMission(BaseMission):
         self.cls_names = {1: 'WhitePipe', 2: 'RedPipe'}
         
         # Slalom specific parameters
-        self.passing_side = None  # 'left' or 'right' of the red pipe
+        self.passing_side = "left"  # Always pass on left side of red pipe
         self.gates_passed = 0
         self.total_gates = 3
         self.current_gate = 0
         self.gate_positions: List[Dict[str, Point]] = []
         self.gates_completed = []
         
+        # Initialize detection and pose storage
+        self.current_detections = None
+        self.submarine_pose = None
+        
         # Additional subscribers/publishers
         self.status_pub = rospy.Publisher('/mission_status', String, queue_size=10)
+        self.detection_sub = rospy.Subscriber('/vision/detections', Detections, self.detection_callback)
+        self.pose_sub = rospy.Subscriber('/submarine/pose', PoseStamped, self.pose_callback)
+        
+        # Action client for navigation (optional for testing)
+        self.controller_client = None
+        if enable_action_client:
+            self.controller_client = actionlib.SimpleActionClient('/navigate_to_waypoint', NavigateToWaypointAction)
+            rospy.loginfo("[Slalom Navigation] Waiting for action server to start...")
+            self.controller_client.wait_for_server()
+            rospy.loginfo("[Slalom Navigation] Action server started.")
+        
+        # Waypoints for search pattern
+        self.waypoints = []
+        self.current_waypoint_index = 0
         
         # Build the mission tree
         self.mission_tree_root = self.build_mission_tree()
         
+    def detection_callback(self, msg: Detections):
+        """Callback for handling detection messages."""
+        self.current_detections = msg
+
+    def pose_callback(self, msg: PoseStamped):
+        """Callback for handling pose messages."""
+        self.submarine_pose = msg
+        
+    def feedback_callback(self, feedback: NavigateToWaypointFeedback):
+        """Callback for navigation feedback."""
+        pass
+        
+    def detect_gate_sides(self, gate_number: int) -> dict:
+        """
+        Detect the left and right sides of a gate relative to the red pipe.
+        Returns a dictionary with 'left_side', 'right_side', and 'center' points.
+        """
+        if not self.current_detections or not self.current_detections.detections:
+            rospy.logwarn(f"No detections available for gate {gate_number}")
+            return {}
+            
+        # Find red and white pipes
+        red_pipes = []
+        white_pipes = []
+        
+        for detection in self.current_detections.detections:
+            if detection.cls == 2:  # Red pipe
+                red_pipes.append(detection)
+            elif detection.cls == 1:  # White pipe
+                white_pipes.append(detection)
+        
+        # Need at least one red pipe (center) and two white pipes (sides)
+        if len(red_pipes) < 1 or len(white_pipes) < 2:
+            rospy.logwarn(f"Insufficient detections for gate {gate_number}: {len(red_pipes)} red, {len(white_pipes)} white")
+            return {}
+            
+        # Use the closest red pipe (assuming it's the center of the gate)
+        red_pipe = min(red_pipes, key=lambda p: abs(p.point.x))
+        center_y = red_pipe.point.y
+        
+        # Sort white pipes by y-coordinate relative to center
+        white_pipes.sort(key=lambda p: p.point.y)
+        
+        # Find white pipes on either side of the red pipe
+        left_pipes = [p for p in white_pipes if p.point.y < center_y]
+        right_pipes = [p for p in white_pipes if p.point.y > center_y]
+        
+        if not left_pipes or not right_pipes:
+            rospy.logwarn(f"Could not find pipes on both sides for gate {gate_number}")
+            return {}
+        
+        # Use the closest white pipes to the red pipe
+        left_pipe = max(left_pipes, key=lambda p: p.point.y)  # Rightmost of left pipes
+        right_pipe = min(right_pipes, key=lambda p: p.point.y)  # Leftmost of right pipes
+        
+        # Calculate gate sides - points between red pipe and white pipes
+        gate_sides = {}
+        
+        # Left side (where submarine should pass)
+        gate_sides['left_side'] = Point(
+            x=(red_pipe.point.x + left_pipe.point.x) / 2,
+            y=(red_pipe.point.y + left_pipe.point.y) / 2,
+            z=(red_pipe.point.z + left_pipe.point.z) / 2
+        )
+        
+        # Right side (for reference)
+        gate_sides['right_side'] = Point(
+            x=(red_pipe.point.x + right_pipe.point.x) / 2,
+            y=(red_pipe.point.y + right_pipe.point.y) / 2,
+            z=(red_pipe.point.z + right_pipe.point.z) / 2
+        )
+        
+        # Store the red pipe position as center reference
+        gate_sides['center'] = Point(
+            x=red_pipe.point.x,
+            y=red_pipe.point.y,
+            z=red_pipe.point.z
+        )
+        
+        rospy.loginfo(f"Gate {gate_number + 1} sides detected - Left: ({gate_sides['left_side'].y:.2f}), "
+                     f"Center: ({gate_sides['center'].y:.2f}), Right: ({gate_sides['right_side'].y:.2f})")
+        
+        return gate_sides
+        
     def detect_gate(self, gate_number: int) -> bool:
-        """Detect if both pipes of a gate are visible"""
+        """Detect if both pipes of a gate are visible and store/update gate sides"""
         if not self.current_detections:
             return False
             
-        # Count white and red pipes seen
-        white_pipes = []
-        red_pipes = []
+        # Use the new gate sides detection
+        gate_sides = self.detect_gate_sides(gate_number)
         
-        for detection in self.current_detections.detections:
-            if detection.cls == 1:  # White pipe
-                white_pipes.append(detection)
-            elif detection.cls == 2:  # Red pipe
-                red_pipes.append(detection)
-        
-        # For a gate to be detected, we need at least one white pipe and one red pipe
-        if white_pipes and red_pipes:
-            # If this is a new gate (not already in our gate_positions)
+        if gate_sides:
+            # Always update gate position (even if already exists)
             if gate_number >= len(self.gate_positions):
-                # Record the gate position
+                # First time detection - append new gate
                 self.gate_positions.append({
-                    'white': white_pipes[0].point,  # Using the first detected white pipe
-                    'red': red_pipes[0].point       # Using the first detected red pipe
+                    'left_side': gate_sides['left_side'],
+                    'right_side': gate_sides['right_side'],
+                    'center': gate_sides['center'],
+                    'target_point': gate_sides['left_side'],
+                    'detection_count': 1,
+                    'last_updated': rospy.Time.now()
                 })
-                rospy.loginfo(f"Gate {gate_number + 1} detected")
+                rospy.loginfo(f"Gate {gate_number + 1} detected for first time")
+            else:
+                # Update existing gate position with new detection
+                old_pos = self.gate_positions[gate_number]['center']
+                self.gate_positions[gate_number].update({
+                    'left_side': gate_sides['left_side'],
+                    'right_side': gate_sides['right_side'],
+                    'center': gate_sides['center'],
+                    'target_point': gate_sides['left_side'],
+                    'detection_count': self.gate_positions[gate_number].get('detection_count', 0) + 1,
+                    'last_updated': rospy.Time.now()
+                })
+                new_pos = gate_sides['center']
+                distance_moved = ((old_pos.x - new_pos.x)**2 + (old_pos.y - new_pos.y)**2 + (old_pos.z - new_pos.z)**2)**0.5
+                rospy.loginfo(f"Gate {gate_number + 1} position updated (moved {distance_moved:.2f}m)")
+            
             return True
         return False
         
     def determine_passing_side(self) -> str:
-        """Determine which side the submarine should pass on"""
-        if self.passing_side is not None:
-            return self.passing_side
-            
-        if not self.gate_positions or not self.submarine_pose:
-            return "unknown"
-            
-        # Calculate if submarine is to the left or right of the red pipe
-        sub_pos = self.submarine_pose.pose.position
-        red_pipe = self.gate_positions[0]['red']
-        
-        # Simple 2D calculation - if submarine's Y coordinate is less than red pipe's Y,
-        # then submarine is on the left side (in ROS coordinate system)
-        if sub_pos.y < red_pipe.y:
-            self.passing_side = "left"
-        else:
-            self.passing_side = "right"
-            
-        rospy.loginfo(f"Determined passing side: {self.passing_side} of red pipe")
-        return self.passing_side
+        """Determine which side the submarine should pass on (always left for this mission)"""
+        return "left"  # Always pass on the left side of the red pipe
         
     def navigate_gate(self, gate_number: int) -> bool:
-        """Navigate through a specific gate"""
+        """Navigate through the left side of the gate (left of red pipe)"""
         if gate_number >= len(self.gate_positions):
-            rospy.logwarn(f"Gate {gate_number + 1} position not recorded yet")
+            rospy.logwarn(f"No gate position stored for gate {gate_number}")
             return False
             
         # Get the gate position
         gate = self.gate_positions[gate_number]
-        red_pipe = gate['red']
-        white_pipe = gate['white']
         
-        # Calculate the midpoint to pass through
-        # Adjust based on passing side
-        passing_side = self.determine_passing_side()
+        # Always use the left side target point
+        target_point = gate['target_point']
         
-        # Calculate a point to navigate to
-        target_point = Point()
+        # Add some offset to ensure we pass through the left side clearly
+        adjusted_target = Point()
+        adjusted_target.x = target_point.x
+        adjusted_target.y = target_point.y - 0.3  # Additional 0.3m offset to the left
+        adjusted_target.z = target_point.z
         
-        if passing_side == "left":
-            # Pass with red pipe on right, white pipe on left
-            target_point.x = (white_pipe.x + red_pipe.x) / 2
-            target_point.y = (white_pipe.y + red_pipe.y) / 2
-            # Adjust to be more on the left side
-            target_point.y -= 0.5  # Shift left by 0.5m
-        else:
-            # Pass with red pipe on left, white pipe on right
-            target_point.x = (white_pipe.x + red_pipe.x) / 2
-            target_point.y = (white_pipe.y + red_pipe.y) / 2
-            # Adjust to be more on the right side
-            target_point.y += 0.5  # Shift right by 0.5m
+        rospy.loginfo(f"Navigating through left side of gate {gate_number + 1} at "
+                     f"({adjusted_target.x:.2f}, {adjusted_target.y:.2f}, {adjusted_target.z:.2f})")
+        
+        # Navigate to this point (if action client is available)
+        if self.controller_client:
+            goal = NavigateToWaypointGoal()
+            goal.target_point = adjusted_target
+            self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
+            self.controller_client.wait_for_result()
+            result = self.controller_client.get_result()
             
-        target_point.z = (white_pipe.z + red_pipe.z) / 2  # Keep at the middle height
-        
-        # Navigate to this point
-        goal = NavigateToWaypointGoal()
-        goal.target_point = target_point
-        self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
-        self.controller_client.wait_for_result()
-        result = self.controller_client.get_result()
-        
-        # If navigation was successful, mark this gate as passed
-        if result and result.success:
-            if gate_number not in self.gates_completed:
-                self.gates_completed.append(gate_number)
+            # If navigation was successful, mark this gate as passed
+            if result and result.success:
                 self.gates_passed += 1
+                self.gates_completed.append(gate_number)
                 rospy.loginfo(f"Successfully passed gate {gate_number + 1}")
+                return True
+            return False
+        else:
+            # For testing without action client, just simulate success
+            self.gates_passed += 1
+            self.gates_completed.append(gate_number)
+            rospy.loginfo(f"Successfully passed gate {gate_number + 1} (simulated)")
             return True
-        return False
 
     def execute_search_for_gate(self) -> bool:
         """Search for the next gate in the slalom course"""
@@ -149,7 +237,7 @@ class SlalomMission(BaseMission):
         
         # Simple search pattern - rotate in place
         if self.submarine_pose is None:
-            rospy.logwarn("Submarine pose not available for search.")
+            rospy.logwarn("No submarine pose available for search")
             return False
             
         # Create a point to rotate around
@@ -157,29 +245,26 @@ class SlalomMission(BaseMission):
         
         # Generate rotation waypoints
         if not self.waypoints:
-            radius = 0.0  # Rotate in place
-            self.waypoints = self.generate_circle_waypoints(center, radius, 8)
-            self.current_waypoint_index = 0
+            for angle in range(0, 360, 45):  # 8 waypoints in a circle
+                rad = math.radians(angle)
+                waypoint = Point()
+                waypoint.x = center.x + 2.0 * math.cos(rad)  # 2m radius
+                waypoint.y = center.y + 2.0 * math.sin(rad)
+                waypoint.z = center.z
+                self.waypoints.append(waypoint)
             
-        # Move to next waypoint in rotation
+        # Move to next waypoint in rotation (if action client is available)
         if self.current_waypoint_index < len(self.waypoints):
-            goal = NavigateToWaypointGoal()
-            goal.target_point = self.waypoints[self.current_waypoint_index]
-            self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
-            self.controller_client.wait_for_result()
+            if self.controller_client:
+                goal = NavigateToWaypointGoal()
+                goal.target_point = self.waypoints[self.current_waypoint_index]
+                self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
+                self.controller_client.wait_for_result()
+            else:
+                rospy.loginfo(f"Searching at waypoint {self.current_waypoint_index + 1} (simulated)")
             
-            # Check if we've detected the gate during this rotation
-            if self.detect_gate(self.current_gate):
-                self.waypoints = []
-                self.current_waypoint_index = 0
-                return True
-                
-            # Move to next rotation point
             self.current_waypoint_index += 1
-            if self.current_waypoint_index >= len(self.waypoints):
-                # Full rotation completed, reset and continue searching
-                self.waypoints = []
-                self.current_waypoint_index = 0
+            return True
                 
         return False
 
@@ -189,18 +274,19 @@ class SlalomMission(BaseMission):
         root = MissionTreeNode(
             task=TaskType.HOLD_POSITION,
             name="Slalom Mission Start",
-            action=lambda: True  # Grouping node
+            action=lambda: True
         )
         
         # Configure task parameters for the mission
-        self.task_params.search_timeout = 30.0  # seconds
-        self.task_params.hold_time = 3.0  # seconds
+        if hasattr(self, 'task_params'):
+            self.task_params.search_timeout = 30.0  # seconds
+            self.task_params.hold_time = 3.0  # seconds
         
         # First Gate
         gate1_branch = MissionTreeNode(
             task=TaskType.HOLD_POSITION,
             name="Gate 1",
-            action=lambda: True  # Grouping node
+            action=lambda: True
         )
         
         search_gate1 = MissionTreeNode(
@@ -212,7 +298,7 @@ class SlalomMission(BaseMission):
         
         navigate_gate1 = MissionTreeNode(
             task=TaskType.MOVE_TO_CENTER,
-            name="Navigate Gate 1",
+            name="Navigate Gate 1 Left Side",
             condition=lambda: self.current_gate == 0 and self.detect_gate(0),
             action=lambda: self.navigate_gate(0) and self.increment_gate()
         )
@@ -221,99 +307,42 @@ class SlalomMission(BaseMission):
         gate1_branch.add_child(navigate_gate1)
         root.add_child(gate1_branch)
         
-        # Second Gate
-        gate2_branch = MissionTreeNode(
-            task=TaskType.HOLD_POSITION,
-            name="Gate 2",
-            action=lambda: True  # Grouping node
-        )
-        
-        search_gate2 = MissionTreeNode(
-            task=TaskType.SEARCH,
-            name="Search for Gate 2",
-            condition=lambda: self.current_gate == 1 and not self.detect_gate(1),
-            action=lambda: self.execute_search_for_gate()
-        )
-        
-        navigate_gate2 = MissionTreeNode(
-            task=TaskType.MOVE_TO_CENTER,
-            name="Navigate Gate 2",
-            condition=lambda: self.current_gate == 1 and self.detect_gate(1),
-            action=lambda: self.navigate_gate(1) and self.increment_gate()
-        )
-        
-        gate2_branch.add_child(search_gate2)
-        gate2_branch.add_child(navigate_gate2)
-        root.add_child(gate2_branch)
-        
-        # Third Gate
-        gate3_branch = MissionTreeNode(
-            task=TaskType.HOLD_POSITION,
-            name="Gate 3",
-            action=lambda: True  # Grouping node
-        )
-        
-        search_gate3 = MissionTreeNode(
-            task=TaskType.SEARCH,
-            name="Search for Gate 3",
-            condition=lambda: self.current_gate == 2 and not self.detect_gate(2),
-            action=lambda: self.execute_search_for_gate()
-        )
-        
-        navigate_gate3 = MissionTreeNode(
-            task=TaskType.MOVE_TO_CENTER,
-            name="Navigate Gate 3",
-            condition=lambda: self.current_gate == 2 and self.detect_gate(2),
-            action=lambda: self.navigate_gate(2) and self.increment_gate()
-        )
-        
-        gate3_branch.add_child(search_gate3)
-        gate3_branch.add_child(navigate_gate3)
-        root.add_child(gate3_branch)
-        
-        # Surface at the end
-        surface_node = MissionTreeNode(
-            task=TaskType.SURFACE,
-            name="Surface",
-            condition=lambda: self.current_gate >= 3,
-            action=self.create_action(TaskType.SURFACE, None)
-        )
-        root.add_child(surface_node)
-        
         return root
     
     def increment_gate(self) -> bool:
-        """Increment the current gate counter and return true"""
+        """Move to the next gate"""
         self.current_gate += 1
+        if self.current_gate >= self.total_gates:
+            rospy.loginfo("All gates completed!")
+            return True
         return True
     
     def get_status(self) -> dict:
-        """Return the current status of the mission"""
+        """Get current mission status"""
         return {
-            "name": self.name,
-            "gates_passed": self.gates_passed,
-            "total_gates": self.total_gates,
-            "current_gate": self.current_gate,
-            "passing_side": self.passing_side or "unknown",
-            "completion_percentage": (self.gates_passed / self.total_gates) * 100 if self.total_gates > 0 else 0
+            'gates_passed': self.gates_passed,
+            'current_gate': self.current_gate,
+            'total_gates': self.total_gates,
+            'completion_percentage': (self.gates_passed / self.total_gates) * 100.0 if self.total_gates > 0 else 0.0,
+            'gates_detected': len(self.gate_positions)
         }
         
     def run(self):
-        """Execute one cycle of the mission"""
-        if not self.submarine_pose:
-            rospy.logwarn_throttle(1, "Waiting for submarine pose...")
-            return
+        """Run the slalom mission"""
+        rospy.loginfo("Starting Slalom Mission")
+        
+        rate = rospy.Rate(10)  # 10 Hz
+        
+        while not rospy.is_shutdown():
+            # Execute mission tree
+            if self.mission_tree_root:
+                self.mission_tree_root.execute()
             
-        self.update_detected_objects()
+            # Check if mission is complete
+            if self.gates_passed >= self.total_gates:
+                rospy.loginfo("Slalom mission completed successfully!")
+                break
+                
+            rate.sleep()
         
-        # Publish status
-        status_msg = String()
-        status_msg.data = f"Slalom Mission: Gate {self.current_gate + 1}/{self.total_gates}, " \
-                         f"Passed {self.gates_passed}, Side: {self.passing_side or 'unknown'}"
-        self.status_pub.publish(status_msg)
-        
-        if self.mission_tree_root and not self.mission_tree_root.completed:
-            self.mission_tree_root.execute()
-        else:
-            rospy.loginfo("Slalom mission completed!")
-            self.completed = True
+        rospy.loginfo("Slalom mission ended")

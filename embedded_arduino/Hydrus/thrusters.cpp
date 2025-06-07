@@ -57,17 +57,23 @@ void initializeThrustersArduino(void)
 
 // Setter for the thruster motor PWM values
 void setThruster(int id, int pwmValue) {
+  int pwm;
   if(!init_motors) {
     Serial.print("Motors not initialized yet! Ignoring command for thruster ");
     Serial.println(id);
     return;
   }
 
-  // Apply PWM value directly - no conversion needed
   if (pwmValue < 1000) pwmValue = 1000;  // Enforce PWM limits
   if (pwmValue > 2000) pwmValue = 2000;
+  if (thrusterArr[id-1].forward) {
+    pwm = pwmValue;
+  } else {
+    int diff = PWM_NEUTRAL - pwmValue;
+    pwm = PWM_NEUTRAL + diff;
+  }
   
-  thrusterArr[id-1].motor.writeMicroseconds(pwmValue);
+  thrusterArr[id-1].motor.writeMicroseconds(pwm);
 }
 
 void setThruster_1(int thrusterValue)
