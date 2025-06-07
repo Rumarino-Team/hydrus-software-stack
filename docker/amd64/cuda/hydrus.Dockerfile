@@ -1,9 +1,16 @@
-# Use an official ROS image as a parent image
-FROM ros:noetic-ros-base
+# Use Ubuntu 20.04 as base image
+FROM ubuntu:20.04
 
 # Update package list
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y lsb-release gnupg curl software-properties-common
+
+# Setup ROS repositories
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
+
+# Install ROS Noetic base
+RUN apt-get update && apt-get install -y ros-noetic-ros-base
 
 # Add the deadsnakes PPA and install Python 3.8
 RUN add-apt-repository -y ppa:deadsnakes/ppa && \
