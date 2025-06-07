@@ -22,6 +22,9 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   topic_tools
 )
+if (CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+endif()
 
 # Add message files
 add_message_files(

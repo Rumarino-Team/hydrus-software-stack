@@ -104,7 +104,7 @@ while true; do
   esac
 done
 
-if [[ $FORCE_CPU == true || is_wsl]]; then
+if [[ $FORCE_CPU == true || $(is_wsl) == 0 ]]; then
   while true; do
     echo "Do you want to use RViz?"
     read -p "(y/n) " choice
