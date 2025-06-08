@@ -14,13 +14,8 @@ jobs:
         run: docker build -t camera -f ./docker/amd64/cuda/camera.Dockerfile .
       - name: Build Hydrus AMD64 Docker
         run: docker build -t hydrus -f ./docker/amd64/cpu/hydrus.Dockerfile .
-      - name: Build and Run Tests on Hydrus AMD64 Docker
+      - name: Run Tests using run_docker.sh
         run: |
-          sudo docker run --rm -i hydrus bash -c "
-            export VOLUME=false &&
-            source /opt/ros/noetic/setup.bash && 
-            cd /catkin_ws && 
-            catkin_make &&
-            chmod +x /catkin_ws/src/hydrus-software-stack/run_tests.sh &&
-            /catkin_ws/src/hydrus-software-stack/run_tests.sh
-          "
+          cd docker
+          chmod +x run_docker.sh
+          ./run_docker.sh --test

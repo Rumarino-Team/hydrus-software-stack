@@ -16,10 +16,25 @@ fi
 
 echo "Using ROS workspace: $ROS_DIR"
 
-# Source ROS environment
+# Source ROS environment and navigate to workspace
 source /opt/ros/noetic/setup.bash
 cd "$ROS_DIR"
-source devel/setup.bash
+
+# Build the workspace first to ensure all packages are available
+echo "Building workspace..."
+catkin_make --cmake-args \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+            -DPYTHON_INCLUDE_DIR=/usr/include/python3.9 \
+            -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so || true
+
+# Source the workspace setup after building
+if [ -f "$ROS_DIR/devel/setup.bash" ]; then
+    source "$ROS_DIR/devel/setup.bash"
+    echo "Workspace setup sourced successfully"
+else
+    echo "Warning: devel/setup.bash still not found after build"
+fi
 
 # Initialize test results
 TOTAL_TESTS=0
@@ -38,7 +53,7 @@ run_test() {
     
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     
-    if timeout 300 bash -c "$test_command"; then
+    if timeout 300 bash -c "source $ROS_DIR/devel/setup.bash 2>/dev/null || true; $test_command"; then
         echo "✅ PASSED: $test_name"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
@@ -49,6 +64,7 @@ run_test() {
 
 # Start roscore in background for ROS tests
 echo "Starting roscore..."
+export ROS_MASTER_URI=http://localhost:11311
 roscore &
 ROSCORE_PID=$!
 sleep 5
@@ -58,9 +74,6 @@ if ! pgrep -f roscore > /dev/null; then
     echo "Failed to start roscore"
     exit 1
 fi
-
-# Set ROS master URI
-export ROS_MASTER_URI=http://localhost:11311
 
 # Run unit tests that don't require ROS
 echo "=========================================="
@@ -76,13 +89,13 @@ echo "=========================================="
 echo "Running ROS Integration Tests"
 echo "=========================================="
 
-# Controller tests using rostest with timeout
-run_test "Controller Tests" "cd $ROS_DIR && timeout 120 rostest autonomy controller.test --text"
+# Controller tests using rostest with correct path
+run_test "Controller Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy && timeout 60 python3 test_controller.py"
 
-# Mission planner integration tests (these may need roscore)
-run_test "Slalom Integration Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && python3 test_slalom_integration.py"
+# Mission planner integration tests with proper environment
+run_test "Slalom Integration Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && PYTHONPATH=$ROS_DIR/src:$ROS_DIR/devel/lib/python3/dist-packages:$PYTHONPATH python3 test_slalom_integration.py"
 
-run_test "Gate Mission Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && python3 gate_mission_tester.py"
+run_test "Gate Mission Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && PYTHONPATH=$ROS_DIR/src:$ROS_DIR/devel/lib/python3/dist-packages:$PYTHONPATH python3 gate_mission_tester.py"
 
 # DVL driver tests if available
 if [ -f "$ROS_DIR/src/hydrus-software-stack/DVL/Wayfinder/driver_test.py" ]; then

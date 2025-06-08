@@ -35,6 +35,7 @@ services:
       - DEBUG_ARDUINO
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
       - RVIZ
+      - TEST
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
@@ -42,7 +43,6 @@ services:
       - "../yolo_models:/yolo_models"  # Volume for YOLO models
     depends_on:
       - ros-master
-    restart: unless-stopped  # Added restart policy
     ulimits:
       nofile:
         soft: 1024
