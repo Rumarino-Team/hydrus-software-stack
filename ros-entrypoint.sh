@@ -3,6 +3,17 @@
 
 : "${RVIZ_CONFIG:=cv_detection.rviz}" 
 
+# Determine ROS directory based on volume usage FIRST
+if [ "$VOLUME" == "true" ]; then
+    echo "Using the Volume directory for building the packages."
+    ROS_DIR='/home/catkin_ws'    
+else
+    echo "Using the Copied Packages from Docker."
+    ROS_DIR='/catkin_ws'   
+fi
+
+echo "Using ROS workspace: $ROS_DIR"
+
 # Detect ROS distribution (Noetic or Melodic)
 if [ -d "/opt/ros/noetic" ]; then
     ROS_DISTRO="noetic"
@@ -21,24 +32,15 @@ source /opt/ros/$ROS_DISTRO/setup.bash
 # Detect system architecture
 ARCH=$(uname -m)
 
-# If running on ARM (Jetson), delete the simulator folder
+# If running on ARM (Jetson), delete the simulator folder - use ROS_DIR
 if [[ "$ARCH" == "aarch64" ]]; then
     echo "Detected ARM architecture (Jetson or similar), deleting simulator folder..."
-    rm -rf /catkin_ws/src/hydrus-software-stack/simulator
+    rm -rf "$ROS_DIR/src/hydrus-software-stack/simulator"
 else
     echo "Non-ARM architecture detected, keeping simulator folder."
 fi
 
-# Determine ROS directory based on volume usage
-if [ "$VOLUME" == "true" ]; then
-    echo "Using the Volume directory for building the packages."
-    ROS_DIR='/home/catkin_ws'    
-else
-    echo "Using the Copied Packages from Docker."
-    ROS_DIR='/catkin_ws'   
-fi
-
-# Start roscore in the background
+# Start roscore in the background - use ROS_DIR
 cd "$ROS_DIR"
 catkin_make --cmake-args \
             -DCMAKE_BUILD_TYPE=Release \
@@ -49,10 +51,21 @@ source devel/setup.bash
 # roscore &
 sleep 2
 
-# Conditionally run the ROS launch file based on the DEPLOY environment variable
+# DEPLOY SECTION - Run this FIRST before TEST to set up tmux sessions and Arduino
 if [ "$DEPLOY" == "true" ]; then
     echo "Starting rosserial_python node..."
     sleep 1  # Give rosserial some time to initialize
+    
+    # Check and create virtual Arduino if needed
+    echo "Checking for Arduino devices..."
+    python3 "$ROS_DIR/src/hydrus-software-stack/virtual_arduino.py" /dev/ttyACM0 &
+    VIRTUAL_ARDUINO_PID=$!
+    sleep 3  # Give time for virtual Arduino to start
+    
+    # Also check for ttyACM1
+    python3 "$ROS_DIR/src/hydrus-software-stack/virtual_arduino.py" /dev/ttyACM1 &
+    VIRTUAL_ARDUINO_PID2=$!
+    sleep 2
     
     # Compile the Arduino project
     cd /root/Arduino/libraries/embedded_arduino/Hydrus
@@ -123,27 +136,40 @@ if [ "$DEPLOY" == "true" ]; then
                 echo -e "${YELLOW}Trying next port in 2 seconds...${NC}"
                 sleep 2
             else
-                echo -e "${RED}All upload attempts failed.${NC}"
+                echo -e "${RED}All upload attempts failed. Continuing with virtual Arduino...${NC}"
             fi
         fi
     done
     
     # Continue with the rest of the setup process regardless of upload success
-    echo -e "${YELLOW}Continuing with setup regardless of upload status...${NC}"
+    echo -e "${YELLOW}Continuing with setup...${NC}"
     
-    # Make serial port accessible for both rosserial and our monitoring script
-    chmod +x /catkin_ws/src/hydrus-software-stack/setup_serial_monitor.sh || true
-    chmod +x /catkin_ws/src/hydrus-software-stack/monitor_arduino_logs.sh || true
+    # Make serial port accessible for both rosserial and our monitoring script - use ROS_DIR
+    chmod +x "$ROS_DIR/src/hydrus-software-stack/setup_serial_monitor.sh" || true
+    chmod +x "$ROS_DIR/src/hydrus-software-stack/monitor_arduino_logs.sh" || true
     
-    # Start rosserial node
-    cd /catkin_ws
+    # Start rosserial node - use ROS_DIR
+    cd "$ROS_DIR"
     
-    # Check if tmux is installed and run our custom tmux session script
+    # Check if tmux is installed and run our custom tmux session script - use ROS_DIR
     echo "Setting up tmux sessions with Arduino monitoring..."
-    chmod +x /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh || true
-    /catkin_ws/src/hydrus-software-stack/start_tmux_sessions.sh || true
+    chmod +x "$ROS_DIR/src/hydrus-software-stack/start_tmux_sessions.sh" || true
+    "$ROS_DIR/src/hydrus-software-stack/start_tmux_sessions.sh" || true
+    
+    echo "DEPLOY setup completed successfully"
 else
-    echo "Deploy is not set or is set to false. Skipping roslaunch."
+    echo "Deploy is not set or is set to false. Skipping deployment setup."
+fi
+
+# TEST SECTION - Run this AFTER DEPLOY to ensure tmux sessions are ready
+if [ "$TEST" == "true" ]; then
+    echo "TEST mode detected in ros-entrypoint.sh - building and running tests"
+    export VOLUME=false
+    source /opt/ros/noetic/setup.bash
+    cd "$ROS_DIR"
+    chmod +x "$ROS_DIR/src/hydrus-software-stack/run_tests.sh"
+    exec "$ROS_DIR/src/hydrus-software-stack/run_tests.sh"
+    # exec will replace the current process, so the tail command below won't run
 fi
 
 # Check if ROSBAG_PLAYBACK is enabled
@@ -172,11 +198,16 @@ fi
 
 if [ "$RVIZ" == "true" ]; then
     echo "Launching RViz with the specified configuration..."
+    # Make sure we're in the correct ROS workspace and source it
+    cd "$ROS_DIR"
     source devel/setup.bash
-    rviz -d /catkin_ws/src/hydrus-software-stack/autonomy/config/cv_detection.rviz &
+    rviz -d "$ROS_DIR/src/hydrus-software-stack/autonomy/config/cv_detection.rviz" &
 else
     echo "RViz is not set to true. Skipping RViz launch."
 fi
 
-# Keep the container running by tailing the log
-tail -f /dev/null
+# Only keep the container running if not in TEST mode
+if [ "$TEST" != "true" ]; then
+    # Keep the container running by tailing the log
+    tail -f /dev/null
+fi
