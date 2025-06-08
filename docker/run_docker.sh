@@ -130,7 +130,12 @@ fi
 # Check if --force-cpu was passed or TEST mode is enabled
 if [[ "$FORCE_CPU" == true ]] || [[ "$TEST" == true ]]; then
   echo "Force CPU deployment selected. Running CPU version."
-  DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO TEST=$TEST docker compose -f docker-compose-amd64-cpu.yaml up
+  if [[ "$TEST" == true ]]; then
+    # For test mode, use --abort-on-container-exit to stop all containers when any container stops
+    DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO TEST=$TEST docker compose -f docker-compose-amd64-cpu.yaml up --abort-on-container-exit
+  else
+    DEPLOY=$DEPLOY VOLUME=$VOLUME ZED_OPTION=$ZED_OPTION RVIZ=$RVIZ ROSBAG_PLAYBACK=$ROSBAG_PLAYBACK DEBUG_ARDUINO=$DEBUG_ARDUINO TEST=$TEST docker compose -f docker-compose-amd64-cpu.yaml up
+  fi
 # Check if --force-jetson was passed
 elif [[ "$FORCE_JETSON" == true ]]; then
   echo "Force Jetson deployment selected. Running Jetson scripts."
