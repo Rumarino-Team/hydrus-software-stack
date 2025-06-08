@@ -5,9 +5,20 @@ echo "=========================================="
 echo "Running Hydrus Autonomy Test Suite"
 echo "=========================================="
 
+# Determine ROS directory based on VOLUME environment variable
+if [ "$VOLUME" == "true" ]; then
+    echo "Using the Volume directory for building and testing the packages."
+    ROS_DIR='/home/catkin_ws'    
+else
+    echo "Using the Copied Packages from Docker for building and testing."
+    ROS_DIR='/catkin_ws'   
+fi
+
+echo "Using ROS workspace: $ROS_DIR"
+
 # Source ROS environment
 source /opt/ros/noetic/setup.bash
-cd /home/catkin_ws
+cd "$ROS_DIR"
 source devel/setup.bash
 
 # Initialize test results
@@ -27,7 +38,7 @@ run_test() {
     
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     
-    if eval "$test_command"; then
+    if timeout 300 bash -c "$test_command"; then
         echo "✅ PASSED: $test_name"
         PASSED_TESTS=$((PASSED_TESTS + 1))
     else
@@ -40,7 +51,7 @@ run_test() {
 echo "Starting roscore..."
 roscore &
 ROSCORE_PID=$!
-sleep 3
+sleep 5
 
 # Ensure roscore is running
 if ! pgrep -f roscore > /dev/null; then
@@ -48,13 +59,16 @@ if ! pgrep -f roscore > /dev/null; then
     exit 1
 fi
 
+# Set ROS master URI
+export ROS_MASTER_URI=http://localhost:11311
+
 # Run unit tests that don't require ROS
 echo "=========================================="
 echo "Running Unit Tests (Non-ROS)"
 echo "=========================================="
 
-# Tagging mission unit tests
-run_test "Tagging Mission Unit Tests" "cd /home/catkin_ws/src/hydrus-software-stack/autonomy/src/mission_planner && python3 -m pytest tagging_mission_test.py -v || python3 tagging_mission_test.py"
+# Tagging mission unit tests - use correct path based on workspace
+run_test "Tagging Mission Unit Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && python3 tagging_mission_test.py"
 
 # Run ROS integration tests
 echo ""
@@ -62,14 +76,18 @@ echo "=========================================="
 echo "Running ROS Integration Tests"
 echo "=========================================="
 
-# Controller tests using rostest
-run_test "Controller Tests" "cd /home/catkin_ws && rostest autonomy controller.test --text"
+# Controller tests using rostest with timeout
+run_test "Controller Tests" "cd $ROS_DIR && timeout 120 rostest autonomy controller.test --text"
 
 # Mission planner integration tests (these may need roscore)
-run_test "Slalom Integration Tests" "cd /home/catkin_ws/src/hydrus-software-stack/autonomy/src/mission_planner && timeout 60 python3 test_slalom_integration.py || true"
+run_test "Slalom Integration Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && python3 test_slalom_integration.py"
 
-run_test "Gate Mission Tests" "cd /home/catkin_ws/src/hydrus-software-stack/autonomy/src/mission_planner && timeout 60 python3 gate_mission_tester.py || true"
+run_test "Gate Mission Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && python3 gate_mission_tester.py"
 
+# DVL driver tests if available
+if [ -f "$ROS_DIR/src/hydrus-software-stack/DVL/Wayfinder/driver_test.py" ]; then
+    run_test "DVL Driver Tests" "cd $ROS_DIR/src/hydrus-software-stack/DVL/Wayfinder && python3 driver_test.py"
+fi
 
 # Clean up roscore
 echo ""
