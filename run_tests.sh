@@ -62,6 +62,27 @@ run_test() {
     fi
 }
 
+# Function to run rostest with proper timeout and error handling
+run_rostest() {
+    local test_name="$1"
+    local test_file="$2"
+    
+    echo ""
+    echo "----------------------------------------"
+    echo "Running rostest: $test_name"
+    echo "----------------------------------------"
+    
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    
+    if timeout 600 bash -c "source $ROS_DIR/devel/setup.bash 2>/dev/null || true; rostest autonomy $test_file"; then
+        echo "✅ PASSED: $test_name"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo "❌ FAILED: $test_name"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+}
+
 # Start roscore in background for ROS tests
 echo "Starting roscore..."
 export ROS_MASTER_URI=http://localhost:11311
@@ -83,14 +104,14 @@ echo "=========================================="
 # Tagging mission unit tests - use correct path based on workspace
 run_test "Tagging Mission Unit Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && python3 tagging_mission_test.py"
 
-# Run ROS integration tests
+# Run ROS integration tests using rostest
 echo ""
 echo "=========================================="
-echo "Running ROS Integration Tests"
+echo "Running ROS Integration Tests (rostest)"
 echo "=========================================="
 
-# Controller tests using rostest with correct path
-run_test "Controller Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy && timeout 60 python3 test_controller.py"
+# Controller tests using rostest - this will launch controllers.py first
+run_rostest "Controller Tests" "controller.test"
 
 # Mission planner integration tests with proper environment
 run_test "Slalom Integration Tests" "cd $ROS_DIR/src/hydrus-software-stack/autonomy/src/mission_planner && PYTHONPATH=$ROS_DIR/src:$ROS_DIR/devel/lib/python3/dist-packages:$PYTHONPATH python3 test_slalom_integration.py"

@@ -1,5 +1,12 @@
 <?xml version="1.0"?>
 <launch>
+  <!-- Launch the controller node first -->
+  <node pkg="autonomy" type="controllers.py" name="submarine_controller" output="screen" />
+  
+  <!-- Wait a moment for controller to initialize -->
+  <param name="test_startup_delay" value="3.0" />
+  
+  <!-- Run the controller tests -->
   <test pkg="autonomy" type="test_controller.py" test-name="controller_unittest" time-limit="900">
   </test>
 </launch>

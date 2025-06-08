@@ -167,7 +167,6 @@ if [ "$TEST" == "true" ]; then
     export VOLUME=false
     source /opt/ros/noetic/setup.bash
     cd "$ROS_DIR"
-    catkin_make
     chmod +x "$ROS_DIR/src/hydrus-software-stack/run_tests.sh"
     exec "$ROS_DIR/src/hydrus-software-stack/run_tests.sh"
     # exec will replace the current process, so the tail command below won't run

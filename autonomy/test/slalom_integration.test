@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Slalom Integration Test -->
+  <test pkg="autonomy" type="test_slalom_integration.py" test-name="slalom_integration_test" time-limit="300">
+    <param name="use_sim_time" value="false"/>
+  </test>
+</launch>
