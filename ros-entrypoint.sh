@@ -170,6 +170,7 @@ if [ "$TEST" == "true" ]; then
     catkin_make
     chmod +x "$ROS_DIR/src/hydrus-software-stack/run_tests.sh"
     exec "$ROS_DIR/src/hydrus-software-stack/run_tests.sh"
+    # exec will replace the current process, so the tail command below won't run
 fi
 
 # Check if ROSBAG_PLAYBACK is enabled
@@ -206,5 +207,8 @@ else
     echo "RViz is not set to true. Skipping RViz launch."
 fi
 
-# Keep the container running by tailing the log
-tail -f /dev/null
+# Only keep the container running if not in TEST mode
+if [ "$TEST" != "true" ]; then
+    # Keep the container running by tailing the log
+    tail -f /dev/null
+fi
