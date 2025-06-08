@@ -25,7 +25,42 @@ from autonomy.srv import FireTorpedo, FireTorpedoResponse
 #  4 */          \* 8
 #    
 
-class ProportionalController:
+class PID:
+    """Simple PID controller"""
+
+    def __init__(self, kp=0.0, ki=0.0, kd=0.0, output_limits=(-200, 200)):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.output_limits = output_limits
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.prev_time = None
+
+    def reset(self):
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.prev_time = None
+
+    def update(self, error, current_time=None):
+        if current_time is None:
+            current_time = rospy.get_time()
+        if self.prev_time is None:
+            dt = 0.0
+        else:
+            dt = current_time - self.prev_time
+        self.integral += error * dt
+        derivative = (error - self.prev_error) / dt if dt > 0 else 0.0
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        self.prev_error = error
+        self.prev_time = current_time
+        if self.output_limits is not None:
+            min_out, max_out = self.output_limits
+            output = max(min_out, min(max_out, output))
+        return output
+
+
+class PIDController:
 
     @dataclass(frozen=True)
     class Constants:
@@ -64,6 +99,11 @@ class ProportionalController:
         self.thruster_values = [self.const.PWM_NEUTRAL for _ in range(8)]
         rospy.loginfo(f"Running with PWM values: {self.thruster_values}")
         self.moving: List[bool] = [False, False, False]  # [depth, rotation, linear]
+
+        # PID controllers for each axis
+        self.depth_pid = PID(kp=50.0, ki=0.0, kd=0.0, output_limits=(-200, 200))
+        self.rotation_pid = PID(kp=30.0, ki=0.0, kd=0.0, output_limits=(-200, 200))
+        self.linear_pid = PID(kp=40.0, ki=0.0, kd=0.0, output_limits=(-200, 200))
 
         #//////////////////////////////////// 
         #////////// INIT ROS DATA////////////
@@ -284,123 +324,75 @@ class ProportionalController:
         self.cmd_vel_pub.publish(tw)
 
     def adjust_depth_motors(self, current_pose, target_point):
-            # Get the proper position object from the PoseStamped
-            position = current_pose.pose.position
-            
-            # Calculate the depth difference
-            dz = target_point.z - position.z
-            depth_distance = abs(dz)
-            
-            rospy.loginfo(f"Depth adjustment: current={position.z:.2f}, target={target_point.z:.2f}, distance={depth_distance:.2f}")
-            
-            if depth_distance > self.const.DISTANCE_THRESHOLD:
-                if dz > 0:  # Need to go up
-                    for motor_id in self.const.DEPTH_MOTORS_ID:
-                        # Increase PWM for upward motion
-                        idx = motor_id - 1  # Convert 1-based to 0-based index
-                        self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.DEPTH_PWM_ADJUST
-                        rospy.loginfo(f"Setting depth motor {motor_id} to upward: {self.const.PWM_NEUTRAL + self.const.DEPTH_PWM_ADJUST}")
-                else:  # Need to go down
-                    for motor_id in self.const.DEPTH_MOTORS_ID:
-                        # Decrease PWM for downward motion
-                        idx = motor_id - 1  # Convert 1-based to 0-based index
-                        self.thruster_values[idx] = self.const.PWM_NEUTRAL - self.const.DEPTH_PWM_ADJUST
-                        rospy.loginfo(f"Setting depth motor {motor_id} to downward: {self.const.PWM_NEUTRAL - self.const.DEPTH_PWM_ADJUST}")
-                return False  # Indicate that depth adjustment is not yet complete
-            else:
-                # Stop depth movement by setting all depth motors to neutral
-                for motor_id in self.const.DEPTH_MOTORS_ID:
-                    idx = motor_id - 1
-                    self.thruster_values[idx] = self.const.PWM_NEUTRAL
-                
-                rospy.loginfo("Target depth reached, stopping depth motors")
-                return True  # Indicate that the target depth has been reached
+        position = current_pose.pose.position
+        error = target_point.z - position.z
+        delta = int(self.depth_pid.update(error))
+        rospy.loginfo(
+            f"Depth adjustment: current={position.z:.2f}, target={target_point.z:.2f}, error={error:.2f}, pwm_delta={delta}"
+        )
+
+        for motor_id in self.const.DEPTH_MOTORS_ID:
+            idx = motor_id - 1
+            pwm = self.const.PWM_NEUTRAL + delta
+            pwm = max(self.const.PWM_MIN, min(self.const.PWM_MAX, pwm))
+            self.thruster_values[idx] = pwm
+
+        return abs(error) <= self.const.DISTANCE_THRESHOLD
 
     def adjust_rotation_motors(self, current_pose, target_point):
-            # Get the proper position and orientation objects
-            position = current_pose.pose.position
-            orientation = current_pose.pose.orientation
-            
-            target_yaw = self.calculate_yaw_to_target(position, target_point)
-            current_yaw = self.calculate_current_yaw(orientation)
-            angle_diff = self.normalize_angle(target_yaw - current_yaw)
-            
-            rospy.loginfo(f"Rotation adjustment: target_yaw={target_yaw:.2f}, current_yaw={current_yaw:.2f}, diff={angle_diff:.2f}")
-            
-            if abs(angle_diff) > self.const.DISTANCE_THRESHOLD:
-                if angle_diff > 0:
-                    # Rotate right - differentially adjust PWM values
-                    for motor_id in self.const.FRONT_MOTORS_ID:
-                        idx = motor_id - 1  # Convert 1-based to 0-based index
-                        if idx == self.const.FRONT_MOTORS_ID[0] - 1:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL - self.const.ROTATION_PWM_ADJUST
-                        else:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.ROTATION_PWM_ADJUST
-                            
-                    for motor_id in self.const.BACK_MOTORS_ID:
-                        idx = motor_id - 1  # Convert 1-based to 0-based index
-                        if idx == self.const.BACK_MOTORS_ID[0] - 1:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL - self.const.ROTATION_PWM_ADJUST
-                        else:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.ROTATION_PWM_ADJUST
-                    
-                    rospy.loginfo("Rotating right")
-                else:
-                    # Rotate left - differentially adjust PWM values
-                    for motor_id in self.const.FRONT_MOTORS_ID:
-                        idx = motor_id - 1  # Convert 1-based to 0-based index
-                        if idx == self.const.FRONT_MOTORS_ID[0] - 1:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.ROTATION_PWM_ADJUST
-                        else:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL - self.const.ROTATION_PWM_ADJUST
-                            
-                    for motor_id in self.const.BACK_MOTORS_ID:
-                        idx = motor_id - 1  # Convert 1-based to 0-based index
-                        if idx == self.const.BACK_MOTORS_ID[0] - 1:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.ROTATION_PWM_ADJUST
-                        else:
-                            self.thruster_values[idx] = self.const.PWM_NEUTRAL - self.const.ROTATION_PWM_ADJUST
-                    
-                    rospy.loginfo("Rotating left")
-                return False
+        position = current_pose.pose.position
+        orientation = current_pose.pose.orientation
+
+        target_yaw = self.calculate_yaw_to_target(position, target_point)
+        current_yaw = self.calculate_current_yaw(orientation)
+        error = self.normalize_angle(target_yaw - current_yaw)
+        delta = int(self.rotation_pid.update(error))
+
+        rospy.loginfo(
+            f"Rotation adjustment: target_yaw={target_yaw:.2f}, current_yaw={current_yaw:.2f}, error={error:.2f}, pwm_delta={delta}"
+        )
+
+        # Apply differential thrust
+        for motor_id in self.const.FRONT_MOTORS_ID:
+            idx = motor_id - 1
+            if idx == self.const.FRONT_MOTORS_ID[0] - 1:
+                pwm = self.const.PWM_NEUTRAL - delta
             else:
-                rospy.loginfo("Rotation aligned with target")
-                return True
+                pwm = self.const.PWM_NEUTRAL + delta
+            pwm = max(self.const.PWM_MIN, min(self.const.PWM_MAX, pwm))
+            self.thruster_values[idx] = pwm
+
+        for motor_id in self.const.BACK_MOTORS_ID:
+            idx = motor_id - 1
+            if idx == self.const.BACK_MOTORS_ID[0] - 1:
+                pwm = self.const.PWM_NEUTRAL - delta
+            else:
+                pwm = self.const.PWM_NEUTRAL + delta
+            pwm = max(self.const.PWM_MIN, min(self.const.PWM_MAX, pwm))
+            self.thruster_values[idx] = pwm
+
+        return abs(error) <= self.const.DISTANCE_THRESHOLD
             
 
     def adjust_linear_motors(self, current_pose, target_point):
-            # Access the proper position object
-            position = current_pose.pose.position
-            
-            dx = target_point.x - position.x
-            dy = target_point.y - position.y
-            distance = math.sqrt(dx**2 + dy**2)
+        position = current_pose.pose.position
+        dx = target_point.x - position.x
+        dy = target_point.y - position.y
+        distance = math.sqrt(dx ** 2 + dy ** 2)
+        error = distance
 
-            rospy.loginfo(f"Linear movement: distance={distance:.2f}, Distance Threshold={self.const.DISTANCE_THRESHOLD}")
+        delta = int(self.linear_pid.update(error))
+        rospy.loginfo(
+            f"Linear movement: distance={distance:.2f}, error={error:.2f}, pwm_delta={delta}"
+        )
 
-            if distance > self.const.DISTANCE_THRESHOLD:
-                # Set front motors to use positive PWM delta (above neutral), the Arduino will handle thruster orientation
-                for motor_id in self.const.FRONT_MOTORS_ID:
-                    idx = motor_id - 1  # Convert 1-based to 0-based index
-                    self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST
-                    rospy.loginfo(f"Setting front motor {motor_id} to forward: {self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST}")
-                    
-                # Set back motors to use positive PWM delta (above neutral)
-                for motor_id in self.const.BACK_MOTORS_ID:
-                    idx = motor_id - 1  # Convert 1-based to 0-based index
-                    self.thruster_values[idx] = self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST
-                    rospy.loginfo(f"Setting back motor {motor_id} to forward: {self.const.PWM_NEUTRAL + self.const.LINEAR_PWM_ADJUST}")
-                
-                rospy.loginfo("Moving forward with differential thrust")
-                return False
-            else:
-                # Stop forward movement by setting all thrusters to neutral
-                for motor_id in self.const.FRONT_MOTORS_ID + self.const.BACK_MOTORS_ID:
-                    idx = motor_id - 1
-                    self.thruster_values[idx] = self.const.PWM_NEUTRAL
-                
-                rospy.loginfo("Target reached, stopping forward movement")
-                return True  # Indicate that the target has been reached
+        for motor_id in self.const.FRONT_MOTORS_ID + self.const.BACK_MOTORS_ID:
+            idx = motor_id - 1
+            pwm = self.const.PWM_NEUTRAL + delta
+            pwm = max(self.const.PWM_MIN, min(self.const.PWM_MAX, pwm))
+            self.thruster_values[idx] = pwm
+
+        return distance <= self.const.DISTANCE_THRESHOLD
 
     @staticmethod
     def calculate_yaw_to_target(current_position, target_position):
@@ -437,7 +429,7 @@ class ProportionalController:
 
 def main():
     rospy.init_node('submarine_controller')
-    ProportionalController()
+    PIDController()
     rospy.spin()
 
 if __name__ == '__main__':

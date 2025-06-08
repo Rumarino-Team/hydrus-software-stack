@@ -40,7 +40,7 @@ Aditionally there are 3 arguments that you add into the application for differen
 
 There are three main nodes required to enable autonomy:
 
-controllers : `autonomy/src/controllers.py`
+controllers : `autonomy/src/controllers.py` (PID based, see `docs/pid_controller.md` for tuning)
 computer_vision: `autnomy/src/cv_publishers.py`
 mission_planning: `ros_mission_planning.py`
 
