@@ -1,0 +1,74 @@
+[gd_scene load_steps=5 format=3 uid="uid://6jewlgg8ku7u"]
+
+[ext_resource type="PackedScene" path="res://Submarine.tscn" id="1"]
+[ext_resource type="Script" uid="uid://dhyc08abou1mv" path="res://scripts/water_environment.gd" id="2"]
+
+[sub_resource type="BoxMesh" id="2"]
+size = Vector3(100, 2, 100)
+
+[sub_resource type="BoxShape3D" id="1"]
+size = Vector3(100, 2, 100)
+
+[node name="SubmarineTestScene" type="Node3D"]
+
+[node name="WaterEnvironment" type="Node3D" parent="."]
+script = ExtResource("2")
+
+[node name="WaterSurface" type="StaticBody3D" parent="WaterEnvironment"]
+
+[node name="MeshInstance" type="MeshInstance3D" parent="WaterEnvironment/WaterSurface"]
+mesh = SubResource("2")
+
+[node name="CollisionShape" type="CollisionShape3D" parent="WaterEnvironment/WaterSurface"]
+shape = SubResource("1")
+
+[node name="WaterVolume" type="Area3D" parent="WaterEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -25, 0)
+
+[node name="CollisionShape" type="CollisionShape3D" parent="WaterEnvironment/WaterVolume"]
+shape = SubResource("1")
+
+[node name="DirectionalLight" type="DirectionalLight3D" parent="WaterEnvironment"]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 5, 0)
+light_color = Color(0.8, 0.8, 1, 1)
+light_energy = 0.6
+
+[node name="Submarine" parent="." instance=ExtResource("1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ThrusterInfo" type="VBoxContainer" parent="UI"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+
+[node name="Title" type="Label" parent="UI/ThrusterInfo"]
+layout_mode = 2
+text = "Thruster Status"
+horizontal_alignment = 1
+
+[node name="Instructions" type="VBoxContainer" parent="UI"]
+layout_mode = 0
+
+[node name="Title" type="Label" parent="UI/Instructions"]
+layout_mode = 2
+text = "Controls:"
+horizontal_alignment = 1
+
+[node name="Controls" type="RichTextLabel" parent="UI/Instructions"]
+layout_mode = 2
+text = "Arrow Keys: Move Forward/Back/Turn
+Enter: Move Up
+Escape: Move Down
+
+Watch the thruster cubes change color:
+- Red: Neutral
+- Yellow: Forward thrust
+- Blue: Reverse thrust
+
+The submarine body is blue and the thruster cubes are positioned according to the controller layout."

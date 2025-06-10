@@ -1,0 +1,34 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://scripts/submarine_simulation.gd" type="Script" id=1]
+
+[node name="Submarine" type="RigidBody"]
+script = ExtResource( 1 )
+submarine_mass = 50.0
+water_drag = 0.5
+angular_drag = 0.3
+buoyancy_force = 490.0
+submarine_color = Color( 0.2, 0.2, 0.8, 1 )
+thruster_color = Color( 0.8, 0.2, 0.2, 1 )
+submarine_length = 2.0
+submarine_width = 0.8
+submarine_height = 0.6
+thruster_size = 0.1
+max_thrust_force = 100.0
+thruster_response_time = 0.1
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 2, 4 )
+fov = 75.0
+
+[node name="CameraGimbal" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5 )
+
+[node name="ForwardCamera" type="Camera" parent="CameraGimbal"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+current = true
+fov = 90.0
+
+[node name="DepthCamera" type="Camera" parent="CameraGimbal"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+fov = 90.0
