@@ -11,10 +11,13 @@ import time
 import actionlib
 
 class TestController(unittest.TestCase):
-    simulator = arduino_simulator.ArduinoSimulator()
+    simulator = None
     client = actionlib.SimpleActionClient('controller_action', NavigateToWaypointAction)
     DELTA = 0.20  # Threshold for considering a step complete
     PWM_NEUTRAL = 1500
+
+    def setUp(self):
+        self.simulator = arduino_simulator.ArduinoSimulator()
 
     def run_simulation(self, target_point, time_to_reach, expected_neutral_thrusters=None):
         rospy.loginfo(f"Time to reach target: {time_to_reach} seconds")
@@ -32,16 +35,11 @@ class TestController(unittest.TestCase):
         self.simulator.expected_neutral_thrusters = None
 
         result = self.client.get_result()
-        if result is None:
-            rospy.logerr("No result received from the controller action server.")
-            return
+        self.assertFalse(result is None, "No result received from the controller action server.")
 
         rospy.loginfo(f"Final distance to target: {result.distance_to_target:.2f}")
-        if result.distance_to_target < 0.1:  
-            rospy.loginfo("Controller successfully moved the submarine to the target.")
-        else:
-            rospy.logwarn("Controller failed to reach the target within acceptable range.")
-            return
+        self.assertTrue(result.distance_to_target < 0.1, "Controller failed to reach the target within acceptable range.")
+        rospy.loginfo("Controller successfully moved the submarine to the target.")
         return result
     
     def test_go_forward(self): # only functions with 'test_'-prefix will be run!
@@ -54,7 +52,6 @@ class TestController(unittest.TestCase):
         expected_neutral_thrusters = [2, 7, 3, 6]
         
         res = self.run_simulation(target_point, 15, expected_neutral_thrusters=expected_neutral_thrusters)
-        self.simulator = arduino_simulator.ArduinoSimulator()
 
         self.assertTrue(res is not None, "Going forward failed!")
     
@@ -68,7 +65,6 @@ class TestController(unittest.TestCase):
         expected_neutral_thrusters = [2, 7, 3, 6]
         
         res = self.run_simulation(target_point, 15, expected_neutral_thrusters=expected_neutral_thrusters)
-        self.simulator = arduino_simulator.ArduinoSimulator()
 
         self.assertTrue(res is not None, "Going to the side failed!")
 
@@ -83,7 +79,6 @@ class TestController(unittest.TestCase):
         expected_neutral_thrusters = [3, 6]
         
         res = self.run_simulation(target_point, 15, expected_neutral_thrusters=expected_neutral_thrusters)
-        self.simulator = arduino_simulator.ArduinoSimulator()
         
         self.assertTrue(res is not None, "Going up failed!")
 
@@ -98,7 +93,6 @@ class TestController(unittest.TestCase):
         expected_neutral_thrusters = [3, 6]
         
         res = self.run_simulation(target_point, 15, expected_neutral_thrusters=expected_neutral_thrusters)
-        self.simulator = arduino_simulator.ArduinoSimulator()
         
         self.assertTrue(res is not None, "Going to point failed!")
 
