@@ -1,35 +1,35 @@
-extends RigidBody
+extends RigidBody3D
 
 # Submarine physical properties
-export var submarine_mass := 50.0
-export var water_drag := 0.5
-export var angular_drag := 0.3
-export var buoyancy_force := 490.0  # Force to counteract gravity (50kg * 9.8 m/s^2)
+@export var submarine_mass := 50.0
+@export var water_drag := 0.5
+@export var angular_drag := 0.3
+@export var buoyancy_force := 490.0  # Force to counteract gravity (50kg * 9.8 m/s^2)
 
 # Visual properties
-export var submarine_color := Color(0.2, 0.2, 0.8, 1.0)  # Blue submarine
-export var thruster_color := Color(0.8, 0.2, 0.2, 1.0)   # Red thrusters
+@export var submarine_color := Color(0.2, 0.2, 0.8, 1.0)  # Blue submarine
+@export var thruster_color := Color(0.8, 0.2, 0.2, 1.0)   # Red thrusters
 
 # Submarine dimensions
-export var submarine_length := 2.0
-export var submarine_width := 0.8
-export var submarine_height := 0.6
+@export var submarine_length := 2.0
+@export var submarine_width := 0.8
+@export var submarine_height := 0.6
 
 # Thruster properties
-export var thruster_size := 0.1
-export var max_thrust_force := 100.0
-export var thruster_response_time := 0.1
+@export var thruster_size := 0.1
+@export var max_thrust_force := 100.0
+@export var thruster_response_time := 0.1
 
 # References to visual components
-var submarine_body: MeshInstance
+var submarine_body: MeshInstance3D
 var thruster_nodes := []
-var collision_shape: CollisionShape
+var collision_shape: CollisionShape3D
 
 # Thruster configuration - matches the ASCII diagram from the codebase
 var thrusters := []
 
 class Thruster:
-    var node: MeshInstance
+    var node: MeshInstance3D
     var position: Vector3
     var direction: Vector3
     var current_pwm: float = 1500.0  # PWM value (1000-2000, 1500 is neutral)
@@ -56,25 +56,24 @@ class Thruster:
     func update_visual():
         if node:
             # Change thruster color based on activity
-            var material = node.get_surface_material(0)
+            var material = node.get_surface_override_material(0)
             if not material:
-                material = SpatialMaterial.new()
-                node.set_surface_material(0, material)
+                material = StandardMaterial3D.new()
+                node.set_surface_override_material(0, material)
             
             # Color intensity based on thrust
             var intensity = abs(current_pwm - 1500.0) / 500.0
             var base_color = Color(0.8, 0.2, 0.2)  # Red base
             if current_pwm > 1500.0:
-                material.albedo_color = base_color.linear_interpolate(Color.yellow, intensity)
+                material.albedo_color = base_color.lerp(Color.YELLOW, intensity)
             elif current_pwm < 1500.0:
-                material.albedo_color = base_color.linear_interpolate(Color.blue, intensity)
+                material.albedo_color = base_color.lerp(Color.BLUE, intensity)
             else:
                 material.albedo_color = base_color
 
 func _ready():
     # Set up physics properties
     mass = submarine_mass
-    set_use_custom_integrator(true)
     
     # Create visual components
     create_submarine_body()
@@ -87,31 +86,33 @@ func _ready():
     print("Submarine simulation initialized with ", thrusters.size(), " thrusters")
 
 func create_submarine_body():
-    # Create the main submarine body (rectangular)
-    submarine_body = MeshInstance.new()
+    # Create the main submarine body (rectangular mesh)
+    submarine_body = MeshInstance3D.new()
     submarine_body.name = "SubmarineBody"
     add_child(submarine_body)
     
-    # Create box mesh for submarine
+    # Create rectangular box mesh for submarine
     var box_mesh = BoxMesh.new()
     box_mesh.size = Vector3(submarine_length, submarine_height, submarine_width)
     submarine_body.mesh = box_mesh
     
-    # Create material
-    var material = SpatialMaterial.new()
+    # Create material for the submarine body
+    var material = StandardMaterial3D.new()
     material.albedo_color = submarine_color
     material.metallic = 0.8
     material.roughness = 0.3
-    submarine_body.set_surface_material(0, material)
+    submarine_body.set_surface_override_material(0, material)
+    
+    print("Created rectangular submarine mesh with dimensions: ", submarine_length, "x", submarine_height, "x", submarine_width)
 
 func create_collision_shape():
-    # Create collision shape that matches the visual mesh
-    collision_shape = CollisionShape.new()
+    # Create collision shape that matches the rectangular mesh
+    collision_shape = CollisionShape3D.new()
     collision_shape.name = "CollisionShape"
     add_child(collision_shape)
     
-    var box_shape = BoxShape.new()
-    box_shape.extents = Vector3(submarine_length/2, submarine_height/2, submarine_width/2)
+    var box_shape = BoxShape3D.new()
+    box_shape.size = Vector3(submarine_length, submarine_height, submarine_width)
     collision_shape.shape = box_shape
 
 func setup_thrusters():
@@ -156,7 +157,7 @@ func setup_thrusters():
 
 func create_thruster(id: int, position: Vector3, direction: Vector3):
     # Create visual representation
-    var thruster_visual = MeshInstance.new()
+    var thruster_visual = MeshInstance3D.new()
     thruster_visual.name = "Thruster_" + str(id)
     add_child(thruster_visual)
     
@@ -166,12 +167,12 @@ func create_thruster(id: int, position: Vector3, direction: Vector3):
     thruster_visual.mesh = cube_mesh
     
     # Position the thruster
-    thruster_visual.translation = position
+    thruster_visual.position = position
     
     # Create material
-    var material = SpatialMaterial.new()
+    var material = StandardMaterial3D.new()
     material.albedo_color = thruster_color
-    thruster_visual.set_surface_material(0, material)
+    thruster_visual.set_surface_override_material(0, material)
     
     # Create thruster object
     var thruster = Thruster.new(id, position, direction, max_thrust_force)
@@ -182,12 +183,12 @@ func create_thruster(id: int, position: Vector3, direction: Vector3):
     # Add a small label above each thruster for identification
     create_thruster_label(thruster_visual, str(id), position)
 
-func create_thruster_label(parent: MeshInstance, text: String, position: Vector3):
+func create_thruster_label(parent: MeshInstance3D, text: String, pos: Vector3):
     # Create a 3D label for the thruster
     var label = Label3D.new()
     label.text = text
     label.pixel_size = 0.01
-    label.translation = Vector3(0, thruster_size + 0.05, 0)
+    label.position = Vector3(0, thruster_size + 0.05, 0)
     parent.add_child(label)
 
 func setup_ros_connections():
@@ -204,7 +205,7 @@ func set_thruster_pwm(thruster_id: int, pwm_value: float):
 
 func _integrate_forces(state):
     # Apply buoyancy to counteract gravity
-    state.add_central_force(Vector3(0, buoyancy_force, 0))
+    state.add_constant_central_force(Vector3(0, buoyancy_force, 0))
     
     # Apply water drag
     apply_drag(state)
@@ -216,12 +217,12 @@ func apply_drag(state):
     # Linear drag
     var velocity = state.linear_velocity
     var drag_force = -velocity * velocity.length() * water_drag
-    state.add_central_force(drag_force)
+    state.add_constant_central_force(drag_force)
     
     # Angular drag
     var angular_velocity = state.angular_velocity
     var angular_drag_force = -angular_velocity * angular_velocity.length() * angular_drag
-    state.add_torque(angular_drag_force)
+    state.add_constant_torque(angular_drag_force)
 
 func apply_thruster_forces(state):
     for thruster in thrusters:
@@ -235,7 +236,7 @@ func apply_thruster_forces(state):
         
         # Apply force at thruster position
         var local_position = thruster.position
-        state.add_force(world_force, local_position)
+        state.add_constant_force(world_force, local_position)
         
         # Update visual representation
         thruster.update_visual()
