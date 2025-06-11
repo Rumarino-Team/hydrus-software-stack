@@ -5,7 +5,7 @@ import math
 from typing import List, Dict
 from geometry_msgs.msg import Point, PoseStamped
 from autonomy.msg import Detections
-from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal, NavigateToWaypointFeedback, NavigateToWaypointResult
+from autonomy.msg import NavigateToWaypointAction, NavigateToWaypointGoal, NavigateToWaypointFeedback
 from std_msgs.msg import String
 import actionlib
 
@@ -43,8 +43,8 @@ class SlalomMission(BaseMission):
         
         # Additional subscribers/publishers
         self.status_pub = rospy.Publisher('/mission_status', String, queue_size=10)
-        self.detection_sub = rospy.Subscriber('/vision/detections', Detections, self.detection_callback)
-        self.pose_sub = rospy.Subscriber('/submarine/pose', PoseStamped, self.pose_callback)
+        # self.detection_sub = rospy.Subscriber('/vision/detections', Detections, self.detection_callback)
+        # self.pose_sub = rospy.Subscriber('/submarine/pose', PoseStamped, self.pose_callback)
         
         # Action client for navigation (optional for testing)
         self.controller_client = None

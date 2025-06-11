@@ -27,8 +27,8 @@ class SlalomASCIIVisualizer:
         self.gates_completed = []
         
         # Subscribers
-        self.pose_sub = rospy.Subscriber('/submarine/pose', PoseStamped, self.pose_callback)
-        self.detection_sub = rospy.Subscriber('/vision/detections', Detections, self.detection_callback)
+        self.pose_sub = rospy.Subscriber('/zed2i/zed_node/pose', PoseStamped, self.pose_callback)
+        self.detection_sub = rospy.Subscriber('/detector/box_detection', Detections, self.detection_callback)
         self.status_sub = rospy.Subscriber('/mission_status', String, self.status_callback)
         
         # Track submarine path

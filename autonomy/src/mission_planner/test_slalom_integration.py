@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rospy
 import time
-from geometry_msgs.msg import Point, PoseStamped, Pose, Quaternion
+from geometry_msgs.msg import Point, PoseStamped
 from autonomy.msg import Detection, Detections
 from mission_planner.slalom_mission import SlalomMission
 
@@ -12,9 +12,9 @@ class SlalomMissionTester:
         # Initialize the mission with action client disabled for testing
         self.mission = SlalomMission(enable_action_client=False)
         
-        # Set up publishers for testing
-        self.detection_pub = rospy.Publisher('/vision/detections', Detections, queue_size=10)
-        self.pose_pub = rospy.Publisher('/submarine/pose', PoseStamped, queue_size=10)
+               # Set up publishers for testing - use the same topics as base_mission.py
+        self.detection_pub = rospy.Publisher('/detector/box_detection', Detections, queue_size=10)
+        self.pose_pub = rospy.Publisher('/zed2i/zed_node/pose', PoseStamped, queue_size=10)
         
         # Create mock pose
         self.mock_pose = PoseStamped()
