@@ -48,13 +48,14 @@ class ArduinoSimulator:
         self.rotation_rate = 0.02     # 0.02 radians per update at 10Hz = ~0.2 rad/s
         
         # Subscribe to thruster commands to update movement state
-        rospy.Subscriber('/hydrus/depth', Int16, self.depth_callback)
-        rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
+        self.depth_sub = rospy.Subscriber('/hydrus/depth', Int16, self.depth_callback)
+        self.target_sub = rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
         
         # Subscribe to individual thruster commands to detect rotation and forward movement
+        self.thruster_subs = []
         for i in range(1, 9):
-            rospy.Subscriber(f'/hydrus/thrusters/{i}', Int16, 
-                            lambda msg, idx=i: self.thruster_callback(msg, idx))
+            self.thruster_subs.append(rospy.Subscriber(f'/hydrus/thrusters/{i}', Int16, 
+                            lambda msg, idx=i: self.thruster_callback(msg, idx)))
         
         # Timer to update position based on current movement state
         self.update_timer = rospy.Timer(rospy.Duration(0.1), self.update_position)  # 10 Hz updates
@@ -62,7 +63,7 @@ class ArduinoSimulator:
     def target_distance_callback(self, msg):
         """Update the target distance value"""
         self.target_distance = msg.data
-
+    
     def depth_callback(self, msg):
         """Update vertical movement state based on depth commands"""
         pwm = msg.data
