@@ -40,6 +40,7 @@ class ArduinoSimulator:
         self.pwm_front = [0, 0]
         self.pwm_back = [0, 0]
         self.rotating = [0, 0, 0, 0]  # -1: left, 0: no rotation, 1: right
+        self.expected_neutral_thrusters = None
         
         # Position update rates (meters per second or radians per second)
         self.vertical_rate = 0.02     # 2 cm per update at 10Hz = 0.2 m/s
@@ -47,13 +48,14 @@ class ArduinoSimulator:
         self.rotation_rate = 0.02     # 0.02 radians per update at 10Hz = ~0.2 rad/s
         
         # Subscribe to thruster commands to update movement state
-        rospy.Subscriber('/hydrus/depth', Int16, self.depth_callback)
-        rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
+        self.depth_sub = rospy.Subscriber('/hydrus/depth', Int16, self.depth_callback)
+        self.target_sub = rospy.Subscriber('/controller/target_distance', Float32, self.target_distance_callback)
         
         # Subscribe to individual thruster commands to detect rotation and forward movement
+        self.thruster_subs = []
         for i in range(1, 9):
-            rospy.Subscriber(f'/hydrus/thrusters/{i}', Int16, 
-                            lambda msg, idx=i: self.thruster_callback(msg, idx))
+            self.thruster_subs.append(rospy.Subscriber(f'/hydrus/thrusters/{i}', Int16, 
+                            lambda msg, idx=i: self.thruster_callback(msg, idx)))
         
         # Timer to update position based on current movement state
         self.update_timer = rospy.Timer(rospy.Duration(0.1), self.update_position)  # 10 Hz updates
@@ -61,7 +63,7 @@ class ArduinoSimulator:
     def target_distance_callback(self, msg):
         """Update the target distance value"""
         self.target_distance = msg.data
-
+    
     def depth_callback(self, msg):
         """Update vertical movement state based on depth commands"""
         pwm = msg.data
@@ -79,7 +81,7 @@ class ArduinoSimulator:
         pwm = msg.data
         
         # Real-time thruster validation if we're in test mode
-        if hasattr(self, 'expected_neutral_thrusters') and self.expected_neutral_thrusters:
+        if self.expected_neutral_thrusters:
             if thruster_id in self.expected_neutral_thrusters:
                 if abs(pwm - self.PWM_NEUTRAL) > 10:  # Threshold for "active"
                     error_msg = f"ASSERTION FAILED: Thruster {thruster_id} should stay neutral but got PWM {pwm} (expected ~{self.PWM_NEUTRAL})"
@@ -196,7 +198,6 @@ class ArduinoSimulator:
             forward_direction = self.moving_forward
             self.current_pose.pose.position.x += forward_direction * math.cos(current_yaw) * self.forward_rate
             self.current_pose.pose.position.y += forward_direction * math.sin(current_yaw) * self.forward_rate
-            rospy.loginfo(f"Updated position: ({self.current_pose.pose.position.x:.3f}, {self.current_pose.pose.position.y:.3f})")
             
         # Always publish the pose to provide continuous position updates
         self.current_pose.header.stamp = rospy.Time.now()
@@ -220,7 +221,8 @@ class ArduinoSimulator:
         q.z = cr * cp * sy - sr * sp * cy
         
         return q
-        
+
+    # Unused but maybe useful in the future       
     def calculate_yaw_to_target(self, current_position, target_point):
         """
         Calculate the yaw angle to face the target
@@ -228,149 +230,3 @@ class ArduinoSimulator:
         dx = target_point.x - current_position.x
         dy = target_point.y - current_position.y
         return math.atan2(dy, dx)
-
-    def simulate_pose(self, target_point, time_to_reach=10.0):
-        """
-        Simulates the submarine's movement towards a target point by publishing updated positions.
-        Movement follows the same sequence as the controllers.py:
-        1. Adjust depth
-        2. Rotate to face the target
-        3. Move forward in a straight line
-        
-        Args:
-            target_point: The target Point to move towards
-            time_to_reach: Total time in seconds it should take to reach the target
-        """
-        # Initialize pose
-        self.current_pose = PoseStamped()
-        self.current_pose.header.frame_id = "base_link"
-        self.current_pose.pose.position.x = 0.0
-        self.current_pose.pose.position.y = 0.0
-        self.current_pose.pose.position.z = 0.0
-        self.current_pose.pose.orientation = self.euler_to_quaternion(0)  # Start facing forward (0 radians)
-
-        # Movement states: [depth, rotation, linear]
-        moving = [True, False, False]
-        
-        # Calculate initial distances for each phase
-        depth_distance = abs(target_point.z - self.current_pose.pose.position.z)
-        
-        # Allocate time for each movement phase (proportionally to distances)
-        total_time = time_to_reach
-        time_per_phase = total_time / 3  # Divide total time into 3 phases
-        
-        # Calculate step sizes for each phase
-        depth_step_size = depth_distance / (time_per_phase * 10) if depth_distance > 0 else 0.1  # 10 Hz rate
-        rotation_step_size = math.pi / (time_per_phase * 10)  # Assuming max of PI radians to rotate
-        
-        # Calculate linear distance (after depth and rotation are complete)
-        dx = target_point.x - self.current_pose.pose.position.x
-        dy = target_point.y - self.current_pose.pose.position.y
-        linear_distance = (dx**2 + dy**2) ** 0.5
-        linear_step_size = linear_distance / (time_per_phase * 10) if linear_distance > 0 else 0.1  # 10 Hz rate
-        
-        rospy.loginfo(f"Simulating movement to reach target in {time_to_reach} seconds")
-        rospy.loginfo(f"Movement sequence: Depth → Rotation → Linear")
-        
-        # NOTE: The rest of this method is just the manual simulation
-        # The real position updates will now come from the update_position method
-        # based on thruster commands, so we'll just monitor progress here
-        
-        start_time = rospy.Time.now()
-        rate = rospy.Rate(500)  # 500 Hz for almost instant testing
-        
-        while not rospy.is_shutdown():
-            # Check if we've reached the target
-            current_pos = self.current_pose.pose.position
-            
-            if self.target_distance < self.DELTA:
-                rospy.loginfo(f"Target reached! Final position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f})")
-                break
-                
-            # Check if we've timed out (3x the expected time)
-            elapsed = (rospy.Time.now() - start_time).to_sec()
-            if elapsed > time_to_reach * 3:
-                rospy.logwarn(f"Timeout reached after {elapsed:.1f} seconds. Current distance to target: {self.target_distance:.3f}")
-                break
-                
-            # Log current position periodically
-            if int(elapsed * 10) % 20 == 0:  # Every ~2 seconds
-                rospy.loginfo(f"Current position: ({current_pos.x:.3f}, {current_pos.y:.3f}, {current_pos.z:.3f}), distance: {self.target_distance:.3f}")
-                
-            rate.sleep()
-
-    def test_controller(self, target_point, time_to_reach=10.0, expected_neutral_thrusters=None):
-        """
-        Tests the controller by sending a target point and simulating movement.
-        
-        Args:
-            target_point: The target Point to move towards
-            time_to_reach: Time in seconds it should take to reach the target
-            expected_neutral_thrusters: List of thruster IDs that should stay neutral during this test
-        """
-        rospy.loginfo(f"Testing controller with target point: ({target_point.x}, {target_point.y}, {target_point.z})")
-        rospy.loginfo(f"Time to reach target: {time_to_reach} seconds")
-        
-        # Set up real-time thruster validation
-        self.expected_neutral_thrusters = expected_neutral_thrusters or []
-        if self.expected_neutral_thrusters:
-            rospy.loginfo(f"Expected neutral thrusters: {self.expected_neutral_thrusters}")
-
-        goal = NavigateToWaypointGoal()
-        goal.target_point = target_point  # Assigning the Point object to the target_point field. Target aquiared. 
-
-        self.client.send_goal(goal)
-
-        rospy.loginfo("Simulating submarine pose updates...")
-        self.simulate_pose(target_point, time_to_reach)
-
-        rospy.loginfo("Waiting for result from the controller...")
-        self.client.wait_for_result()
-
-        result = self.client.get_result()
-        if result is None:
-            rospy.logerr("No result received from the controller action server.")
-            return
-
-        rospy.loginfo(f"Final distance to target: {result.distance_to_target:.2f}")
-        if result.distance_to_target < 0.1:  
-            rospy.loginfo("Controller successfully moved the submarine to the target.")
-        else:
-            rospy.logwarn("Controller failed to reach the target within acceptable range.")
-        return result
-
-    def run(self, time_to_reach=10.0):
-        """
-        Runs the tester with a predefined target point.
-        
-        Args:
-            time_to_reach: Time in seconds it should take to reach the target
-        """
-        #Chooses a random target because testing:)
-        target_point = Point()
-        target_point.x = 0
-        target_point.y = 2
-        target_point.z = 0
-
-        self.test_controller(target_point, time_to_reach)
-
-
-if __name__ == '__main__':
-    try:
-        import sys
-        time_to_reach = 10.0  # Default time
-        
-        # Check if time argument is provided
-        if len(sys.argv) > 1:
-            try:
-                time_to_reach = float(sys.argv[1])
-                if time_to_reach <= 0:
-                    rospy.logwarn("Time to reach must be positive. Using default of 10.0 seconds.")
-                    time_to_reach = 10.0
-            except ValueError:
-                rospy.logwarn("Invalid time argument. Using default of 10.0 seconds.")
-        
-        tester = ArduinoSimulator()
-        tester.run(time_to_reach)
-    except rospy.ROSInterruptException:
-        rospy.loginfo("Controller tester interrupted.")
