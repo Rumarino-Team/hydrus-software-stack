@@ -1,6 +1,10 @@
 from typing import List
 
-from fastapi import FastAPI, HTTPException
+import os
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 
 from .database import Database
@@ -10,6 +14,9 @@ from .docker_manager import DockerManager
 TAILSCALE_IP = "100.76.98.95"
 
 app = FastAPI()
+
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
+app.add_middleware(SessionMiddleware, secret_key="ssh-docker-server-secret")
 
 db = Database()
 docker_manager = DockerManager()
@@ -43,7 +50,130 @@ class ImageInfo(BaseModel):
     size: int
     created: str
 
-@app.post("/register")
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "message": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login_web(request: Request, email: str = Form(...), password: str = Form(...)):
+    user_id = db.verify_user(email, password)
+    if not user_id:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "message": "Invalid credentials"},
+            status_code=401,
+        )
+    request.session["email"] = email
+    request.session["password"] = password
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@app.post("/register", response_class=HTMLResponse)
+def register_web(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    if not db.add_user(name, email, password):
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "message": "Email already registered"},
+            status_code=400,
+        )
+    request.session["email"] = email
+    request.session["password"] = password
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@app.post("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    email = request.session.get("email")
+    password = request.session.get("password")
+    if not email or not password:
+        return RedirectResponse("/", status_code=303)
+    user_id = db.verify_user(email, password)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+
+    rows = db.list_containers(user_id)
+    containers = [
+        {
+            "id": r[0],
+            "docker_id": r[1],
+            "port": r[2],
+            "password": r[3],
+            "image_tag": r[4],
+        }
+        for r in rows
+    ]
+    images = docker_manager.list_available_images()
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "email": email,
+            "containers": containers,
+            "images": images,
+            "tailscale_ip": TAILSCALE_IP,
+        },
+    )
+
+
+@app.post("/create")
+def create_container_web(request: Request, image_tag: str = Form(...)):
+    email = request.session.get("email")
+    password = request.session.get("password")
+    if not email or not password:
+        return RedirectResponse("/", status_code=303)
+    user_id = db.verify_user(email, password)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+    try:
+        cid, docker_id, port, passwd, img_tag, info = docker_manager.create_container(
+            user_id, image_tag
+        )
+        db.add_container(
+            cid,
+            user_id,
+            docker_id,
+            port,
+            passwd,
+            img_tag,
+            info["ssh_ready"],
+            info.get("funnel_port"),
+        )
+    except Exception:
+        pass
+    return RedirectResponse("/dashboard", status_code=303)
+
+
+@app.post("/delete")
+def delete_container_web(request: Request, cid: str = Form(...)):
+    email = request.session.get("email")
+    password = request.session.get("password")
+    if not email or not password:
+        return RedirectResponse("/", status_code=303)
+    user_id = db.verify_user(email, password)
+    if not user_id:
+        return RedirectResponse("/", status_code=303)
+    rows = db.list_containers(user_id)
+    for r in rows:
+        if r[0] == cid:
+            docker_manager.remove_container(r[1])
+            db.delete_container(user_id, cid)
+            break
+    return RedirectResponse("/dashboard", status_code=303)
+
+@app.post("/api/register")
 def register(req: UserRequest):
     if not req.name:
         raise HTTPException(status_code=400, detail="Name required")
@@ -51,14 +181,14 @@ def register(req: UserRequest):
         raise HTTPException(status_code=400, detail="Email already registered")
     return {"message": "registered"}
 
-@app.post("/login")
+@app.post("/api/login")
 def login(req: UserRequest):
     user_id = db.verify_user(req.email, req.password)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"message": "success"}
 
-@app.get("/images", response_model=List[ImageInfo])
+@app.get("/api/images", response_model=List[ImageInfo])
 def list_images(email: str, password: str):
     user_id = db.verify_user(email, password)
     if not user_id:
@@ -77,7 +207,7 @@ def list_compose(email: str, password: str):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return docker_manager.list_available_compose()
 
-@app.get("/images/{image_tag:path}")
+@app.get("/api/images/{image_tag:path}")
 def get_image_info(image_tag: str, email: str, password: str):
     user_id = db.verify_user(email, password)
     if not user_id:
@@ -91,15 +221,15 @@ def get_image_info(image_tag: str, email: str, password: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get image info: {str(e)}")
 
-@app.post("/container", response_model=ContainerInfo)
+@app.post("/api/container", response_model=ContainerInfo)
 def create_container(req: ContainerRequest):
     user_id = db.verify_user(req.email, req.password)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     try:
-        cid, docker_id, port, password, image_tag = docker_manager.create_container(user_id, req.image_tag)
-        db.add_container(cid, user_id, docker_id, port, password, image_tag)
+        cid, docker_id, port, password, image_tag, info = docker_manager.create_container(user_id, req.image_tag)
+        db.add_container(cid, user_id, docker_id, port, password, image_tag, info["ssh_ready"], info.get("funnel_port"))
         
         # Generate SSH command and web URLs
         ssh_command = f"ssh dev@{TAILSCALE_IP} -p {port}"
@@ -152,7 +282,7 @@ def create_compose(req: ComposeRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/container", response_model=List[ContainerInfo])
+@app.get("/api/container", response_model=List[ContainerInfo])
 def list_containers(email: str, password: str):
     user_id = db.verify_user(email, password)
     if not user_id:
@@ -181,7 +311,7 @@ def list_containers(email: str, password: str):
     
     return containers
 
-@app.delete("/container/{cid}")
+@app.delete("/api/container/{cid}")
 def delete_container(cid: str, email: str, password: str):
     user_id = db.verify_user(email, password)
     if not user_id:
@@ -193,3 +323,4 @@ def delete_container(cid: str, email: str, password: str):
             db.delete_container(user_id, cid)
             return {"message": "deleted"}
     raise HTTPException(status_code=404, detail="Not found")
+

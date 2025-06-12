@@ -8,3 +8,4 @@ Flask
 requests
 numpy
 colorama
+python-multipart

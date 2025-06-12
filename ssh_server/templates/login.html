@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSH Docker Server - Login</title>
+</head>
+<body>
+    <h1>Login</h1>
+    {% if message %}<p style="color:red;">{{ message }}</p>{% endif %}
+    <form action="/login" method="post">
+        <label>Email: <input type="text" name="email"></label><br>
+        <label>Password: <input type="password" name="password"></label><br>
+        <input type="submit" value="Login">
+    </form>
+    <h2>Register</h2>
+    <form action="/register" method="post">
+        <label>Name: <input type="text" name="name"></label><br>
+        <label>Email: <input type="text" name="email"></label><br>
+        <label>Password: <input type="password" name="password"></label><br>
+        <input type="submit" value="Register">
+    </form>
+</body>
+</html>

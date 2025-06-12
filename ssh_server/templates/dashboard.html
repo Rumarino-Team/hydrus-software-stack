@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSH Docker Server - Dashboard</title>
+</head>
+<body>
+    <h1>Welcome {{ email }}</h1>
+    <h2>Create Container</h2>
+    <form action="/create" method="post">
+        <label>Image:
+            <select name="image_tag">
+                {% for img in images %}
+                <option value="{{ img['tag'] }}">{{ img['tag'] }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <input type="submit" value="Create">
+    </form>
+    <h2>Your Containers</h2>
+    <table border="1">
+        <tr><th>ID</th><th>Port</th><th>Image</th><th>Password</th><th>SSH</th><th>Action</th></tr>
+        {% for c in containers %}
+        <tr>
+            <td>{{ c['id'] }}</td>
+            <td>{{ c['port'] }}</td>
+            <td>{{ c['image_tag'] }}</td>
+            <td>{{ c['password'] }}</td>
+            <td>ssh dev@{{ tailscale_ip }} -p {{ c['port'] }}</td>
+            <td>
+                <form action="/delete" method="post" style="display:inline;">
+                    <input type="hidden" name="cid" value="{{ c['id'] }}">
+                    <input type="submit" value="Delete">
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <form action="/logout" method="post"><input type="submit" value="Logout"></form>
+</body>
+</html>
