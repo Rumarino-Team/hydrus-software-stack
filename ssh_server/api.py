@@ -24,6 +24,11 @@ class ContainerRequest(BaseModel):
     password: str
     image_tag: str = "linuxserver/openssh-server"
 
+class ComposeRequest(BaseModel):
+    email: str
+    password: str
+    compose_name: str = "openssh"
+
 class ContainerInfo(BaseModel):
     id: str
     port: int
@@ -64,6 +69,13 @@ def list_images(email: str, password: str):
         return [ImageInfo(**img) for img in images]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list images: {str(e)}")
+
+@app.get("/compose", response_model=List[str])
+def list_compose(email: str, password: str):
+    user_id = db.verify_user(email, password)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return docker_manager.list_available_compose()
 
 @app.get("/images/{image_tag:path}")
 def get_image_info(image_tag: str, email: str, password: str):
@@ -106,6 +118,34 @@ def create_container(req: ContainerRequest):
             image_tag=image_tag,
             ssh_command=ssh_command,
             web_urls=web_urls
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/compose", response_model=ContainerInfo)
+def create_compose(req: ComposeRequest):
+    user_id = db.verify_user(req.email, req.password)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    try:
+        cid, docker_id, port, password, name = docker_manager.create_container_from_compose(
+            user_id, req.compose_name
+        )
+        db.add_container(cid, user_id, docker_id, port, password, name)
+
+        ssh_command = f"ssh dev@{TAILSCALE_IP} -p {port}" if port else "ssh access unavailable"
+        web_urls = {}
+
+        return ContainerInfo(
+            id=cid,
+            port=port or 0,
+            password=password,
+            image_tag=name,
+            ssh_command=ssh_command,
+            web_urls=web_urls,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

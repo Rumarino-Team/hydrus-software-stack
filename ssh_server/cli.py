@@ -27,8 +27,9 @@ def cli() -> None:
               "\n2) List instances"
               "\n3) Delete instance"
               "\n4) List available images"
-              "\n5) Funnel instructions"
-              "\n6) Exit")
+              "\n5) Create from compose"
+              "\n6) Funnel instructions"
+              "\n7) Exit")
         opt = input("Select: ")
 
         # -------------------- 1) Create instance --------------------------- #
@@ -127,8 +128,42 @@ def cli() -> None:
                     mb = img['size'] // (1024 * 1024)
                     print(f"{img['tag']:<45}{img['id']:<15}{mb}")
 
-        # -------------------- 5) Quick Funnel help ------------------------- #
+        # -------------------- 5) Create from compose ----------------------- #
         elif opt == "5":
+            names = docker_manager.list_available_compose()
+            if not names:
+                print("No compose configurations available.")
+                continue
+            for i, name in enumerate(names, 1):
+                print(f"{i}) {name}")
+            try:
+                idx = int(input("Select compose file: ")) - 1
+                if not 0 <= idx < len(names):
+                    print("Invalid selection")
+                    continue
+                chosen = names[idx]
+            except ValueError:
+                print("Invalid selection")
+                continue
+
+            print(f"Launching compose '{chosen}'…")
+            try:
+                cid, docker_id, port, passwd, name, info = docker_manager.create_container_from_compose(user_id, chosen)
+                funnel_path = info["funnel_path"]
+                funnel_port = info["funnel_port"]
+
+                db.add_container(cid, user_id, docker_id, port, passwd, name, info["ssh_ready"], funnel_port)
+
+                if port:
+                    print(f"SSH: ssh dev@{TAILSCALE_IP} -p {port}")
+                print(f"Password: {passwd}")
+                if funnel_path:
+                    print(f"Funnel: https://{TAILSCALE_FUNNEL_DOMAIN}{funnel_path}")
+            except Exception as exc:
+                print(f"[Error] {exc}")
+
+        # -------------------- 6) Quick Funnel help ------------------------- #
+        elif opt == "6":
             print("\n📡  Tailscale Funnel Quick-start")
             print("--------------------------------")
             print("Expose any TCP port publicly:")
@@ -138,6 +173,6 @@ def cli() -> None:
                   "SSH itself can’t be wrapped in HTTPS; use Tailscale IP+port "
                   "for SSH, and funnel web UIs instead.")
 
-        # -------------------- 6) Exit -------------------------------------- #
+        # -------------------- 7) Exit -------------------------------------- #
         else:
             break

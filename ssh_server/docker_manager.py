@@ -13,6 +13,21 @@ import docker
 # --------------------------------------------------------------------------- #
 REPO_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Pre-defined docker compose configurations shipped with the server. Users
+# can only choose among these files and cannot supply their own.  The keys of
+# this dict are short names exposed via the API/CLI and the values are the
+# absolute paths to the corresponding compose YAML files.
+COMPOSE_FILES: Dict[str, str] = {
+    "openssh": os.path.join(os.path.dirname(__file__), "compose", "openssh.yaml"),
+}
+
+# For each compose file we also specify which service represents the main
+# container that users will interact with (used to fetch the container ID after
+# `docker compose` brings the stack up).
+COMPOSE_MAIN_SERVICE: Dict[str, str] = {
+    "openssh": "ssh",
+}
+
 TAILSCALE_IP = "100.76.98.95"
 TAILSCALE_FUNNEL_DOMAIN = (
     "cesar-rog-zephyrus-g16-gu603vi-gu603vi.tail680469.ts.net"
@@ -73,6 +88,10 @@ class DockerManager:
                         }
                     )
         return sorted(images, key=lambda x: x["tag"])
+
+    def list_available_compose(self) -> List[str]:
+        """Return the list of supported docker-compose configurations."""
+        return sorted(COMPOSE_FILES.keys())
 
     def get_image_info(self, image_tag: str) -> Dict[str, Any]:
         try:
@@ -211,6 +230,69 @@ class DockerManager:
             raise ValueError(f"Docker image '{image_tag}' not found.")
         except Exception as exc:
             raise RuntimeError(f"Container creation failed: {exc}")
+
+    def create_container_from_compose(self, user_id: int, compose_name: str):
+        """Create a container using one of the bundled docker-compose files."""
+        if compose_name not in COMPOSE_FILES:
+            raise ValueError(f"Unknown compose config '{compose_name}'")
+
+        compose_file = COMPOSE_FILES[compose_name]
+        main_service = COMPOSE_MAIN_SERVICE[compose_name]
+
+        cid = uuid.uuid4().hex[:8]
+        project_name = f"user-{user_id}-{cid}"
+        password = "".join(random.choices(string.ascii_letters + string.digits, k=10))
+
+        try:
+            subprocess.run(
+                ["docker", "compose", "-f", compose_file, "-p", project_name, "up", "-d"],
+                check=True,
+                cwd=os.path.dirname(compose_file),
+            )
+
+            # obtain docker ID of the main service container
+            result = subprocess.run(
+                ["docker", "compose", "-f", compose_file, "-p", project_name, "ps", "-q", main_service],
+                check=True,
+                cwd=os.path.dirname(compose_file),
+                capture_output=True,
+                text=True,
+            )
+            docker_id = result.stdout.strip()
+
+            container = self.client.containers.get(docker_id)
+            ssh_ready = self._setup_ssh_in_container(container, password, compose_name)
+
+            # fetch the mapped SSH port (randomly assigned by compose)
+            ports = container.attrs.get("NetworkSettings", {}).get("Ports", {})
+            ssh_ports = ports.get("22/tcp") or ports.get("2222/tcp")
+            if ssh_ports:
+                main_port = int(ssh_ports[0]["HostPort"])
+            else:
+                main_port = None
+
+            funnel_path = None
+            funnel_port = None
+            if main_port:
+                funnel_ok = expose_with_funnel_http_path(cid, main_port)
+                if funnel_ok:
+                    funnel_path = f"/{cid}"
+                    funnel_port = main_port
+
+            access_info = {
+                "ssh_ready": ssh_ready,
+                "tailscale_ip": TAILSCALE_IP,
+                "funnel_domain": TAILSCALE_FUNNEL_DOMAIN,
+                "funnel_path": funnel_path,
+                "funnel_port": funnel_port,
+                "main_port": main_port,
+                "all_ports": ports,
+            }
+
+            return cid, docker_id, main_port, password, compose_name, access_info
+
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"docker compose failed: {exc}")
 
     def remove_container(self, docker_id: str) -> None:
         try:
