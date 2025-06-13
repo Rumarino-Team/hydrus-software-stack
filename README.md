@@ -16,19 +16,27 @@ git clone https://github.com/Rumarino-Team/hydrus-software-stack.git
 cd hydrus-software-stack
 ```
 
-### Build and Run with Docker
+### Build and Run with Hocker
+We use **Hocker** (Hydrus Docker), our intelligent deployment tool that automatically detects your platform and configures the optimal Docker environment.
+
 ```bash
-# Make the script executable
-chmod +x docker/run_docker.sh
+# Make hocker executable
+chmod +x docker/hydrus-docker/hocker
 
 # Run with automatic platform detection
-./docker/run_docker.sh
+./docker/hydrus-docker/hocker
 
 # Test the installation
-./docker/run_docker.sh --test
+./docker/hydrus-docker/hocker --test
+
+# Quick development mode
+./docker/hydrus-docker/hocker --dev
+
+# Force CPU-only mode
+./docker/hydrus-docker/hocker --force-cpu
 ```
 
-The `run_docker.sh` script automatically detects your platform (CPU, NVIDIA GPU, or Jetson) and runs the appropriate Docker configuration. For detailed Docker options and configurations, see the [Docker README](docker/README.md).
+Hocker automatically detects your platform (CPU, NVIDIA GPU, WSL, or Jetson) and runs the appropriate Docker configuration with intelligent defaults. For detailed options and configurations, see the [Docker README](docker/README.md).
 
 ### Launch the Autonomy System
 ```bash
@@ -43,11 +51,12 @@ roslaunch autonomy controller.launch
 
 ## 🎯 Key Features
 
+- **Intelligent Deployment**: Hocker automatically detects and configures your platform
 - **Mission Planning**: Hierarchical mission execution for competition tasks (Gate, Slalom, Tagging)
 - **Computer Vision**: YOLO-based object detection with configurable color filtering
 - **Motion Control**: Precise 3-phase movement control (depth → rotation → linear)
 - **Hardware Integration**: Arduino serial communication for thruster control
-- **Simulation Ready**: Multi-platform simulation support
+- **Simulation Ready**: Multi-platform simulation support with configuration groups
 - **Web Interface**: Real-time monitoring and visualization tools
 
 ## 📁 Project Structure
@@ -56,6 +65,7 @@ roslaunch autonomy controller.launch
 hydrus-software-stack/
 ├── autonomy/           # Main autonomy system (see autonomy/README.md)
 ├── docker/            # Docker configurations and deployment
+│   └── hydrus-docker/ # Hocker deployment tool
 ├── embedded_arduino/   # Arduino firmware for hardware control
 ├── DVL/               # Doppler Velocity Logger integration
 ├── Embedded_IMU/      # IMU sensor drivers
@@ -68,11 +78,29 @@ hydrus-software-stack/
 Run the test suite to verify your installation:
 
 ```bash
-# Quick test with Docker
-./docker/run_docker.sh --test
+# Quick test with Hocker
+./docker/hydrus-docker/hocker --test
 
 # Manual testing
 ./run_tests.sh
+```
+
+## 🐳 Docker Deployment Options
+
+Hocker provides several configuration groups for different use cases:
+
+```bash
+# Development with live code editing
+./docker/hydrus-docker/hocker --dev
+
+# Testing and CI/CD
+./docker/hydrus-docker/hocker --test
+
+# Competition deployment
+./docker/hydrus-docker/hocker --competition
+
+# Simulation with rosbag playback
+./docker/hydrus-docker/hocker --simulation
 ```
 
 ## 🤝 Contributing
