@@ -20,7 +20,7 @@ onready var collision_shape = $CollisionShape
 func _ready():
     # Store initial position for movement
     initial_position = global_transform.origin
-    
+
     # Set up visual appearance
     if mesh_instance:
         var material = SpatialMaterial.new()
@@ -31,10 +31,10 @@ func _ready():
         material.emission = target_color
         material.emission_energy = 0.2
         mesh_instance.set_surface_material(0, material)
-        
+
         # Apply scale
         mesh_instance.scale = Vector3(target_scale, target_scale, target_scale)
-        
+
         if collision_shape:
             collision_shape.scale = mesh_instance.scale
 
@@ -42,11 +42,11 @@ func _process(delta):
     if is_moving:
         # Simple oscillating movement
         movement_time += delta
-        
+
         var x_offset = sin(movement_time * 0.5) * movement_range.x
         var y_offset = sin(movement_time * 0.7) * movement_range.y
         var z_offset = cos(movement_time * 0.3) * movement_range.z
-        
+
         global_transform.origin = initial_position + Vector3(x_offset, y_offset, z_offset)
 
 func get_detection_info():
@@ -73,15 +73,15 @@ func highlight():
         var material = mesh_instance.get_surface_material(0)
         if material:
             material.emission_energy = 1.0
-            
+
             # Create a tween to reset emission
             var tween = Tween.new()
             add_child(tween)
-            tween.interpolate_property(material, "emission_energy", 
-                                      1.0, 0.2, 0.5, 
+            tween.interpolate_property(material, "emission_energy",
+                                      1.0, 0.2, 0.5,
                                       Tween.TRANS_QUAD, Tween.EASE_OUT)
             tween.start()
-            
+
             yield(tween, "tween_completed")
             tween.queue_free()
 

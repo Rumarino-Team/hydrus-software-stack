@@ -3,17 +3,70 @@ run-name: ${{ github.actor }} is testing the building and run of Dockerfile on P
 on: [pull_request]
 
 jobs:
-  CI:
+  formatting-check:
     runs-on: ubuntu-latest
+    name: Python Code Formatting Check
     steps:
       - name: Check out code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+
+      - name: Install formatting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install black==25.1.0 isort==6.0.1 flake8==7.2.0
+
+      - name: Check Black formatting
+        run: |
+          echo "🎨 Checking Black formatting..."
+          black --check --diff --line-length 88 --target-version py38 .
+          if [ $? -ne 0 ]; then
+            echo "❌ Black formatting check failed!"
+            echo "💡 Run './format.sh' to fix formatting issues"
+            exit 1
+          fi
+          echo "✅ Black formatting check passed!"
+
+      - name: Check isort import sorting
+        run: |
+          echo "📝 Checking import sorting..."
+          isort --check-only --diff --profile black .
+          if [ $? -ne 0 ]; then
+            echo "❌ Import sorting check failed!"
+            echo "💡 Run './format.sh' to fix import issues"
+            exit 1
+          fi
+          echo "✅ Import sorting check passed!"
+
+      - name: Check flake8 linting
+        run: |
+          echo "🔍 Running flake8 linting..."
+          flake8 . --max-line-length=88 --extend-ignore=E203,W503 --statistics
+          if [ $? -ne 0 ]; then
+            echo "❌ Flake8 linting check failed!"
+            echo "💡 Fix linting issues or run './format.sh' for auto-fixable issues"
+            exit 1
+          fi
+          echo "✅ Flake8 linting check passed!"
+
+  CI:
+    runs-on: ubuntu-latest
+    needs: formatting-check
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Build Hydrus AMD64 Docker with cache
         uses: docker/build-push-action@v5
         with:
@@ -23,7 +76,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
-      
+
       - name: Run Tests using Hocker
         run: |
           cd docker/hydrus-docker

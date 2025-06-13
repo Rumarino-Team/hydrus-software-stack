@@ -10,11 +10,22 @@ The Hydrus Software Stack is a comprehensive ROS-based toolkit for autonomous un
 
 ## 🚀 Quick Start
 
-### Clone the Repository
+### Prerequisites Check
+Run our dependency doctor to check and install required dependencies:
+
 ```bash
+# Clone the repository
 git clone https://github.com/Rumarino-Team/hydrus-software-stack.git
 cd hydrus-software-stack
+
+# Check and install dependencies (Docker, Python3, Git)
+./doctor.sh
 ```
+
+The doctor script will automatically detect your OS and offer to install missing dependencies. Required dependencies:
+- **Docker & Docker Compose**: Container platform for isolated environments
+- **Python3**: Required for Hocker and various scripts
+- **Git**: Version control (usually pre-installed)
 
 ### Build and Run with Hocker
 We use **Hocker** (Hydrus Docker), our intelligent deployment tool that automatically detects your platform and configures the optimal Docker environment.
@@ -119,11 +130,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **General Questions**: Check the [autonomy README](autonomy/README.md)
-- **Docker Issues**: See the [docker README](docker/README.md)  
+- **Docker Issues**: See the [docker README](docker/README.md)
 - **Bug Reports**: Open an issue with detailed reproduction steps
 - **Feature Requests**: Start a discussion in the repository
 
 ---
 
 **Mission**: To become the definitive toolkit for underwater robotics - making autonomous underwater vehicles accessible, maintainable, and powerful for teams worldwide.
-

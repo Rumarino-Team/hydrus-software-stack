@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y lsb-release gnupg curl software-propert
 RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
 
-# Install ROS Noetic base
-RUN apt-get update && apt-get install -y ros-noetic-ros-base
+# Install ROS Noetic base and catkin build tools
+RUN apt-get update && apt-get install -y ros-noetic-ros-base python3-catkin-tools ros-noetic-catkin
 
 # Add the deadsnakes PPA and install Python 3.8
 RUN add-apt-repository -y ppa:deadsnakes/ppa && \

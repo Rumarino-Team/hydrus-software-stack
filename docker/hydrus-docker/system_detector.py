@@ -9,7 +9,7 @@ from typing import Optional
 
 class SystemDetector:
     """Detects system capabilities and environment"""
-    
+
     @staticmethod
     def is_jetson_tx2() -> bool:
         """Check if the system is Jetson TX2"""
@@ -21,7 +21,7 @@ class SystemDetector:
         except FileNotFoundError:
             pass
         return False
-    
+
     @staticmethod
     def is_wsl() -> bool:
         """Check if the system is running in WSL"""
@@ -30,7 +30,7 @@ class SystemDetector:
                 return "microsoft" in f.read().lower()
         except FileNotFoundError:
             return False
-    
+
     @staticmethod
     def check_nvidia_gpu() -> bool:
         """Check if NVIDIA GPUs are available"""
@@ -39,11 +39,11 @@ class SystemDetector:
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
-    
+
     @staticmethod
     def determine_compose_file(args) -> Optional[str]:
         """Determine which compose file to use based on arguments and system detection"""
-        if args.force_cpu or getattr(args, 'test', False):
+        if args.force_cpu or getattr(args, "test", False):
             return "docker-compose-amd64-cpu.yaml"
         elif args.force_jetson:
             return None  # Jetson uses custom deployment

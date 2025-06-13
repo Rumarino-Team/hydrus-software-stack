@@ -143,7 +143,7 @@ hocker (main script)
 Docker is our primary deployment technology for several critical reasons:
 
 - **Python Dependency Management**: Eliminates "Dependency Hell" by containerizing all Python libraries and versions
-- **ROS Version Consistency**: Manages different ROS distributions and prevents version conflicts  
+- **ROS Version Consistency**: Manages different ROS distributions and prevents version conflicts
 - **Simplified Deployment**: Automates configuration and eliminates manual setup steps
 - **Hardware Abstraction**: Supports different architectures (AMD64, ARM64, Jetson) and GPU configurations
 - **Environment Isolation**: Prevents conflicts between development and production environments
@@ -320,5 +320,3 @@ docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
 ```
 
 For general Hydrus issues, see the main [README](../README.md) and [autonomy documentation](../autonomy/README.md).
-
-
