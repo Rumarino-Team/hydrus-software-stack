@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 # filepath: /home/cesar/Projects/hydrus-software-stack/autonomy/scripts/controller/submarine_teleop.py
-import sys, tty, termios, threading, signal
-import rospy
-from std_msgs.msg import Int16          # ← Changed to Int16 for PWM values
-from geometry_msgs.msg import TwistStamped
-from termcolor import colored
+import signal
+import sys
+import termios
+import threading
+import tty
 from dataclasses import dataclass, field
+
+import rospy
+from geometry_msgs.msg import TwistStamped
+from std_msgs.msg import Int16  # ← Changed to Int16 for PWM values
+from termcolor import colored
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -14,10 +19,10 @@ from dataclasses import dataclass, field
 @dataclass
 class TeleopConfig:
     # PWM settings for thruster control
-    PWM_NEUTRAL: int = 1500       # Neutral position
-    PWM_MIN: int = 1300           # Max reverse
-    PWM_MAX: int = 1700           # Max forward
-    PWM_STEP: int = 50            # Step size for PWM adjustment
+    PWM_NEUTRAL: int = 1500  # Neutral position
+    PWM_MIN: int = 1300  # Max reverse
+    PWM_MAX: int = 1700  # Max forward
+    PWM_STEP: int = 50  # Step size for PWM adjustment
     RATE_HZ: int = 10
 
 
@@ -34,19 +39,20 @@ class SubmarineTeleop:
             2: rospy.Publisher("/hydrus/thrusters/3", Int16, queue_size=10),
             3: rospy.Publisher("/hydrus/thrusters/4", Int16, queue_size=10),
         }
-        self.depth_pub   = rospy.Publisher("/hydrus/depth",   Int16, queue_size=10)
+        self.depth_pub = rospy.Publisher("/hydrus/depth", Int16, queue_size=10)
         self.torpedo_pub = rospy.Publisher("/hydrus/torpedo", Int16, queue_size=10)
-        self.cmd_vel_pub = rospy.Publisher("/submarine/cmd_vel",
-                                           TwistStamped, queue_size=10)
+        self.cmd_vel_pub = rospy.Publisher(
+            "/submarine/cmd_vel", TwistStamped, queue_size=10
+        )
 
         # State: PWM values that we send directly to motors (1300-1700)
         self.pwm_values = [self.cfg.PWM_NEUTRAL] * 8
 
         # Motor mappings - FIXED: Now using 0-based indexing (0-7 for pwm_values list)
-        self.front_motors   = [0, 4]   # Was [1, 5]
-        self.back_motors    = [3, 7]   # Was [4, 8] - 8 was causing index error!
-        self.depth_motors   = [1, 6]   # Was [2, 7]
-        self.torpedo_motors = [2, 5]   # Was [3, 6]
+        self.front_motors = [0, 4]  # Was [1, 5]
+        self.back_motors = [3, 7]  # Was [4, 8] - 8 was causing index error!
+        self.depth_motors = [1, 6]  # Was [2, 7]
+        self.torpedo_motors = [2, 5]  # Was [3, 6]
 
         self.running = True
         self.key_thread = None
@@ -67,7 +73,11 @@ class SubmarineTeleop:
 
     # ────────────────────────  KEYBOARD HANDLING  ──────────────────────────
     def _print_help(self):
-        print(colored("\n=== SUBMARINE KEYBOARD TELEOPERATION ===", "blue", attrs=["bold"]))
+        print(
+            colored(
+                "\n=== SUBMARINE KEYBOARD TELEOPERATION ===", "blue", attrs=["bold"]
+            )
+        )
         print(colored("W/S : forward/back  |  A/D : yaw  |  I/K : up/down", "cyan"))
         print(colored("Space : neutral     |  Q   : quit\n", "cyan"))
 
@@ -89,8 +99,9 @@ class SubmarineTeleop:
     # ────────────────────────  MOVEMENT COMMANDS  ─────────────────────────
     def _adjust_pwm(self, idx, delta):
         """Adjust PWM value with boundaries"""
-        self.pwm_values[idx] = max(self.cfg.PWM_MIN, 
-                               min(self.cfg.PWM_MAX, self.pwm_values[idx] + delta))
+        self.pwm_values[idx] = max(
+            self.cfg.PWM_MIN, min(self.cfg.PWM_MAX, self.pwm_values[idx] + delta)
+        )
 
     def _handle_key(self, k):
         if k == "q":
@@ -101,31 +112,37 @@ class SubmarineTeleop:
             print(colored("STOP", "red"))
         elif k == "w":
             # Forward motion: front thrusters reverse (negative PWM delta), back thrusters forward (positive PWM delta)
-            for m in self.front_motors: 
+            for m in self.front_motors:
                 self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
-            for m in self.back_motors:  
-                self._adjust_pwm(m, self.cfg.PWM_STEP)   # FIXED: No more m-1 needed
+            for m in self.back_motors:
+                self._adjust_pwm(m, self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
             print(colored("FORWARD", "green"))
         elif k == "s":
             # Backward motion: front thrusters forward (positive PWM delta), back thrusters reverse (negative PWM delta)
-            for m in self.front_motors: 
-                self._adjust_pwm(m, self.cfg.PWM_STEP)   # FIXED: No more m-1 needed
-            for m in self.back_motors:  
+            for m in self.front_motors:
+                self._adjust_pwm(m, self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
+            for m in self.back_motors:
                 self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
             print(colored("BACKWARD", "green"))
         elif k == "a":
-            for m in self.front_motors: self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
-            for m in self.back_motors:  self._adjust_pwm(m, self.cfg.PWM_STEP)   # FIXED: No more m-1 needed
+            for m in self.front_motors:
+                self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
+            for m in self.back_motors:
+                self._adjust_pwm(m, self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
             print(colored("YAW LEFT", "green"))
         elif k == "d":
-            for m in self.front_motors: self._adjust_pwm(m, self.cfg.PWM_STEP)   # FIXED: No more m-1 needed
-            for m in self.back_motors:  self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
+            for m in self.front_motors:
+                self._adjust_pwm(m, self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
+            for m in self.back_motors:
+                self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
             print(colored("YAW RIGHT", "green"))
         elif k == "i":
-            for m in self.depth_motors: self._adjust_pwm(m, self.cfg.PWM_STEP)   # FIXED: No more m-1 needed
+            for m in self.depth_motors:
+                self._adjust_pwm(m, self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
             print(colored("UP", "green"))
         elif k == "k":
-            for m in self.depth_motors: self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
+            for m in self.depth_motors:
+                self._adjust_pwm(m, -self.cfg.PWM_STEP)  # FIXED: No more m-1 needed
             print(colored("DOWN", "green"))
 
     # ──────────────────────────  PUBLISHERS  ───────────────────────────────
@@ -135,11 +152,16 @@ class SubmarineTeleop:
             self.thruster_pubs[i].publish(Int16(self.pwm_values[i]))
 
         # depth motors - send average of depth motor PWM values
-        depth_pwm = int(sum(self.pwm_values[m] for m in self.depth_motors) / len(self.depth_motors))
+        depth_pwm = int(
+            sum(self.pwm_values[m] for m in self.depth_motors) / len(self.depth_motors)
+        )
         self.depth_pub.publish(Int16(depth_pwm))
 
         # torpedo motors - send average of torpedo motor PWM values
-        torpedo_pwm = int(sum(self.pwm_values[m] for m in self.torpedo_motors) / len(self.torpedo_motors))
+        torpedo_pwm = int(
+            sum(self.pwm_values[m] for m in self.torpedo_motors)
+            / len(self.torpedo_motors)
+        )
         self.torpedo_pub.publish(Int16(torpedo_pwm))
 
         # cmd_vel (aprox.)
@@ -153,20 +175,28 @@ class SubmarineTeleop:
         # Convert PWM values to normalized values for twist message
         # PWM range: PWM_MIN to PWM_MAX, normalize to -1.0 to 1.0
         pwm_range = self.cfg.PWM_MAX - self.cfg.PWM_NEUTRAL
-        
+
         # Forward velocity - average of front and back motors
-        fwd_pwm = sum(self.pwm_values[m] for m in self.front_motors + self.back_motors) / 4.0
+        fwd_pwm = (
+            sum(self.pwm_values[m] for m in self.front_motors + self.back_motors) / 4.0
+        )
         tw.twist.linear.x = (fwd_pwm - self.cfg.PWM_NEUTRAL) / pwm_range
-        
+
         # Depth velocity - average of depth motors
         depth_pwm = sum(self.pwm_values[m] for m in self.depth_motors) / 2.0
         tw.twist.linear.z = (depth_pwm - self.cfg.PWM_NEUTRAL) / pwm_range
-        
+
         # Angular velocity - difference between left and right side motors
-        left_pwm = sum(self.pwm_values[m] for m in [self.front_motors[0], self.back_motors[0]]) / 2.0
-        right_pwm = sum(self.pwm_values[m] for m in [self.front_motors[1], self.back_motors[1]]) / 2.0
+        left_pwm = (
+            sum(self.pwm_values[m] for m in [self.front_motors[0], self.back_motors[0]])
+            / 2.0
+        )
+        right_pwm = (
+            sum(self.pwm_values[m] for m in [self.front_motors[1], self.back_motors[1]])
+            / 2.0
+        )
         tw.twist.angular.z = (right_pwm - left_pwm) / pwm_range
-        
+
         self.cmd_vel_pub.publish(tw)
 
     # ─────────────────────────  SHUTDOWN  ───────────────────────────────────
@@ -183,7 +213,7 @@ def _signal_handler(_, __):
 
 
 def main():
-    signal.signal(signal.SIGINT,  _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
     SubmarineTeleop(TeleopConfig()).start()
 
@@ -194,7 +224,11 @@ if __name__ == "__main__":
     except Exception as e:
         # restaura terminal si crashea con tty raw
         try:
-            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, termios.tcgetattr(sys.stdin.fileno()))
+            termios.tcsetattr(
+                sys.stdin.fileno(),
+                termios.TCSADRAIN,
+                termios.tcgetattr(sys.stdin.fileno()),
+            )
         except termios.error:
             pass
         print(f"Error: {e}")

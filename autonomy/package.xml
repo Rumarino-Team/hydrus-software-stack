@@ -6,7 +6,7 @@
 
     <maintainer email="your-email@example.com">Your Name</maintainer>
     <license>BSD</license>
-    
+
     <!-- Common build tool dependency -->
     <buildtool_depend>catkin</buildtool_depend>
 

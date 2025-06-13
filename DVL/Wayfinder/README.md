@@ -2,22 +2,22 @@
 
 
 # Wayfinder Python Driver
-Python driver for communication with a Wayfinder DVL  
+Python driver for communication with a Wayfinder DVL
 
-Contents  
-* [What is a Wayfinder?](https://github.com/Teledyne-Marine/Wayfinder#What-is-a-Wayfinder?)  
-* [Documentation](https://github.com/Teledyne-Marine/Wayfinder#Documentation)  
-* [Sample code](https://github.com/Teledyne-Marine/Wayfinder#Sample-code)  
-* [Installation](https://github.com/Teledyne-Marine/Wayfinder#Installation)  
-* [Integration](https://github.com/Teledyne-Marine/Wayfinder#Integration)  
-* [Requirements](https://github.com/Teledyne-Marine/Wayfinder#Requirements)  
-* [Usage](https://github.com/Teledyne-Marine/Wayfinder#Usage)  
-* [Links](https://github.com/Teledyne-Marine/Wayfinder#Links)  
-* [Contact](https://github.com/Teledyne-Marine/Wayfinder#Contact)  
+Contents
+* [What is a Wayfinder?](https://github.com/Teledyne-Marine/Wayfinder#What-is-a-Wayfinder?)
+* [Documentation](https://github.com/Teledyne-Marine/Wayfinder#Documentation)
+* [Sample code](https://github.com/Teledyne-Marine/Wayfinder#Sample-code)
+* [Installation](https://github.com/Teledyne-Marine/Wayfinder#Installation)
+* [Integration](https://github.com/Teledyne-Marine/Wayfinder#Integration)
+* [Requirements](https://github.com/Teledyne-Marine/Wayfinder#Requirements)
+* [Usage](https://github.com/Teledyne-Marine/Wayfinder#Usage)
+* [Links](https://github.com/Teledyne-Marine/Wayfinder#Links)
+* [Contact](https://github.com/Teledyne-Marine/Wayfinder#Contact)
 
 
 ## What is a Wayfinder?
-The Wayfinder Doppler Velocity Log (DVL) is an underwater sensor that has been designed to provide Doppler navigation capability for micro vehicles, which are often constrained by stringent size, weight and budget limitations. 
+The Wayfinder Doppler Velocity Log (DVL) is an underwater sensor that has been designed to provide Doppler navigation capability for micro vehicles, which are often constrained by stringent size, weight and budget limitations.
 <img src="images/wayfinder.png" alt="Wayfinder DVL" width="186" height="214">
 
 ## Documentation
@@ -39,7 +39,7 @@ Examples of code used for specific vehicle integration can be found in the `inte
 
 ## Requirements
 
-* `Python` 3.6 or later  
+* `Python` 3.6 or later
 
 * `pip` 20.0 or later
 
@@ -60,7 +60,7 @@ To connect to the Wayfinder DVL and then retrieve the setup and print it:
             # Get user system setup
             if DVL.get_setup():
 
-                # Print setup 
+                # Print setup
                 print (DVL.system_setup)
 
 
@@ -68,8 +68,8 @@ To connect to the Wayfinder DVL and then retrieve the setup and print it:
 [Wayfinder Store](https://teledynerdi.myshopify.com/)
 
 ## Contact
-Telephone: +1-858-842-2700  
-Email: rdifs@teledyne.com  
+Telephone: +1-858-842-2700
+Email: rdifs@teledyne.com
 Website: http://www.teledynemarine.com/rdi/support
 
 ## License

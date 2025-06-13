@@ -9,7 +9,9 @@ orb = cv2.ORB_create()
 
 # Define FLANN-based matcher parameters
 FLANN_INDEX_LSH = 6
-index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
+index_params = dict(
+    algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1
+)
 search_params = dict(checks=50)
 flann = cv2.FlannBasedMatcher(index_params, search_params)
 
@@ -22,7 +24,7 @@ while True:
 
     # Display the template and wait for keypress to confirm
     cv2.imshow("Template", template_frame)
-    if cv2.waitKey(1) & 0xFF == ord('t'):
+    if cv2.waitKey(1) & 0xFF == ord("t"):
         break
 
 # Convert the template frame to grayscale
@@ -61,19 +63,37 @@ while True:
         num_good_matches = len(good_matches)  # Number of good matches
 
         # Calculate confidence level as a percentage
-        confidence_level = (num_good_matches / total_keypoints) * 100 if total_keypoints > 0 else 0
+        confidence_level = (
+            (num_good_matches / total_keypoints) * 100 if total_keypoints > 0 else 0
+        )
 
         # Display the confidence level on the frame
-        cv2.putText(frame, f"Confidence: {confidence_level:.2f}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(
+            frame,
+            f"Confidence: {confidence_level:.2f}%",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2,
+        )
 
         # Draw matches between the template and the live frame
-        matched_frame = cv2.drawMatches(template_frame, template_keypoints, frame, frame_keypoints, good_matches, None, flags=2)
+        matched_frame = cv2.drawMatches(
+            template_frame,
+            template_keypoints,
+            frame,
+            frame_keypoints,
+            good_matches,
+            None,
+            flags=2,
+        )
 
         # Display the frame with matches
         cv2.imshow("Matches", matched_frame)
 
     # Break the loop if 'q' is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 # Release the webcam and close windows

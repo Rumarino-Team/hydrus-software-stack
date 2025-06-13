@@ -8,11 +8,11 @@ The Hydrus project aims to become **the definitive toolkit for underwater roboti
 
 ### Core Goals
 
-🎯 **Zero-Friction Usability**: Make it so easy to use that anyone can get started with minimal setup  
-🛠️ **Maintainable for Years**: Build software that remains stable and extensible over time  
-🚀 **Fast Development**: Move quickly while maintaining quality through good engineering practices  
-🔧 **Comprehensive Toolkit**: Provide solutions for the entire autonomy stack, not just pieces  
-📈 **Scalable Architecture**: Design systems that grow with user needs and team sizes  
+🎯 **Zero-Friction Usability**: Make it so easy to use that anyone can get started with minimal setup
+🛠️ **Maintainable for Years**: Build software that remains stable and extensible over time
+🚀 **Fast Development**: Move quickly while maintaining quality through good engineering practices
+🔧 **Comprehensive Toolkit**: Provide solutions for the entire autonomy stack, not just pieces
+📈 **Scalable Architecture**: Design systems that grow with user needs and team sizes
 
 ## Development Philosophy
 
@@ -229,10 +229,10 @@ Example tools we encourage:
 
 We're building more than just competition software - we're creating:
 
-🌊 **The Standard**: The go-to framework for underwater robotics development  
-🧰 **The Toolkit**: Comprehensive solutions for autonomy challenges  
-🎓 **The Platform**: A foundation for research and education  
-📚 **The Knowledge Base**: Accumulated wisdom from years of competition experience  
+🌊 **The Standard**: The go-to framework for underwater robotics development
+🧰 **The Toolkit**: Comprehensive solutions for autonomy challenges
+🎓 **The Platform**: A foundation for research and education
+📚 **The Knowledge Base**: Accumulated wisdom from years of competition experience
 
 **Success Metric**: When new teams can go from zero to competitive in weeks, not months, because they're building on our foundation.
 
