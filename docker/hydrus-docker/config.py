@@ -12,7 +12,7 @@ CONFIGURATION_GROUPS = {
             'force_cpu': True,
             'rviz': False,
             'zed_option': False,
-            'rosbag_playback': True,
+            'rosbag_playback': False,
             'debug_arduino': False,
             'vscode': False,
             'install_vscode_extensions': False,
