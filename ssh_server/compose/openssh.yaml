@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  ssh:
+    image: linuxserver/openssh-server
+    environment:
+      - PASSWORD_ACCESS=true
+      - USER_NAME=dev
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    ports:
+      - "22"
+    volumes:
+      - /workspace/hydrus-software-stack:/workspace
+    tty: true
