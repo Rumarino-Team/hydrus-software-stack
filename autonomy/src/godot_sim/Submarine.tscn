@@ -1,0 +1,19 @@
+[gd_scene load_steps=2 format=3 uid="uid://divbf01wtjlgk"]
+
+[ext_resource type="Script" uid="uid://cohrpwrwt2baj" path="res://scripts/submarine_simulation.gd" id="1"]
+
+[node name="Submarine" type="RigidBody3D"]
+script = ExtResource("1")
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 2, 4)
+
+[node name="CameraGimbal" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5)
+
+[node name="ForwardCamera" type="Camera3D" parent="CameraGimbal"]
+current = true
+fov = 90.0
+
+[node name="DepthCamera" type="Camera3D" parent="CameraGimbal"]
+fov = 90.0
