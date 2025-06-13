@@ -24,8 +24,8 @@ jobs:
           cache-to: type=gha,mode=max
           load: true
       
-      - name: Run Tests using run_docker.sh
+      - name: Run Tests using Hocker
         run: |
-          cd docker
-          chmod +x run_docker.sh
-          ./run_docker.sh --test
+          cd docker/hydrus-docker
+          chmod +x hocker
+          ./hocker --test
