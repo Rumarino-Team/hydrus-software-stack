@@ -3,10 +3,8 @@ run-name: ${{ github.actor }} is testing the building and run of Dockerfile on P
 on: [pull_request]
 
 jobs:
-
   CI:
     runs-on: ubuntu-latest
-    needs: formatting-check
     steps:
       - name: Check out code
         uses: actions/checkout@v4
