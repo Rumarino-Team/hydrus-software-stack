@@ -1,0 +1,22 @@
+<launch>
+  <!-- Depth Estimation Node -->
+  <node name="depth_estimation" pkg="autonomy" type="depth_estimation_node.py" output="screen">
+    <!-- Model parameters -->
+    <param name="encoder" value="vitb" />  <!-- Options: vits, vitb, vitl -->
+    <!-- <param name="model_path" value="/path/to/custom/model.onnx" /> -->
+
+    <!-- Input/Output parameters -->
+    <param name="input_topic" value="/camera/image_raw" />
+    <param name="use_compressed" value="false" />
+    <param name="publish_colored" value="true" />
+  </node>
+
+  <!-- Optional: Image view for visualization -->
+  <node name="depth_viewer" pkg="image_view" type="image_view" if="$(arg show_depth false)">
+    <remap from="image" to="/depth_estimation/depth_colored" />
+  </node>
+
+  <!-- Optional: RViz for visualization -->
+  <node name="rviz_depth" pkg="rviz" type="rviz" if="$(arg use_rviz false)"
+        args="-d $(find autonomy)/config/depth_visualization.rviz" />
+</launch>
