@@ -61,6 +61,7 @@ class DockerManager:
                 "ROSBAG_PLAYBACK": str(config["rosbag_playback"]).lower(),
                 "DEBUG_ARDUINO": str(config["debug_arduino"]).lower(),
                 "TEST": str(config.get("test", False)).lower(),
+                "NO_BUILD": str(config.get("no_build", False)).lower(),
             }
         )
 

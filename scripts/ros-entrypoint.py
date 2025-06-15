@@ -36,6 +36,7 @@ class HydrusROSManager:
             "ARDUINO_BOARD": os.environ.get("ARDUINO_BOARD", "arduino:avr:mega"),
             "ROS_DISTRO": os.environ.get("ROS_DISTRO", "not set"),
             "ROS_PACKAGE_PATH": os.environ.get("ROS_PACKAGE_PATH", "not set"),
+            "NO_BUILD": os.environ.get("NO_BUILD", "false"),
         }
 
         for var_name, var_value in env_vars.items():
@@ -51,6 +52,7 @@ class HydrusROSManager:
         self.test = env_vars["TEST"].lower() == "true"
         self.rosbag_playback = env_vars["ROSBAG_PLAYBACK"].lower() == "true"
         self.rviz = env_vars["RVIZ"].lower() == "true"
+        self.no_build = False  # env_vars["NO_BUILD"].lower() == "true"
 
         # Determine ROS directory based on volume usage
         if self.volume:
@@ -110,60 +112,118 @@ class HydrusROSManager:
             raise
 
     def _setup_ros_environment(self):
-        """Setup ROS environment"""
-        # Source the corresponding ROS setup.bash
+        """Setup ROS environment by sourcing ROS setup.bash"""
+        print(f"Setting up ROS {self.ros_distro} environment...")
+
+        # Get the ROS environment by sourcing setup.bash
         ros_setup = f"/opt/ros/{self.ros_distro}/setup.bash"
 
-        # Update environment for subsequent commands
-        env = os.environ.copy()
-        env["ROS_DISTRO"] = self.ros_distro
+        # Use bash to source the ROS setup and print the environment
+        cmd = f"source {ros_setup} && env"
 
-        # Add ROS paths to environment
-        if "ROS_PACKAGE_PATH" not in env:
-            env["ROS_PACKAGE_PATH"] = f"/opt/ros/{self.ros_distro}/share"
-
-        return env
-
-    def _clean_simulator_on_arm(self):
-        """Remove simulator folder on ARM architecture (Jetson)"""
-        arch = platform.machine()
-        if arch == "aarch64":
-            print(
-                "Detected ARM architecture (Jetson or similar), deleting simulator folder..."
+        try:
+            result = subprocess.run(
+                ["bash", "-c", cmd],
+                capture_output=True,
+                text=True,
+                check=True,
             )
-            simulator_path = self.ros_dir / "src/hydrus-software-stack/simulator"
-            if simulator_path.exists():
-                import shutil
 
-                shutil.rmtree(simulator_path)
-        else:
-            print("Non-ARM architecture detected, keeping simulator folder.")
+            # Parse the environment variables from the output
+            env = os.environ.copy()
+            for line in result.stdout.split("\n"):
+                if "=" in line and not line.startswith("_"):
+                    key, value = line.split("=", 1)
+                    env[key] = value
+
+            # Ensure ROS_DISTRO is set
+            env["ROS_DISTRO"] = self.ros_distro
+
+            print(f"✅ ROS environment configured for {self.ros_distro}")
+            print(f"   ROS_PACKAGE_PATH: {env.get('ROS_PACKAGE_PATH', 'not set')}")
+            print(f"   CMAKE_PREFIX_PATH: {env.get('CMAKE_PREFIX_PATH', 'not set')}")
+
+            return env
+
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to source ROS setup: {e}")
+            print(f"   stderr: {e.stderr}")
+            # Fallback to basic environment
+            env = os.environ.copy()
+            env["ROS_DISTRO"] = self.ros_distro
+            if "ROS_PACKAGE_PATH" not in env:
+                env["ROS_PACKAGE_PATH"] = f"/opt/ros/{self.ros_distro}/share"
+            return env
 
     def _build_workspace(self):
         """Build the catkin workspace"""
         print("Building catkin workspace...")
         env = self._setup_ros_environment()
 
-        cmake_args = [
-            "catkin_make",
-            "--cmake-args",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DPYTHON_EXECUTABLE=/usr/bin/python3",
-            "-DPYTHON_INCLUDE_DIR=/usr/include/python3.9",
-            "-DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so",
-        ]
+        # Use bash to run catkin_make with proper ROS environment
+        ros_setup = f"/opt/ros/{self.ros_distro}/setup.bash"
+
+        # Build command that sources ROS and runs catkin_make
+        build_cmd = f"""
+        source {ros_setup} &&
+        cd {self.ros_dir} &&
+        catkin_make --cmake-args \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPYTHON_EXECUTABLE=/usr/bin/python3
+        """
 
         try:
-            self._run_command(cmake_args, check=False, cwd=self.ros_dir, env=env)
-        except subprocess.CalledProcessError:
-            print("Build failed, but continuing...")
+            print("🔨 Running catkin_make...")
+            result = subprocess.run(
+                ["bash", "-c", build_cmd],
+                check=False,
+                cwd=self.ros_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
 
-        # Source the workspace setup
+            if result.returncode == 0:
+                print("✅ Catkin build successful!")
+            else:
+                print(
+                    f"⚠️  Catkin build completed with warnings (exit code: {result.returncode})"
+                )
+                if result.stderr:
+                    print(f"Build stderr: {result.stderr}")
+
+        except Exception as e:
+            print(f"❌ Build failed with exception: {e}")
+
+        # Update environment with workspace setup
         setup_file = self.ros_dir / "devel/setup.bash"
         if setup_file.exists():
-            env[
-                "ROS_PACKAGE_PATH"
-            ] = f"{self.ros_dir}/src:{env.get('ROS_PACKAGE_PATH', '')}"
+            print("📦 Sourcing workspace setup...")
+
+            # Source both ROS and workspace setup
+            workspace_cmd = f"source {ros_setup} && source {setup_file} && env"
+
+            try:
+                result = subprocess.run(
+                    ["bash", "-c", workspace_cmd],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+
+                # Update environment with workspace variables
+                for line in result.stdout.split("\n"):
+                    if "=" in line and not line.startswith("_"):
+                        key, value = line.split("=", 1)
+                        env[key] = value
+
+                print("✅ Workspace environment configured")
+                print(f"   ROS_PACKAGE_PATH: {env.get('ROS_PACKAGE_PATH', 'not set')}")
+
+            except subprocess.CalledProcessError as e:
+                print(f"⚠️  Failed to source workspace setup: {e}")
+        else:
+            print("⚠️  Workspace setup.bash not found, build may have failed")
 
         return env
 
@@ -443,15 +503,43 @@ class HydrusROSManager:
         signal.signal(signal.SIGTERM, self._cleanup)
 
         try:
-            # Setup ROS environment
-            env = self._setup_ros_environment()
+            # Build workspace (skip if no_build is enabled)
+            if self.no_build:
+                # Setup ROS environment
+                env = self._setup_ros_environment()
+                # Clean simulator on ARM
+                print("🚫 NO_BUILD flag is set - skipping catkin workspace build")
+                print("🐛 This is useful for debugging the entrypoint script")
+                # Still need to source existing workspace if it exists
+                setup_file = self.ros_dir / "devel/setup.bash"
+                if setup_file.exists():
+                    print("📦 Found existing workspace setup, sourcing it...")
+                    ros_setup = f"/opt/ros/{self.ros_distro}/setup.bash"
+                    workspace_cmd = f"source {ros_setup} && source {setup_file} && env"
 
-            # Clean simulator on ARM
-            self._clean_simulator_on_arm()
+                    try:
+                        result = subprocess.run(
+                            ["bash", "-c", workspace_cmd],
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
 
-            # Build workspace
-            env = self._build_workspace()
-            time.sleep(2)
+                        # Update environment with workspace variables
+                        for line in result.stdout.split("\n"):
+                            if "=" in line and not line.startswith("_"):
+                                key, value = line.split("=", 1)
+                                env[key] = value
+
+                        print("✅ Existing workspace environment configured")
+
+                    except subprocess.CalledProcessError as e:
+                        print(f"⚠️  Failed to source existing workspace: {e}")
+                else:
+                    print("📦 No existing workspace found, using base ROS environment")
+            else:
+                env = self._build_workspace()
+                time.sleep(2)
 
             # DEPLOY SECTION
             if self.deploy:
@@ -487,6 +575,13 @@ class HydrusROSManager:
             # Keep container running if not in test mode
             if not self.test:
                 print("Setup complete. Keeping container running...")
+                if self.no_build:
+                    print(
+                        "🐛 Container is ready for debugging - you can now attach VS Code"
+                    )
+                    print(
+                        "   The ros-entrypoint.py script will remain running for debugging"
+                    )
                 try:
                     # Keep the container running
                     while True:

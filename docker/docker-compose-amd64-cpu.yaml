@@ -36,6 +36,7 @@ services:
       - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
       - RVIZ
       - TEST
+      - NO_BUILD
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"

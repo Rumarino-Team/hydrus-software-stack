@@ -2,64 +2,70 @@
 Configuration management for Hydrus Docker deployment
 """
 
-# Predefined configuration groups for common use cases
+# Available configuration options
+AVAILABLE_OPTIONS = [
+    "deploy",
+    "volume",
+    "force_cpu",
+    "force_jetson",
+    "rviz",
+    "zed_option",
+    "rosbag_playback",
+    "debug_arduino",
+    "vscode",
+    "install_vscode_extensions",
+    "test",
+    "no_build",
+]
+
+# Predefined configuration groups - only list enabled options
 CONFIGURATION_GROUPS = {
     "test": {
         "description": "Automated testing configuration",
-        "config": {
-            "deploy": False,
-            "volume": False,
-            "force_cpu": True,
-            "rviz": False,
-            "zed_option": False,
-            "rosbag_playback": False,
-            "debug_arduino": False,
-            "vscode": False,
-            "install_vscode_extensions": False,
-            "test": True,  # ✅ Add this to set TEST=true in container
-        },
+        "enabled_options": [
+            "force_cpu",
+            "test",
+        ],
     },
     "development": {
         "description": "Development configuration with volumes and debugging",
-        "config": {
-            "deploy": True,
-            "volume": True,
-            "force_cpu": True,  # Auto-detect
-            "rviz": True,
-            "zed_option": False,
-            "rosbag_playback": True,
-            "debug_arduino": True,
-            "vscode": False,  # Disabled for development as requested
-            "install_vscode_extensions": False,
-        },
+        "enabled_options": [
+            "deploy",
+            "volume",
+            "force_cpu",
+            "rviz",
+            "rosbag_playback",
+            "debug_arduino",
+        ],
     },
     "production": {
         "description": "Production deployment configuration",
-        "config": {
-            "deploy": True,
-            "volume": False,
-            "force_cpu": False,  # Auto-detect
-            "rviz": False,
-            "zed_option": True,
-            "rosbag_playback": False,
-            "debug_arduino": False,
-            "vscode": False,
-            "install_vscode_extensions": False,
-        },
+        "enabled_options": [
+            "deploy",
+            "zed_option",
+        ],
     },
     "simulation": {
         "description": "Simulation and visualization configuration",
-        "config": {
-            "deploy": False,
-            "volume": True,
-            "force_cpu": True,
-            "rviz": True,
-            "zed_option": False,
-            "rosbag_playback": True,
-            "debug_arduino": True,
-            "vscode": True,
-            "install_vscode_extensions": True,
-        },
+        "enabled_options": [
+            "volume",
+            "force_cpu",
+            "rviz",
+            "rosbag_playback",
+            "debug_arduino",
+            "vscode",
+            "install_vscode_extensions",
+        ],
+    },
+    "vscode-debugging": {
+        "description": "VS Code debugging configuration - no build, keeps container running for debugging",
+        "enabled_options": [
+            "volume",
+            "force_cpu",
+            "vscode",
+            "install_vscode_extensions",
+            "no_build",
+        ],
     },
 }
 
@@ -87,15 +93,19 @@ class ConfigurationManager:
         print(f"📋 Applying configuration group: {group_name}")
         print(f"   Description: {group['description']}")
 
-        # Apply group configuration to base config
-        updated_config = base_config.copy()
-        updated_config.update(group["config"])
+        # Start with all options set to False
+        config = {option: False for option in AVAILABLE_OPTIONS}
 
-        print(f"   Configuration applied:")
-        for key, value in group["config"].items():
-            print(f"     {key}: {value}")
+        # Override with base config values
+        config.update(base_config)
 
-        return updated_config
+        # Enable options specified in the group
+        for option in group["enabled_options"]:
+            config[option] = True
+
+        print(f"   Enabled options: {', '.join(group['enabled_options'])}")
+
+        return config
 
     @staticmethod
     def create_base_config(args) -> dict:
@@ -111,6 +121,7 @@ class ConfigurationManager:
             "debug_arduino": args.debug_arduino,
             "vscode": args.vscode,
             "install_vscode_extensions": args.install_vscode_extensions,
+            "no_build": args.no_build,
         }
 
     @staticmethod

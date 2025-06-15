@@ -236,7 +236,7 @@ class HydrusTestRunner:
         if (tagging_test_dir / "tagging_mission_test.py").exists():
             self._run_test(
                 "Tagging Mission Unit Tests",
-                ["python3", "tagging_mission_test.py"],
+                ["python3", str(tagging_test_dir / "tagging_mission_test.py")],
                 env=env,
             )
 
@@ -273,7 +273,7 @@ class HydrusTestRunner:
         if (mission_planner_dir / "test_slalom_integration.py").exists():
             self._run_test(
                 "Slalom Integration Tests",
-                ["python3", "test_slalom_integration.py"],
+                ["python3", str(mission_planner_dir / "test_slalom_integration.py")],
                 env=test_env,
             )
 
@@ -281,7 +281,7 @@ class HydrusTestRunner:
         if (mission_planner_dir / "gate_mission_tester.py").exists():
             self._run_test(
                 "Gate Mission Tests",
-                ["python3", "gate_mission_tester.py"],
+                ["python3", str(mission_planner_dir / "gate_mission_tester.py")],
                 env=test_env,
             )
 
@@ -291,7 +291,11 @@ class HydrusTestRunner:
         )
         if dvl_test.exists():
             dvl_dir = self.ros_dir / "src/hydrus-software-stack/DVL/Wayfinder"
-            self._run_test("DVL Driver Tests", ["python3", "driver_test.py"], env=env)
+            self._run_test(
+                "DVL Driver Tests",
+                ["python3", str(dvl_dir / "driver_test.py")],
+                env=env,
+            )
 
     def _cleanup_roscore(self):
         """Clean up roscore process"""

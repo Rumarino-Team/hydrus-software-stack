@@ -94,6 +94,11 @@ Examples:
             action="store_true",
             help="Enable Arduino serial debugging",
         )
+        config_group.add_argument(
+            "--no-build",
+            action="store_true",
+            help="Skip catkin workspace build - useful for debugging",
+        )
 
         # Negation arguments for overriding configuration groups
         config_group.add_argument(

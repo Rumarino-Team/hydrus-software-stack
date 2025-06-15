@@ -73,6 +73,7 @@ services:
       - DEBUG_ARDUINO
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
+      - NO_BUILD
     depends_on:
       - ros-master
       - zed-camera
