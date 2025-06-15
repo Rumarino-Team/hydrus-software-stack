@@ -22,7 +22,7 @@ RUN git clone --recursive https://github.com/stereolabs/zed-ros-wrapper.git ~/ca
 WORKDIR /root/catkin_ws
 RUN . /opt/ros/noetic/setup.sh && \
     rosdep install --from-paths src --ignore-src -r -y
-    
+
 #Ordep sucks eggs
 #Mas vale que no digan lo mismo de Cesar. Yo si leo los comentarios :V
 RUN apt-get install -y ros-noetic-rviz && \
@@ -44,5 +44,5 @@ COPY ./zed2i_camera_params.yaml /root/catkin_ws/src/zed-ros-wrapper/zed_wrapper/
 COPY ./camera-entrypoint.sh /camera-entrypoint.sh
 
 RUN chmod +x /camera-entrypoint.sh
-    
+
 CMD ["/camera-entrypoint.sh"]

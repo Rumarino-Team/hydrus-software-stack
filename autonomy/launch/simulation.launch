@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- 
+  <!--
     Simulation Launch File
     Starts both the Godot bridge and CV pipeline with proper topic remapping
   -->
@@ -9,12 +9,12 @@
   <arg name="rviz" default="false" />
   <arg name="use_sim_topics" default="true" />
   <arg name="bridge_port" default="8000" />
-  
+
   <!-- Start the Godot-ROS bridge -->
   <include file="$(find autonomy)/launch/godot_bridge.launch">
     <arg name="use_sim" value="$(arg use_sim_topics)" />
   </include>
-  
+
   <!-- Start CV pipeline with simulation topics -->
   <include file="$(find autonomy)/launch/cv_publishers.launch">
     <arg name="rgb_topic" value="/sim/camera/rgb/image_raw" if="$(arg use_sim_topics)" />
@@ -22,16 +22,16 @@
     <arg name="camera_pose_topic" value="/sim/odom" if="$(arg use_sim_topics)" />
     <arg name="rviz" value="$(arg rviz)" />
   </include>
-  
+
   <!-- Start controllers with simulation mode -->
   <include file="$(find autonomy)/launch/controller.launch">
     <param name="use_simulation" value="$(arg use_sim_topics)" />
     <param name="odom_topic" value="/sim/odom" if="$(arg use_sim_topics)" />
   </node>
-  
+
   <!-- Launch RViz with simulation configuration -->
-  <node pkg="rviz" type="rviz" name="rviz" 
-        args="-d $(find autonomy)/config/simulation.rviz" 
+  <node pkg="rviz" type="rviz" name="rviz"
+        args="-d $(find autonomy)/config/simulation.rviz"
         if="$(eval rviz and use_sim_topics)" />
 
 </launch>

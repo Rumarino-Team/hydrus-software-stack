@@ -1,17 +1,29 @@
-"""Contains main Dvl class to connect to Wayfinder.
-"""
-import datetime
-from dvl.packets import AppLayerPacket
-from dvl.commands import BinaryCommands, check_response
-from dvl.system import SystemInfo, SystemComponents, SystemFeatures, SystemSetup, \
-    SystemTests, FftData
-from dvl.commands import ResponseStatusType, CommandIdType
+"""Contains main Dvl class to connect to Wayfinder."""
 
-class Dvl():
-    """Main class to connect to Wayfinder.
-    """
-    #pylint: disable=too-many-public-methods
-    #pylint: disable=too-many-instance-attributes
+import datetime
+
+from dvl.commands import (
+    BinaryCommands,
+    CommandIdType,
+    ResponseStatusType,
+    check_response,
+)
+from dvl.packets import AppLayerPacket
+from dvl.system import (
+    FftData,
+    SystemComponents,
+    SystemFeatures,
+    SystemInfo,
+    SystemSetup,
+    SystemTests,
+)
+
+
+class Dvl:
+    """Main class to connect to Wayfinder."""
+
+    # pylint: disable=too-many-public-methods
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, com=None, baudrate=115200):
         self._commands = BinaryCommands()
@@ -36,14 +48,12 @@ class Dvl():
             self.connect(com, baudrate)
 
     def __enter__(self):
-        """Opens serial port on enter.
-        """
+        """Opens serial port on enter."""
         self._commands.port.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Closes serial port on exit.
-        """
+        """Closes serial port on exit."""
         self._commands.port.__exit__(exc_type, exc_value, traceback)
 
     @property
@@ -114,8 +124,7 @@ class Dvl():
         return self._is_connected
 
     def disconnect(self):
-        """Disconnects from Wayfinder DVL.
-        """
+        """Disconnects from Wayfinder DVL."""
         self.stop_logging()
         self._commands.all_data_logger.close_file()
         self._commands.port.__exit__(None, None, None)
@@ -146,7 +155,7 @@ class Dvl():
             return date_time
         return None
 
-    def set_time(self, date_time: datetime) ->bool:
+    def set_time(self, date_time: datetime) -> bool:
         """Sets system time.
 
         Parameters
@@ -198,7 +207,6 @@ class Dvl():
         self.last_err = self._commands.send_software_trigger()
         return self.last_err.value == ResponseStatusType.SUCCESS.value
 
-
     def reset_to_defaults(self) -> bool:
         """Resets to factory defaults.
 
@@ -240,8 +248,7 @@ class Dvl():
         return False
 
     def start_tests(self):
-        """Starts system tests without waiting for results.
-        """
+        """Starts system tests without waiting for results."""
         self._commands.send_cmd_without_wait(CommandIdType.GET_TESTS)
 
     def get_features(self) -> bool:
@@ -259,7 +266,7 @@ class Dvl():
         self._system_features = SystemFeatures()
         return False
 
-    def set_system_features(self, feature_code: bytearray) ->bool:
+    def set_system_features(self, feature_code: bytearray) -> bool:
         """Set system features.
 
         Returns
@@ -372,13 +379,11 @@ class Dvl():
         return False
 
     def reset_fft(self):
-        """Resets FFT queue.
-        """
+        """Resets FFT queue."""
         self._commands.flush_fft_queue()
 
     def get_status_count(self) -> int:
-        """Gets count of status packets.
-        """
+        """Gets count of status packets."""
         return self._commands.get_status_count()
 
     def get_status_packet(self) -> AppLayerPacket:
@@ -435,7 +440,9 @@ class Dvl():
         bool
             True if successful, False otherwise.
         """
-        self.log_file_name = self._commands.data_logger.open_file(working_folder, prefix)
+        self.log_file_name = self._commands.data_logger.open_file(
+            working_folder, prefix
+        )
         return self.log_file_name is not None
 
     def get_log_file_name(self):
@@ -449,8 +456,7 @@ class Dvl():
         return self.log_file_name
 
     def stop_logging(self):
-        """Stops data logging.
-        """
+        """Stops data logging."""
         self._commands.data_logger.close_file()
 
     def is_logging(self):
@@ -473,18 +479,14 @@ class Dvl():
         self._commands.register_ondata_callback(func, obj)
 
     def unregister_all_callbacks(self):
-        """Unregisters all callback functions.
-        """
+        """Unregisters all callback functions."""
         self._commands.unregister_all_callbacks()
 
     def reset(self):
-        """Resets queues and decoder.
-        """
+        """Resets queues and decoder."""
         self._commands.reset()
 
     def change_baud_rate(self, baud_index: int) -> bool:
-        """Changes baud rate on open port.
-        """
+        """Changes baud rate on open port."""
         baudrate = 115200 if baud_index == 7 else 9600
         return self._commands.port.set_baudrate(baudrate)
-

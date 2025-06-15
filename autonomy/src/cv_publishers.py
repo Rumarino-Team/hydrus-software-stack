@@ -7,23 +7,29 @@ converting ROS sensor_msgs/Image to/from OpenCV numpy arrays.
 Works for Python 3 with ROS Melodic.
 """
 
-import cv2
-import numpy as np
-from typing import List, Tuple
-from ultralytics import YOLO
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
+from typing import List, Tuple
 
 # Custom user modules
 import custom_types
+import cv2
+import numpy as np
 
 # ROS dependencies
 import rospy
-from sensor_msgs.msg import Image, CameraInfo, RegionOfInterest
 from geometry_msgs.msg import Point, PoseStamped
+from sensor_msgs.msg import CameraInfo, Image, RegionOfInterest
+from ultralytics import YOLO
 from visualization_msgs.msg import Marker, MarkerArray
+
 from autonomy.msg import Detection, Detections
-from autonomy.srv import SetColorFilter, SetColorFilterResponse, SetYoloModel, SetYoloModelResponse
+from autonomy.srv import (
+    SetColorFilter,
+    SetColorFilterResponse,
+    SetYoloModel,
+    SetYoloModelResponse,
+)
 
 ############################
 # Constants
@@ -34,6 +40,7 @@ YOLO_MODEL_DIR = "/yolo_models"
 ############################
 # Custom cv_bridge replacements
 ############################
+
 
 # Convert ROS Image to OpenCV (numpy array)
 def ros_img_to_cv2(msg: Image, encoding="bgr8") -> np.ndarray:
@@ -50,7 +57,7 @@ def ros_img_to_cv2(msg: Image, encoding="bgr8") -> np.ndarray:
         "bgr8": np.uint8,
         "mono8": np.uint8,
         "mono16": np.uint16,
-        "32FC1": np.float32
+        "32FC1": np.float32,
     }
 
     dtype = dtype_map[encoding]
@@ -59,23 +66,31 @@ def ros_img_to_cv2(msg: Image, encoding="bgr8") -> np.ndarray:
     channels = 3 if encoding == "bgr8" else 1
     expected_size = msg.height * msg.width * channels
     actual_size = len(msg.data)
-    
+
     # Debug information about the image dimensions
     rospy.logdebug(f"Image dimensions: {msg.height}x{msg.width}, channels: {channels}")
-    rospy.logdebug(f"Expected data size: {expected_size}, actual data size: {actual_size}")
-    
+    rospy.logdebug(
+        f"Expected data size: {expected_size}, actual data size: {actual_size}"
+    )
+
     if actual_size != expected_size:
-        rospy.logwarn(f"Data size mismatch! Expected {expected_size}, got {actual_size}. Attempting to fix...")
+        rospy.logwarn(
+            f"Data size mismatch! Expected {expected_size}, got {actual_size}. Attempting to fix..."
+        )
         # Try to infer correct dimensions based on actual data size
         if encoding == "bgr8" and actual_size % 3 == 0:
             total_pixels = actual_size // 3
             # Try to determine if width is correct but height is wrong
             if total_pixels % msg.width == 0:
                 corrected_height = total_pixels // msg.width
-                rospy.logwarn(f"Correcting height from {msg.height} to {corrected_height}")
-                img_array = np.frombuffer(msg.data, dtype=dtype).reshape((corrected_height, msg.width, 3))
+                rospy.logwarn(
+                    f"Correcting height from {msg.height} to {corrected_height}"
+                )
+                img_array = np.frombuffer(msg.data, dtype=dtype).reshape(
+                    (corrected_height, msg.width, 3)
+                )
                 return img_array
-    
+
     # Convert the byte data to a NumPy array
     img_array = np.frombuffer(msg.data, dtype=dtype)
 
@@ -90,14 +105,18 @@ def ros_img_to_cv2(msg: Image, encoding="bgr8") -> np.ndarray:
         else:
             # Single-channel
             img_array = np.reshape(img_array, (msg.height, msg.width))
-        
+
         return img_array
-    
+
     except Exception as e:
         # More detailed error information
         rospy.logerr(f"Reshape failed: {e}")
-        rospy.logerr(f"Image info: height={msg.height}, width={msg.width}, step={msg.step}, encoding={msg.encoding}")
-        rospy.logerr(f"Data length: {len(msg.data)}, array shape before reshape: {img_array.shape}")
+        rospy.logerr(
+            f"Image info: height={msg.height}, width={msg.width}, step={msg.step}, encoding={msg.encoding}"
+        )
+        rospy.logerr(
+            f"Data length: {len(msg.data)}, array shape before reshape: {img_array.shape}"
+        )
         raise
 
 
@@ -116,10 +135,12 @@ def cv2_to_ros_img(cv_image: np.ndarray, encoding="bgr8") -> Image:
     ros_msg.data = cv_image.tobytes()
     return ros_msg
 
+
 ############################
 # YOLO model
 ############################
 model = YOLO("yolo11n.pt")
+
 
 ############################
 # Data classes
@@ -131,6 +152,7 @@ class ColorFilterConfig:
     min_area: float
     rgb_range: Tuple[int, int, int]
 
+
 ############################
 # Global variables
 ############################
@@ -141,10 +163,7 @@ imu_rotation: custom_types.Rotation3D = None
 camera_intrinsics: tuple = None
 camera_info = None
 color_filter_config: ColorFilterConfig = ColorFilterConfig(
-    tolerance=0.4,
-    min_confidence=0.3,
-    min_area=0.2,
-    rgb_range=(255, 0, 0)
+    tolerance=0.4, min_confidence=0.3, min_area=0.2, rgb_range=(255, 0, 0)
 )
 
 # Camera topic parameters with defaults (will be overridden by ROS params)
@@ -153,17 +172,15 @@ depth_image_topic = "/zed2i/zed_node/depth/depth_registered"
 camera_info_topic = "/zed2i/zed_node/rgb/camera_info"
 camera_pose_topic = "/zed2i/zed_node/pose"
 
+
 ############################
 # Color filter detection
 ############################
 def color_filter(
     image: np.ndarray,
     config: ColorFilterConfig = ColorFilterConfig(
-        tolerance=0.4, 
-        min_confidence=0.3, 
-        min_area=0.2, 
-        rgb_range=(255,0,0)
-    )
+        tolerance=0.4, min_confidence=0.3, min_area=0.2, rgb_range=(255, 0, 0)
+    ),
 ) -> List[custom_types.Detection]:
     assert 0 < config.min_confidence < 1.0, "min_confidence must be between 0 and 1"
 
@@ -174,20 +191,14 @@ def color_filter(
     hsv = cv2.GaussianBlur(hsv, (5, 5), 0)
 
     # Convert the RGB color to HSV for filtering
-    target_hsv = cv2.cvtColor(
-        np.uint8([[config.rgb_range]]), cv2.COLOR_RGB2HSV
-    )[0][0]
+    target_hsv = cv2.cvtColor(np.uint8([[config.rgb_range]]), cv2.COLOR_RGB2HSV)[0][0]
 
-    lower_bound = np.array([
-        max(0, target_hsv[0] - config.tolerance * 180),
-        100,
-        100
-    ], dtype=np.uint8)
-    upper_bound = np.array([
-        min(180, target_hsv[0] + config.tolerance * 180),
-        255,
-        255
-    ], dtype=np.uint8)
+    lower_bound = np.array(
+        [max(0, target_hsv[0] - config.tolerance * 180), 100, 100], dtype=np.uint8
+    )
+    upper_bound = np.array(
+        [min(180, target_hsv[0] + config.tolerance * 180), 255, 255], dtype=np.uint8
+    )
 
     mask = cv2.inRange(hsv, lower_bound, upper_bound)
     kernel = np.ones((5, 5), np.uint8)
@@ -214,16 +225,12 @@ def color_filter(
                     # (x1, y1, x2, y2, cls, conf)
                     result.append(
                         custom_types.Detection(
-                            x1=x,
-                            y1=y,
-                            x2=x + w,
-                            y2=y + h,
-                            cls=0,
-                            conf=confidence
+                            x1=x, y1=y, x2=x + w, y2=y + h, cls=0, conf=confidence
                         )
                     )
 
     return result
+
 
 ############################
 # YOLO detection
@@ -233,7 +240,7 @@ def yolo_object_detection(image: np.ndarray) -> List[custom_types.Detection]:
     results = model(image)
 
     for result in results:
-        if hasattr(result, 'boxes'):
+        if hasattr(result, "boxes"):
             for box in result.boxes:
                 x1, y1, x2, y2 = box.xyxy.cpu().numpy()[0]
                 conf = float(box.conf.cpu().numpy()[0])
@@ -245,17 +252,23 @@ def yolo_object_detection(image: np.ndarray) -> List[custom_types.Detection]:
 
     return result_list
 
+
 ############################
 # Depth + 3D calculations
 ############################
 def calculate_point_3d(
     detections: List[custom_types.Detection],
     depth_image: np.ndarray,
-    camera_intrinsic: tuple
+    camera_intrinsic: tuple,
 ):
     # camera_intrinsic = (fx, fy, cx, cy)
     for detection in detections:
-        x_min, y_min, x_max, y_max = detection.x1, detection.y1, detection.x2, detection.y2
+        x_min, y_min, x_max, y_max = (
+            detection.x1,
+            detection.y1,
+            detection.x2,
+            detection.y2,
+        )
         if depth_image is not None:
             x_min_int = int(x_min)
             x_max_int = int(x_max)
@@ -285,19 +298,34 @@ def calculate_point_3d(
                 detection.point = custom_types.Point3D(x=0, y=0, z=0)
                 detection.depth = 0
 
+
 def transform_to_global(
     detections: List[custom_types.Detection],
     imu_point: custom_types.Point3D,
-    imu_rotation: custom_types.Rotation3D
+    imu_rotation: custom_types.Rotation3D,
 ):
     def quaternion_to_matrix(rotation: custom_types.Rotation3D):
         # w, x, y, z
         w, x, y, z = rotation.w, rotation.x, rotation.y, rotation.z
-        rotation_matrix = np.array([
-            [1 - 2*y**2 - 2*z**2,     2*x*y - 2*z*w,     2*x*z + 2*y*w],
-            [    2*x*y + 2*z*w, 1 - 2*x**2 - 2*z**2,     2*y*z - 2*x*w],
-            [    2*x*z - 2*y*w,     2*y*z + 2*x*w, 1 - 2*x**2 - 2*y**2]
-        ])
+        rotation_matrix = np.array(
+            [
+                [
+                    1 - 2 * y**2 - 2 * z**2,
+                    2 * x * y - 2 * z * w,
+                    2 * x * z + 2 * y * w,
+                ],
+                [
+                    2 * x * y + 2 * z * w,
+                    1 - 2 * x**2 - 2 * z**2,
+                    2 * y * z - 2 * x * w,
+                ],
+                [
+                    2 * x * z - 2 * y * w,
+                    2 * y * z + 2 * x * w,
+                    1 - 2 * x**2 - 2 * y**2,
+                ],
+            ]
+        )
 
         transform_matrix = np.eye(4)
         transform_matrix[:3, :3] = rotation_matrix
@@ -307,22 +335,19 @@ def transform_to_global(
     transform_matrix[0:3, 3] = [imu_point.x, imu_point.y, imu_point.z]
 
     for detection in detections:
-        point_homogeneous = np.array([
-            detection.point.x,
-            detection.point.y,
-            detection.point.z,
-            1.0
-        ])
+        point_homogeneous = np.array(
+            [detection.point.x, detection.point.y, detection.point.z, 1.0]
+        )
         point_global = np.dot(transform_matrix, point_homogeneous)
         detection.point = custom_types.Point3D(
-            x=point_global[0],
-            y=point_global[1],
-            z=point_global[2]
+            x=point_global[0], y=point_global[1], z=point_global[2]
         )
+
 
 ############################
 # ROS callbacks
 ############################
+
 
 def depth_image_callback(msg):
     global depth_image
@@ -335,13 +360,16 @@ def depth_image_callback(msg):
         expected_size = height * width
 
         if img_array.size != expected_size:
-            rospy.logwarn(f"Unexpected depth image size: got {img_array.size}, expected {expected_size}")
+            rospy.logwarn(
+                f"Unexpected depth image size: got {img_array.size}, expected {expected_size}"
+            )
             return
 
         depth_image = img_array.reshape((height, width))
 
     except Exception as e:
         rospy.logerr(f"Error converting depth image: {e}")
+
 
 def rgb_image_callback(msg):
     global rgb_image
@@ -364,7 +392,9 @@ def rgb_image_callback(msg):
 
         expected_size = height * width * channels
         if img_array.size != expected_size:
-            rospy.logwarn(f"Unexpected RGB image size: got {img_array.size}, expected {expected_size}")
+            rospy.logwarn(
+                f"Unexpected RGB image size: got {img_array.size}, expected {expected_size}"
+            )
             return
 
         img_array = img_array.reshape((height, width, channels))
@@ -387,19 +417,18 @@ def camera_info_callback(msg: CameraInfo):
     cy = msg.K[5]
     camera_intrinsics = (fx, fy, cx, cy)
 
+
 def imu_pose_callback(msg: PoseStamped):
     global imu_point, imu_rotation
     try:
         imu_point = custom_types.Point3D(
-            x=msg.pose.position.x,
-            y=msg.pose.position.y,
-            z=msg.pose.position.z
+            x=msg.pose.position.x, y=msg.pose.position.y, z=msg.pose.position.z
         )
         imu_rotation = custom_types.Rotation3D(
             x=msg.pose.orientation.x,
             y=msg.pose.orientation.y,
             z=msg.pose.orientation.z,
-            w=msg.pose.orientation.w
+            w=msg.pose.orientation.w,
         )
         rospy.loginfo("Successfully parsed IMU pose data.")
     except AttributeError as e:
@@ -407,10 +436,13 @@ def imu_pose_callback(msg: PoseStamped):
     except Exception as e:
         rospy.logerr(f"Unexpected error in imu_pose_callback: {e}")
 
+
 ############################
 # Detection + Publishing
 ############################
-def create_detector_message(detected_object: List[custom_types.Detection]) -> List[Detection]:
+def create_detector_message(
+    detected_object: List[custom_types.Detection],
+) -> List[Detection]:
     detections_conversion = []
     for detection in detected_object:
         detector_msg = Detection()
@@ -418,13 +450,9 @@ def create_detector_message(detected_object: List[custom_types.Detection]) -> Li
             x_offset=int(detection.x1),
             y_offset=int(detection.y1),
             height=int(detection.y2 - detection.y1),
-            width=int(detection.x2 - detection.x1)
+            width=int(detection.x2 - detection.x1),
         )
-        point = Point(
-            x=detection.point.x,
-            y=detection.point.y,
-            z=detection.point.z
-        )
+        point = Point(x=detection.point.x, y=detection.point.y, z=detection.point.z)
 
         detector_msg.cls = detection.cls
         detector_msg.confidence = detection.conf
@@ -433,18 +461,19 @@ def create_detector_message(detected_object: List[custom_types.Detection]) -> Li
         detections_conversion.append(detector_msg)
     return detections_conversion
 
+
 def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
     global rgb_image, depth_image, camera_intrinsics, imu_point, imu_rotation, color_filter_config
     detectors_output = []
     pipelines = [color_filter, yolo_object_detection]
-    detectors_names = ['color_detector', 'yolo_detector']
+    detectors_names = ["color_detector", "yolo_detector"]
 
     for i, detector_name in enumerate(detectors_names):
         if rgb_image is None:
             rospy.logwarn("RGB image is None. Skipping detection for this iteration.")
             return []
 
-        if detector_name == 'color_detector':
+        if detector_name == "color_detector":
             detection_results = pipelines[i](rgb_image, color_filter_config)
         else:
             detection_results = pipelines[i](rgb_image)
@@ -453,13 +482,19 @@ def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
         if camera_intrinsics is not None and depth_image is not None:
             calculate_point_3d(detection_results, depth_image, camera_intrinsics)
         else:
-            rospy.logwarn("Camera intrinsics or depth_image is None. Skipping 3D calculations.")
+            rospy.logwarn(
+                "Camera intrinsics or depth_image is None. Skipping 3D calculations."
+            )
 
         # Transform to global if IMU data is available
         if imu_point is None or imu_rotation is None:
             rospy.logwarn("IMU data is missing. Skipping global transformation.")
         else:
-            transform_to_global(detections=detection_results, imu_point=imu_point, imu_rotation=imu_rotation)
+            transform_to_global(
+                detections=detection_results,
+                imu_point=imu_point,
+                imu_rotation=imu_rotation,
+            )
 
         # Create the message list
         detector_msg_list = create_detector_message(detection_results)
@@ -467,27 +502,30 @@ def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
 
     return detectors_output
 
+
 def publish_vision_detections():
-    detection_pub = rospy.Publisher('/detector/box_detection', Detections, queue_size=10)
-    marker_pub = rospy.Publisher('/detector/markers', MarkerArray, queue_size=10)
+    detection_pub = rospy.Publisher(
+        "/detector/box_detection", Detections, queue_size=10
+    )
+    marker_pub = rospy.Publisher("/detector/markers", MarkerArray, queue_size=10)
     rate = rospy.Rate(10)
-    
+
     # Keep a list of previously published markers to manage deletion
-    previous_marker_count = {'color_detector': 0, 'yolo_detector': 0}
-    
+    previous_marker_count = {"color_detector": 0, "yolo_detector": 0}
+
     while not rospy.is_shutdown():
         pipelines_results = run_detection_pipelines()
         marker_array = MarkerArray()
-        
+
         # Track current marker counts to manage stale markers
-        current_marker_count = {'color_detector': 0, 'yolo_detector': 0}
-        
+        current_marker_count = {"color_detector": 0, "yolo_detector": 0}
+
         for detector_name, detections in pipelines_results:
             detection_msg = Detections()
             detection_msg.detections = detections
             detection_msg.detector_name = detector_name
             detection_pub.publish(detection_msg)
-            
+
             # Add markers for each detection
             for i, detection in enumerate(detections):
                 # Create point marker
@@ -498,33 +536,33 @@ def publish_vision_detections():
                 marker.id = i
                 marker.type = Marker.SPHERE
                 marker.action = Marker.ADD
-                
+
                 # Set position from detection point
                 marker.pose.position.x = detection.point.x
                 marker.pose.position.y = detection.point.y
                 marker.pose.position.z = detection.point.z
                 marker.pose.orientation.w = 1.0
-                
+
                 # Scale marker based on confidence (bigger = more confident)
                 confidence_scale = 0.1 + (detection.confidence * 0.1)
                 marker.scale.x = confidence_scale
                 marker.scale.y = confidence_scale
                 marker.scale.z = confidence_scale
-                
+
                 # Set color based on detector type
-                if detector_name == 'color_detector':
+                if detector_name == "color_detector":
                     marker.color.r = 1.0
                     marker.color.g = 0.0
                     marker.color.b = 0.0
-                elif detector_name == 'yolo_detector':
+                elif detector_name == "yolo_detector":
                     marker.color.r = 0.0
                     marker.color.g = 1.0
                     marker.color.b = 0.0
                 marker.color.a = 1.0  # Fully opaque
-                
+
                 # Add marker to array
                 marker_array.markers.append(marker)
-                
+
                 # Add text label marker
                 text_marker = Marker()
                 text_marker.header.frame_id = "map"  # Use appropriate frame_id
@@ -533,36 +571,43 @@ def publish_vision_detections():
                 text_marker.id = i
                 text_marker.type = Marker.TEXT_VIEW_FACING
                 text_marker.action = Marker.ADD
-                
+
                 # Position text slightly above the sphere
                 text_marker.pose.position.x = detection.point.x
                 text_marker.pose.position.y = detection.point.y
-                text_marker.pose.position.z = detection.point.z + confidence_scale + 0.05
+                text_marker.pose.position.z = (
+                    detection.point.z + confidence_scale + 0.05
+                )
                 text_marker.pose.orientation.w = 1.0
-                
+
                 # Set text size
                 text_marker.scale.z = 0.1  # Text height
-                
+
                 # Same color as the sphere
-                if detector_name == 'color_detector':
+                if detector_name == "color_detector":
                     text_marker.color.r = 1.0
                     text_marker.color.g = 0.0
                     text_marker.color.b = 0.0
-                elif detector_name == 'yolo_detector':
+                elif detector_name == "yolo_detector":
                     text_marker.color.r = 0.0
                     text_marker.color.g = 1.0
                     text_marker.color.b = 0.0
                 text_marker.color.a = 1.0
-                
+
                 # Set text content (class ID and confidence)
-                text_marker.text = f"{detector_name}_{i}: {detection.cls}, {detection.confidence:.2f}"
+                text_marker.text = (
+                    f"{detector_name}_{i}: {detection.cls}, {detection.confidence:.2f}"
+                )
                 marker_array.markers.append(text_marker)
-                
+
                 # Update marker count for this detector
                 current_marker_count[detector_name] = i + 1
-            
+
             # Add DELETE markers for any stale markers
-            for j in range(current_marker_count[detector_name], previous_marker_count[detector_name]):
+            for j in range(
+                current_marker_count[detector_name],
+                previous_marker_count[detector_name],
+            ):
                 # Remove stale point markers
                 delete_marker = Marker()
                 delete_marker.header.frame_id = "map"
@@ -571,7 +616,7 @@ def publish_vision_detections():
                 delete_marker.id = j
                 delete_marker.action = Marker.DELETE
                 marker_array.markers.append(delete_marker)
-                
+
                 # Remove stale text markers
                 delete_text_marker = Marker()
                 delete_text_marker.header.frame_id = "map"
@@ -580,101 +625,120 @@ def publish_vision_detections():
                 delete_text_marker.id = j
                 delete_text_marker.action = Marker.DELETE
                 marker_array.markers.append(delete_text_marker)
-        
+
         # Update previous marker counts
         previous_marker_count = current_marker_count.copy()
-        
+
         # Publish marker array
         marker_pub.publish(marker_array)
         rate.sleep()
 
+
 def handle_set_color_filter(req):
     global color_filter_config
-    
+
     try:
         # Parse RGB values from the integer array
         if len(req.rgb_range) != 3:
-            return SetColorFilterResponse(success=False, message="RGB range must have exactly 3 values (R,G,B)")
-        
+            return SetColorFilterResponse(
+                success=False, message="RGB range must have exactly 3 values (R,G,B)"
+            )
+
         rgb_tuple = tuple(req.rgb_range)
-        
+
         # Validate the RGB values
         for val in rgb_tuple:
             if not 0 <= val <= 255:
-                return SetColorFilterResponse(success=False, message="RGB values must be between 0 and 255")
-        
+                return SetColorFilterResponse(
+                    success=False, message="RGB values must be between 0 and 255"
+                )
+
         # Update the color filter configuration
         color_filter_config = ColorFilterConfig(
             tolerance=req.tolerance,
             min_confidence=req.min_confidence,
             min_area=req.min_area,
-            rgb_range=rgb_tuple
+            rgb_range=rgb_tuple,
         )
-        
-        rospy.loginfo(f"Color filter updated: tolerance={req.tolerance}, min_confidence={req.min_confidence}, " 
-                      f"min_area={req.min_area}, rgb_range={rgb_tuple}")
-        
-        return SetColorFilterResponse(success=True, message="Color filter config updated successfully")
-    
+
+        rospy.loginfo(
+            f"Color filter updated: tolerance={req.tolerance}, min_confidence={req.min_confidence}, "
+            f"min_area={req.min_area}, rgb_range={rgb_tuple}"
+        )
+
+        return SetColorFilterResponse(
+            success=True, message="Color filter config updated successfully"
+        )
+
     except Exception as e:
         error_msg = f"Failed to update color filter config: {str(e)}"
         rospy.logerr(error_msg)
         return SetColorFilterResponse(success=False, message=error_msg)
+
 
 def handle_set_yolo_model(req):
     global model
 
     try:
         # Validate the model name
-        if not req.model_name.endswith('.pt'):
-            return SetYoloModelResponse(success=False, message="Model name must end with .pt")
+        if not req.model_name.endswith(".pt"):
+            return SetYoloModelResponse(
+                success=False, message="Model name must end with .pt"
+            )
 
         model_path = os.path.join(YOLO_MODEL_DIR, req.model_name)
 
         # Check if the model file exists
         if not os.path.isfile(model_path):
-            return SetYoloModelResponse(success=False, message=f"Model file not found: {model_path}")
+            return SetYoloModelResponse(
+                success=False, message=f"Model file not found: {model_path}"
+            )
 
         # Load the new model
         model = YOLO(model_path)
 
         rospy.loginfo(f"YOLO model switched to: {req.model_name}")
-        return SetYoloModelResponse(success=True, message=f"YOLO model switched to: {req.model_name}")
+        return SetYoloModelResponse(
+            success=True, message=f"YOLO model switched to: {req.model_name}"
+        )
 
     except Exception as e:
         error_msg = f"Failed to switch YOLO model: {str(e)}"
         rospy.logerr(error_msg)
         return SetYoloModelResponse(success=False, message=error_msg)
 
+
 def initialize_service_servers():
     rospy.loginfo("Initializing service servers...")
-    rospy.Service('/detector/set_color_filter', SetColorFilter, handle_set_color_filter)
-    rospy.Service('/detector/set_yolo_model', SetYoloModel, handle_set_yolo_model)
+    rospy.Service("/detector/set_color_filter", SetColorFilter, handle_set_color_filter)
+    rospy.Service("/detector/set_yolo_model", SetYoloModel, handle_set_yolo_model)
     rospy.loginfo("Service servers are ready")
+
 
 def initialize_subscribers():
     global rgb_image_topic, depth_image_topic, camera_info_topic, camera_pose_topic
-    
+
     # Get topic names from ROS parameters (with defaults)
-    rgb_image_topic = rospy.get_param('~rgb_image_topic', rgb_image_topic)
-    depth_image_topic = rospy.get_param('~depth_image_topic', depth_image_topic)
-    camera_info_topic = rospy.get_param('~camera_info_topic', camera_info_topic)
-    camera_pose_topic = rospy.get_param('~camera_pose_topic', camera_pose_topic)
-    
+    rgb_image_topic = rospy.get_param("~rgb_image_topic", rgb_image_topic)
+    depth_image_topic = rospy.get_param("~depth_image_topic", depth_image_topic)
+    camera_info_topic = rospy.get_param("~camera_info_topic", camera_info_topic)
+    camera_pose_topic = rospy.get_param("~camera_pose_topic", camera_pose_topic)
+
     # Log the topic names being used
     rospy.loginfo(f"Using RGB image topic: {rgb_image_topic}")
     rospy.loginfo(f"Using depth image topic: {depth_image_topic}")
     rospy.loginfo(f"Using camera info topic: {camera_info_topic}")
     rospy.loginfo(f"Using camera pose topic: {camera_pose_topic}")
-    
+
     # Subscribe to the topics
     rospy.Subscriber(rgb_image_topic, Image, rgb_image_callback)
     rospy.Subscriber(depth_image_topic, Image, depth_image_callback)
     rospy.Subscriber(camera_info_topic, CameraInfo, camera_info_callback)
     rospy.Subscriber(camera_pose_topic, PoseStamped, imu_pose_callback)
 
+
 if __name__ == "__main__":
-    rospy.init_node('cv_publisher')
+    rospy.init_node("cv_publisher")
     initialize_subscribers()
     initialize_service_servers()
     rospy.sleep(3)  # Give some time to gather messages

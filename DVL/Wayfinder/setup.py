@@ -1,6 +1,5 @@
-from setuptools import setup, find_packages
-
 import dvl
+from setuptools import find_packages, setup
 
 setup(
     name="dvl",
@@ -10,8 +9,5 @@ setup(
     url="http://www.teledynemarine.com/rdi/",
     packages=find_packages(),
     python_requires=">=3.6",
-    install_requires=[
-        "pyserial",
-        "numpy"
-    ]
+    install_requires=["pyserial", "numpy"],
 )

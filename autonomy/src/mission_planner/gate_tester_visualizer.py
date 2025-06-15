@@ -7,17 +7,21 @@ ASCII Visualizer for Gate-Mission Tester
 • +  = world origin
 """
 
-import os, math, rospy
+import math
+import os
+
+import rospy
 from geometry_msgs.msg import PoseStamped
+
 
 class GateVisualizer:
     def __init__(self):
         rospy.init_node("gate_visualizer")
 
         # dynamic items
-        self.submarine_pose = None                  # (x,y,z) updated by callback
-        self.gate_position  = self.get_gate_param() # tuple(x,y,z)
-        self.path           = []                    # last 50 poses
+        self.submarine_pose = None  # (x,y,z) updated by callback
+        self.gate_position = self.get_gate_param()  # tuple(x,y,z)
+        self.path = []  # last 50 poses
 
         # fixed display geometry
         self.width, self.height = 80, 30
@@ -42,7 +46,7 @@ class GateVisualizer:
             msg.pose.position.z,
         )
         self.path.append(self.submarine_pose)
-        if len(self.path) > 50:         # keep recent trail only
+        if len(self.path) > 50:  # keep recent trail only
             self.path.pop(0)
 
     # ---------------------------------------------------------------------
@@ -55,10 +59,9 @@ class GateVisualizer:
 
     def world_to_screen(self, x, y, z):
         """Project world (x,y,z) onto ASCII grid indices (col,row)."""
-        sx = int(self.width  / 2 + x / self.scale)
-        sy = int(self.height / 2 - y / self.scale)          # y axis up on screen
-        return (min(max(sx, 0), self.width  - 1),
-                min(max(sy, 0), self.height - 1))
+        sx = int(self.width / 2 + x / self.scale)
+        sy = int(self.height / 2 - y / self.scale)  # y axis up on screen
+        return (min(max(sx, 0), self.width - 1), min(max(sy, 0), self.height - 1))
 
     def clear(self):
         os.system("clear" if os.name == "posix" else "cls")
@@ -67,7 +70,7 @@ class GateVisualizer:
     # Main drawing loop
     # ---------------------------------------------------------------------
     def draw_frame(self):
-        if not self.submarine_pose:                 # nothing to draw yet
+        if not self.submarine_pose:  # nothing to draw yet
             return
 
         # pull latest gate centre & rescale if it changed
@@ -93,14 +96,16 @@ class GateVisualizer:
         grid[sy][sx] = "⊕"
 
         # axes
-        cx, cy = self.width//2, self.height//2
-        for i in range(self.width):  grid[cy][i] = "─"
-        for i in range(self.height): grid[i][cx] = "│"
+        cx, cy = self.width // 2, self.height // 2
+        for i in range(self.width):
+            grid[cy][i] = "─"
+        for i in range(self.height):
+            grid[i][cx] = "│"
         grid[cy][cx] = "+"
 
         # render
         self.clear()
-        border = "+" + "-"*self.width + "+"
+        border = "+" + "-" * self.width + "+"
         print(border)
         for row in grid:
             print("|" + "".join(row) + "|")
@@ -110,13 +115,15 @@ class GateVisualizer:
         dx = self.submarine_pose[0] - self.gate_position[0]
         dy = self.submarine_pose[1] - self.gate_position[1]
         dz = self.submarine_pose[2] - self.gate_position[2]
-        dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+        dist = math.sqrt(dx * dx + dy * dy + dz * dz)
 
         print(f"\nLegend: ⊕ submarine | ⊓ gate | · path | + origin")
         print(f"Scale : 1 char ≈ {self.scale:4.1f} m")
-        print(f"Sub   : ({self.submarine_pose[0]:5.2f}, "
-                         f"{self.submarine_pose[1]:5.2f}, "
-                         f"{self.submarine_pose[2]:5.2f})")
+        print(
+            f"Sub   : ({self.submarine_pose[0]:5.2f}, "
+            f"{self.submarine_pose[1]:5.2f}, "
+            f"{self.submarine_pose[2]:5.2f})"
+        )
         print(f"Gate  : {self.gate_position}")
         print(f"Δdist : {dist:5.2f} m (centre-to-centre)")
         print("Ctrl-C to quit")
@@ -125,10 +132,11 @@ class GateVisualizer:
     # Run
     # ---------------------------------------------------------------------
     def run(self):
-        rate = rospy.Rate(10)            # 10 Hz refresh
+        rate = rospy.Rate(10)  # 10 Hz refresh
         while not rospy.is_shutdown():
             self.draw_frame()
             rate.sleep()
+
 
 # -------------------------------------------------------------------------
 if __name__ == "__main__":

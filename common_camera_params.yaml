@@ -59,7 +59,7 @@ pos_tracking:
     publish_map_tf:             true                            # publish `map -> odom` TF
     map_frame:                  'map'                           # main frame
     odometry_frame:             'odom'                          # odometry frame
-    area_memory_db_path:        ''                              # file loaded when the node starts to restore the "known visual features" map. 
+    area_memory_db_path:        ''                              # file loaded when the node starts to restore the "known visual features" map.
     save_area_memory_db_on_exit: false                          # save the "known visual features" map when the node is correctly closed to the path indicated by `area_memory_db_path`
     area_memory:                true                            # Enable to detect loop closure
     floor_alignment:            false                           # Enable to automatically calculate camera/floor offset
@@ -89,7 +89,7 @@ object_detection:
     model:                              'MULTI_CLASS_BOX_ACCURATE'      # 'MULTI_CLASS_BOX_FAST', 'MULTI_CLASS_BOX_MEDIUM', 'MULTI_CLASS_BOX_ACCURATE', 'PERSON_HEAD_BOX_FAST', 'PERSON_HEAD_BOX_ACCURATE'
     max_range:                          15.                             # Maximum detection range
     allow_reduced_precision_inference:  true                            # Allow inference to run at a lower precision to improve runtime and memory usage
-    prediction_timeout:                 0.5                             #  During this time [sec], the object will have OK state even if it is not detected. Set this parameter to 0 to disable SDK predictions            
+    prediction_timeout:                 0.5                             #  During this time [sec], the object will have OK state even if it is not detected. Set this parameter to 0 to disable SDK predictions
     object_tracking_enabled:            true                            # Enable/disable the tracking of the detected objects
     mc_people:                          true                            # Enable/disable the detection of persons for 'MULTI_CLASS_BOX_X' models
     mc_vehicle:                         true                            # Enable/disable the detection of vehicles for 'MULTI_CLASS_BOX_X' models

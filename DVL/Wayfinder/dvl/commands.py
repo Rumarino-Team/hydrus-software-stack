@@ -1,17 +1,34 @@
-"""Contains several classes related to sending commands to Wayfinder.
-"""
-from enum import Enum
+"""Contains several classes related to sending commands to Wayfinder."""
+
 import datetime
 import struct
-from queue import Queue, Empty
-from dvl.packets import PhysicalLayerPacket, AppLayerPacket, PacketDecoder, AppLayerIdType
+from enum import Enum
+from queue import Empty, Queue
+
+from dvl.packets import (
+    AppLayerIdType,
+    AppLayerPacket,
+    PacketDecoder,
+    PhysicalLayerPacket,
+)
+from dvl.system import (
+    DateTime,
+    FftData,
+    FftTest,
+    OutputData,
+    SystemComponents,
+    SystemFeatures,
+    SystemInfo,
+    SystemSetup,
+    SystemTests,
+    SystemUpdate,
+)
 from dvl.util import DataLogger, SerialPort
-from dvl.system import SystemInfo, SystemFeatures, SystemSetup, SystemTests,\
-   SystemComponents, SystemUpdate, DateTime, FftTest, OutputData, FftData
+
 
 class CommandIdType(Enum):
-    """Enumerated type class that defines command IDs.
-    """
+    """Enumerated type class that defines command IDs."""
+
     ENTER_CMD_MODE = 0x0000000F
     """Enter command mode (stop pinging) command ID."""
     EXIT_CMD_MODE = 0x00000010
@@ -51,9 +68,10 @@ class CommandIdType(Enum):
     SET_COMPONENTS = 0x83000004
     """Set hardware components information (internal only) command ID."""
 
+
 class ResponseStatusType(Enum):
-    """Enumerated type class that defines command response status.
-    """
+    """Enumerated type class that defines command response status."""
+
     NO_RESPONSE = 0
     """No response from the system."""
     SUCCESS = 1
@@ -73,9 +91,10 @@ class ResponseStatusType(Enum):
     CANNOT_OPEN_PORT = 100
     """Cannot open COM port."""
 
+
 class ResponseErrorType(Enum):
-    """Enumerated type class that defines command response error.
-    """
+    """Enumerated type class that defines command response error."""
+
     INVALID_NONE = 0
     """No error - All parameters are valid."""
     INVALID_BAUD = 1
@@ -89,10 +108,11 @@ class ResponseErrorType(Enum):
     INVALID_DATETIME = 5
     """Invalid date/time."""
 
-class Communicator():
-    """Class that implements binary communication layer.
-    """
-    #pylint: disable=too-many-instance-attributes
+
+class Communicator:
+    """Class that implements binary communication layer."""
+
+    # pylint: disable=too-many-instance-attributes
 
     _MAX_Q_SIZE = 1000
 
@@ -112,31 +132,28 @@ class Communicator():
         self._cmd_count = 0
 
     def __enter__(self):
-        """Initializes serial port interface.
-        """
+        """Initializes serial port interface."""
         self.port.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Cleans up serial port interface.
-        """
+        """Cleans up serial port interface."""
         self.port.__exit__(exc_type, exc_value, traceback)
 
     def decode_packets(self, arr):
-        """Decodes binary packets and puts them into queues.
-        """
+        """Decodes binary packets and puts them into queues."""
         pl_packets = self._decoder.parse_bytes(arr)
         if self.all_data_logger.is_logging():
             self.all_data_logger.write(arr)
         for pkt in pl_packets:
             al_pkt = pkt.payload
             if al_pkt.pkt_id in (AppLayerIdType.CMD_BIN, AppLayerIdType.RSP_BIN):
-                #print(pkt)
+                # print(pkt)
                 if self._cmd_queue.qsize() >= Communicator._MAX_Q_SIZE:
                     self._cmd_queue.get_nowait()
                 self._cmd_queue.put(al_pkt, block=False)
                 self._cmd_count += 1
-                #print("Got response {0}".format(self._cmd_count))
+                # print("Got response {0}".format(self._cmd_count))
             elif al_pkt.pkt_id == AppLayerIdType.DATA_PD:
                 payload = al_pkt.get_payload()
                 output_data = OutputData(payload)
@@ -154,7 +171,7 @@ class Communicator():
                     self._status_queue.get_nowait()
                 self._status_queue.put(al_pkt, block=False)
 
-    #pylint: disable=broad-except
+    # pylint: disable=broad-except
     def _call_back(self, output_data):
         try:
             for callback in self._ondata_callback:
@@ -165,31 +182,26 @@ class Communicator():
             print("Exception in callback function: {0}".format(exception))
 
     def send_packet(self, packet: PhysicalLayerPacket):
-        """Sends physical layer packet to DVL.
-        """
+        """Sends physical layer packet to DVL."""
         self.port.write(packet.encode())
 
     def flush_fft_queue(self):
-        """Flushes FFT data queue.
-        """
+        """Flushes FFT data queue."""
         while not self._fft_queue.empty():
             self._fft_queue.get_nowait()
 
     def flush_cmd_queue(self):
-        """Flushes command queue.
-        """
+        """Flushes command queue."""
         while not self._cmd_queue.empty():
             self._cmd_queue.get_nowait()
 
     def flush_status_queue(self):
-        """Flushes status queue.
-        """
+        """Flushes status queue."""
         while not self._status_queue.empty():
             self._status_queue.get_nowait()
 
     def get_cmd_packet(self, time_out: int = 0) -> AppLayerPacket:
-        """Gets command response packet.
-        """
+        """Gets command response packet."""
         if time_out == 0 and self._cmd_queue.empty():
             return None
         try:
@@ -199,35 +211,31 @@ class Communicator():
             return None
 
     def get_fft_count(self):
-        """Returns number of available FFT packets.
-        """
+        """Returns number of available FFT packets."""
         return self._fft_queue.qsize()
 
     def get_fft_packet(self, time_out):
-        """Gets the FFT packet from queue.
-        """
+        """Gets the FFT packet from queue."""
         try:
             return self._fft_queue.get(block=True, timeout=time_out)
         except Empty:
             return None
 
     def get_status_count(self):
-        """Returns number of available status packets.
-        """
+        """Returns number of available status packets."""
         return self._status_queue.qsize()
 
     def get_status_packet(self, time_out):
-        """Gets the data packet from queue.
-        """
+        """Gets the data packet from queue."""
         try:
             return self._status_queue.get(block=True, timeout=time_out)
         except Empty:
             return None
 
-    def send_and_wait_for_response(self, packet: AppLayerPacket, \
-            timeout: int = 0, debug: bool = False) -> AppLayerPacket:
-        """Sends packet and waits for response.
-        """
+    def send_and_wait_for_response(
+        self, packet: AppLayerPacket, timeout: int = 0, debug: bool = False
+    ) -> AppLayerPacket:
+        """Sends packet and waits for response."""
         pl_pkt = PhysicalLayerPacket(packet)
         if debug:
             print(pl_pkt)
@@ -241,22 +249,20 @@ class Communicator():
         return None
 
     def register_ondata_callback(self, func, obj):
-        """Registers receive callback function.
-        """
+        """Registers receive callback function."""
         self._ondata_callback.append((func, obj))
 
     def unregister_all_callbacks(self):
-        """Unregisters all callback functions.
-        """
+        """Unregisters all callback functions."""
         self._ondata_callback.clear()
 
     def reset(self):
-        """Resets queues and decoder.
-        """
+        """Resets queues and decoder."""
         self.flush_cmd_queue()
         self.flush_status_queue()
         self.flush_fft_queue()
         self._decoder.clear()
+
 
 COMMAND_TIMEOUT_SEC = 5
 """Timeout for most commands (5 sec)"""
@@ -264,33 +270,30 @@ COMMAND_TIMEOUT_SEC = 5
 LONG_COMMAND_TIMEOUT = 15
 """Timeout for commands taking longer (15 sec)"""
 
+
 class BinaryCommands(Communicator):
-    """Binary commands interface.
-    """
+    """Binary commands interface."""
+
     def __init__(self, port=None):
         Communicator.__init__(self, port)
 
     def enter_command_mode(self) -> ResponseStatusType:
-        """Enters command mode (stops pinging).
-        """
+        """Enters command mode (stops pinging)."""
         (err, _) = self.send_cmd(CommandIdType.ENTER_CMD_MODE, LONG_COMMAND_TIMEOUT)
         return err
 
     def exit_command_mode(self) -> ResponseStatusType:
-        """Exits command  mode (start pinging).
-        """
+        """Exits command  mode (start pinging)."""
         (err, _) = self.send_cmd(CommandIdType.EXIT_CMD_MODE)
         return err
 
     def reset_to_defaults(self) -> ResponseStatusType:
-        """Resets to factory defaults.
-        """
+        """Resets to factory defaults."""
         (err, _) = self.send_cmd(CommandIdType.RESET_TO_DEFAULTS)
         return err
 
     def get_time(self):
-        """Gets system time.
-        """
+        """Gets system time."""
         (err, response) = self.send_cmd(CommandIdType.GET_TIME)
         if err.value != ResponseStatusType.SUCCESS.value:
             return (err, None)
@@ -298,16 +301,14 @@ class BinaryCommands(Communicator):
         return (err, date_time)
 
     def set_time(self, date_time: datetime):
-        """Sets system time.
-        """
+        """Sets system time."""
         cmd_id = CommandIdType.SET_TIME
         al_pkt = DateTime.encode(date_time, cmd_id.value)
         response = self.send_and_wait_for_response(al_pkt, COMMAND_TIMEOUT_SEC)
         return check_response(response, cmd_id)
 
     def set_speed_of_sound(self, value: float):
-        """Sets speed of sound.
-        """
+        """Sets speed of sound."""
         arr = bytearray(8)
         struct.pack_into("I", arr, 0, CommandIdType.SET_SPEED_OF_SOUND.value)
         struct.pack_into("f", arr, 4, value)
@@ -317,8 +318,7 @@ class BinaryCommands(Communicator):
         return check_response(response, CommandIdType.SET_SPEED_OF_SOUND)
 
     def get_system(self):
-        """Gets DVL system information.
-        """
+        """Gets DVL system information."""
         (err, response) = self.send_cmd(CommandIdType.GET_SYSTEM)
         if err.value != ResponseStatusType.SUCCESS.value:
             return (err, None)
@@ -327,8 +327,7 @@ class BinaryCommands(Communicator):
         return (err, info)
 
     def get_components(self):
-        """Gets DVL hardware components information.
-        """
+        """Gets DVL hardware components information."""
         (err, response) = self.send_cmd(CommandIdType.GET_COMPONENTS)
         if err.value != ResponseStatusType.SUCCESS.value:
             return (err, None)
@@ -337,8 +336,7 @@ class BinaryCommands(Communicator):
         return (err, info)
 
     def get_tests(self):
-        """Gets DVL system tests.
-        """
+        """Gets DVL system tests."""
         (err, response) = self.send_cmd(CommandIdType.GET_TESTS, LONG_COMMAND_TIMEOUT)
         if err.value != ResponseStatusType.SUCCESS.value:
             return (err, None)
@@ -347,8 +345,7 @@ class BinaryCommands(Communicator):
         return (err, tests)
 
     def get_setup(self):
-        """Gets user setup.
-        """
+        """Gets user setup."""
         (err, response) = self.send_cmd(CommandIdType.GET_SETUP)
         if err.value != ResponseStatusType.SUCCESS.value:
             return (err, None)
@@ -357,16 +354,14 @@ class BinaryCommands(Communicator):
         return (err, info)
 
     def set_setup(self, setup: SystemSetup):
-        """Sets user setup.
-        """
+        """Sets user setup."""
         cmd_id = CommandIdType.SET_SETUP
         al_pkt = SystemSetup.encode(setup, cmd_id.value)
         response = self.send_and_wait_for_response(al_pkt, COMMAND_TIMEOUT_SEC)
         return check_response(response, cmd_id)
 
     def get_features(self):
-        """Gets DVL system features.
-        """
+        """Gets DVL system features."""
         (err, response) = self.send_cmd(CommandIdType.GET_FEATURES)
         if err.value != ResponseStatusType.SUCCESS.value:
             return (err, None)
@@ -375,32 +370,28 @@ class BinaryCommands(Communicator):
         return (err, features)
 
     def set_system_features(self, feature_code: bytearray):
-        """Sets DVL features.
-        """
+        """Sets DVL features."""
         cmd_id = CommandIdType.SET_FEATURES
         al_pkt = SystemFeatures.encode(feature_code, cmd_id.value)
         response = self.send_and_wait_for_response(al_pkt, COMMAND_TIMEOUT_SEC)
         return check_response(response, cmd_id)
 
     def send_software_trigger(self):
-        """Sends software trigger to ping
-        """
+        """Sends software trigger to ping"""
         (err, _) = self.send_cmd(CommandIdType.SOFTWARE_TRIGGER)
         return err
 
-    def send_cmd(self, cmd: CommandIdType, \
-            timeout=COMMAND_TIMEOUT_SEC) \
-            -> (ResponseStatusType, AppLayerPacket):
-        """Sends command and waits for response.
-        """
+    def send_cmd(
+        self, cmd: CommandIdType, timeout=COMMAND_TIMEOUT_SEC
+    ) -> (ResponseStatusType, AppLayerPacket):
+        """Sends command and waits for response."""
         al_pkt = _create_cmd(cmd)
         response = self.send_and_wait_for_response(al_pkt, timeout)
         err = check_response(response, cmd)
         return (err, response)
 
     def get_fft_test(self):
-        """Gets FFT samples.
-        """
+        """Gets FFT samples."""
         setup = FftTest()
         al_pkt = FftTest.encode(setup, CommandIdType.GET_FFT.value)
         mult = 1
@@ -416,41 +407,40 @@ class BinaryCommands(Communicator):
         return (err, fft)
 
     def start_system_update(self, file_size: int, chunk_size: int):
-        """Starts firmware update.
-        """
+        """Starts firmware update."""
         cmd_id = CommandIdType.FIRMWARE_UPDATE
         al_pkt = SystemUpdate.encode(file_size, chunk_size, cmd_id.value)
         response = self.send_and_wait_for_response(al_pkt, COMMAND_TIMEOUT_SEC)
         return check_response(response, cmd_id)
 
     def upload_file(self, arr: bytearray, chunk_size: int):
-        """Uploads chunk of the file.
-        """
+        """Uploads chunk of the file."""
         cmd_id = CommandIdType.UPLOAD_FILE
         al_pkt = SystemUpdate.encode_data(arr, cmd_id.value, chunk_size)
-        response = self.send_and_wait_for_response(al_pkt, \
-            LONG_COMMAND_TIMEOUT)
+        response = self.send_and_wait_for_response(al_pkt, LONG_COMMAND_TIMEOUT)
         return check_response(response, cmd_id)
 
-    def send_cmd_without_wait(self, cmd: CommandIdType) \
-            -> (ResponseStatusType, AppLayerPacket):
-        """Sends command without waiting for response.
-        """
+    def send_cmd_without_wait(
+        self, cmd: CommandIdType
+    ) -> (ResponseStatusType, AppLayerPacket):
+        """Sends command without waiting for response."""
         al_pkt = _create_cmd(cmd)
         self.send_and_wait_for_response(al_pkt, -1)
 
+
 def _create_cmd(cmd: CommandIdType) -> AppLayerPacket:
-    """Creates command as application layer packet.
-    """
+    """Creates command as application layer packet."""
     payload = bytearray(4)
     struct.pack_into("I", payload, 0, cmd.value)
     al_pkt = AppLayerPacket()
     al_pkt.create_from_payload(AppLayerIdType.CMD_BIN, payload)
     return al_pkt
 
-def check_response(packet: AppLayerPacket, expected_cmd: CommandIdType) -> ResponseStatusType:
-    """Checks command response.
-    """
+
+def check_response(
+    packet: AppLayerPacket, expected_cmd: CommandIdType
+) -> ResponseStatusType:
+    """Checks command response."""
     if packet is None:
         return ResponseStatusType.NO_RESPONSE
     if len(packet.payload) < 5:
