@@ -54,7 +54,6 @@ class DockerManager:
         env = os.environ.copy()
         env.update(
             {
-                "DEPLOY": str(config["deploy"]).lower(),
                 "VOLUME": str(config["volume"]).lower(),
                 "ZED_OPTION": str(config["zed_option"]).lower(),
                 "RVIZ": str(config["rviz"]).lower(),

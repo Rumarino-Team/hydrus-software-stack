@@ -38,7 +38,9 @@ class HydrusDockerDeployment:
         active_groups = [
             group
             for group in ConfigurationManager.get_available_groups()
-            if getattr(args, group, False)
+            if getattr(
+                args, group.replace("-", "_"), False
+            )  # Convert hyphens to underscores
         ]
         return active_groups[0] if active_groups else None
 
@@ -50,7 +52,14 @@ class HydrusDockerDeployment:
         # Apply configuration group if specified
         active_group = self.determine_active_configuration_group(args)
         if active_group:
+            print(f"🔧 Applying configuration group: {active_group}")
             config = self.config_manager.apply_configuration_group(active_group, config)
+            print(f"🔧 Configuration after applying {active_group}:")
+            for key, value in config.items():
+                if value:  # Only show enabled options
+                    print(f"   {key} = {value}")
+        else:
+            print("🔧 No configuration group specified, using individual flags")
 
         # Apply argument overrides (negation flags)
         config = self.config_manager.apply_argument_overrides(config, args)

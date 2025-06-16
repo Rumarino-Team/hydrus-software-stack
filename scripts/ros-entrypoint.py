@@ -27,7 +27,6 @@ class HydrusROSManager:
         env_vars = {
             "RVIZ_CONFIG": os.environ.get("RVIZ_CONFIG", "cv_detection.rviz"),
             "VOLUME": os.environ.get("VOLUME", "false"),
-            "DEPLOY": os.environ.get("DEPLOY", "false"),
             "TEST": os.environ.get("TEST", "false"),
             "ROSBAG_PLAYBACK": os.environ.get("ROSBAG_PLAYBACK", "false"),
             "RVIZ": os.environ.get("RVIZ", "false"),
@@ -51,7 +50,6 @@ class HydrusROSManager:
         # Parse environment variables
         self.rviz_config = env_vars["RVIZ_CONFIG"]
         self.volume = env_vars["VOLUME"].lower() == "true"
-        self.deploy = env_vars["DEPLOY"].lower() == "true"
         self.test = env_vars["TEST"].lower() == "true"
         self.rosbag_playback = env_vars["ROSBAG_PLAYBACK"].lower() == "true"
         self.rviz = env_vars["RVIZ"].lower() == "true"
@@ -368,9 +366,11 @@ class HydrusROSManager:
         tmux_script = (
             self.ros_dir / "src/hydrus-software-stack/scripts/start_tmux_sessions.py"
         )
-        if tmux_script.exists() and False:
+        if tmux_script.exists():
             try:
+                print(f"Starting tmux sessions using: {tmux_script}")
                 subprocess.run([sys.executable, str(tmux_script)], check=False)
+                print("✅ Tmux sessions created successfully")
             except Exception as e:
                 print(f"Failed to start tmux sessions: {e}")
         else:
@@ -379,8 +379,35 @@ class HydrusROSManager:
                 self.ros_dir / "src/hydrus-software-stack/start_tmux_sessions.sh"
             )
             if tmux_script.exists():
+                print(f"Starting tmux sessions using fallback: {tmux_script}")
                 os.chmod(tmux_script, 0o755)
                 subprocess.run([str(tmux_script)], check=False)
+                print("✅ Tmux sessions created successfully")
+            else:
+                print("❌ No tmux session script found")
+
+        # Verify tmux sessions were created
+        print("🔍 Verifying tmux sessions...")
+        try:
+            result = subprocess.run(
+                ["tmux", "list-sessions"], capture_output=True, text=True, check=False
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                print("✅ Tmux sessions verified:")
+                for line in result.stdout.strip().split("\n"):
+                    print(f"   📺 {line}")
+            else:
+                print("❌ No tmux sessions found!")
+                print("   This indicates that tmux session creation failed.")
+                raise RuntimeError("Tmux session creation verification failed")
+
+        except FileNotFoundError:
+            print("❌ tmux command not found!")
+            raise RuntimeError("tmux is not installed or not in PATH")
+        except Exception as e:
+            print(f"❌ Failed to verify tmux sessions: {e}")
+            raise
 
     def _run_tests(self):
         """Run the test suite"""
@@ -512,68 +539,13 @@ class HydrusROSManager:
 
         try:
             # Build workspace (skip if no_build is enabled)
-            if self.no_build:
-                # Setup ROS environment
-                env = self._setup_ros_environment()
-                # Clean simulator on ARM
-                print("🚫 NO_BUILD flag is set - skipping catkin workspace build")
-                print("🐛 This is useful for debugging the entrypoint script")
-                # Still need to source existing workspace if it exists
-                setup_file = self.ros_dir / "devel/setup.bash"
-                if setup_file.exists():
-                    print("📦 Found existing workspace setup, sourcing it...")
-                    ros_setup = f"/opt/ros/{self.ros_distro}/setup.bash"
-                    workspace_cmd = f"source {ros_setup} && source {setup_file} && env"
-
-                    try:
-                        result = subprocess.run(
-                            ["bash", "-c", workspace_cmd],
-                            capture_output=True,
-                            text=True,
-                            check=True,
-                        )
-
-                        # Update environment with workspace variables
-                        for line in result.stdout.split("\n"):
-                            if "=" in line and not line.startswith("_"):
-                                key, value = line.split("=", 1)
-                                env[key] = value
-
-                        print("✅ Existing workspace environment configured")
-
-                    except subprocess.CalledProcessError as e:
-                        print(f"⚠️  Failed to source existing workspace: {e}")
-                else:
-                    print("📦 No existing workspace found, using base ROS environment")
-            else:
+            if not self.no_build:
                 env = self._build_workspace()
                 time.sleep(2)
-
-            # DEPLOY SECTION
-            if self.deploy:
-                print("Starting rosserial_python node...")
-                time.sleep(1)
-
-                # Start virtual Arduino
-                self._start_virtual_arduino()
-
-                # Compile and upload Arduino
-                self._compile_and_upload_arduino()
-
-                # Setup serial monitoring and tmux sessions
-                self._setup_serial_monitoring()
-
-                print("DEPLOY setup completed successfully")
             else:
-                print(
-                    "Deploy is not set or is set to false. Skipping deployment setup."
-                )
+                print("Skipping workspace build as no_build is enabled.")
 
             # INDIVIDUAL HARDWARE COMPONENT SECTIONS
-            if self.tmux_sessions:
-                print("Starting tmux sessions individually...")
-                self._setup_serial_monitoring()
-
             if self.arduino_compile:
                 print("Compiling and uploading Arduino individually...")
                 self._compile_and_upload_arduino()
@@ -582,28 +554,28 @@ class HydrusROSManager:
                 print("Starting virtual Arduino individually...")
                 self._start_virtual_arduino()
 
+            if self.tmux_sessions:
+                print("Starting tmux sessions individually...")
+                self._setup_serial_monitoring()
+
+            # OPTIONAL COMPONENTS
+            if self.rosbag_playback:
+                print("Starting rosbag playback...")
+                self._start_rosbag_playback()
+
+            if self.rviz:
+                print("Starting RViz...")
+                self._start_rviz()
+
             # TEST SECTION
             if self.test:
                 self._run_tests()
                 # This won't return due to exec
 
-            # Start rosbag playback
-            self._start_rosbag_playback()
-
-            # Start RViz
-            self._start_rviz()
-
             # Keep container running if not in test mode
             if not self.test:
-                print("Setup complete. Keeping container running...")
-                if self.no_build:
-                    print(
-                        "🐛 Container is ready for debugging - you can now attach VS Code"
-                    )
-                    print(
-                        "   The ros-entrypoint.py script will remain running for debugging"
-                    )
                 try:
+                    print("🏃 Container is running. Press Ctrl+C to stop.")
                     # Keep the container running
                     while True:
                         time.sleep(1)

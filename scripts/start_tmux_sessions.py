@@ -166,13 +166,14 @@ class HydrusTmuxManager:
         self._tmux_command(["new-window", "-t", "hydrus:1", "-n", "Arduino"])
 
         # First pane: Setup serial monitor
-        setup_cmd = (
-            f"bash {self.catkin_ws}/src/hydrus-software-stack/setup_serial_monitor.sh"
+        setup_script_py = (
+            self.catkin_ws / "src/hydrus-software-stack/scripts/setup_serial_monitor.py"
         )
-        if (
-            self.catkin_ws / "src/hydrus-software-stack/setup_serial_monitor.py"
-        ).exists():
-            setup_cmd = f"python3 {self.catkin_ws}/src/hydrus-software-stack/setup_serial_monitor.py"
+
+        if setup_script_py.exists():
+            setup_cmd = f"python3 {setup_script_py}"
+        else:
+            setup_cmd = "echo 'No setup script found'"
 
         self._tmux_command(
             [
@@ -186,13 +187,14 @@ class HydrusTmuxManager:
 
         # Second pane: Monitor Arduino logs
         self._tmux_command(["split-window", "-h", "-t", "hydrus:1"])
-        monitor_cmd = (
-            f"bash {self.catkin_ws}/src/hydrus-software-stack/monitor_arduino_logs.sh"
+        monitor_script_py = (
+            self.catkin_ws / "src/hydrus-software-stack/scripts/monitor_arduino_logs.py"
         )
-        if (
-            self.catkin_ws / "src/hydrus-software-stack/monitor_arduino_logs.py"
-        ).exists():
-            monitor_cmd = f"python3 {self.catkin_ws}/src/hydrus-software-stack/monitor_arduino_logs.py"
+
+        if monitor_script_py.exists():
+            monitor_cmd = f"python3 {monitor_script_py}"
+        else:
+            monitor_cmd = "echo 'No monitor script found'"
 
         self._tmux_command(
             [
@@ -259,7 +261,7 @@ class HydrusTmuxManager:
 
         # Fourth pane: API Server (right side, bottom right)
         self._tmux_command(["split-window", "-h", "-t", "hydrus:2.2"])
-        api_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/API.py"
+        api_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/api_server.py"
 
         self._tmux_command(
             [

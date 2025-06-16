@@ -4,7 +4,6 @@ Configuration management for Hydrus Docker deployment
 
 # Available configuration options
 AVAILABLE_OPTIONS = [
-    "deploy",
     "volume",
     "force_cpu",
     "force_jetson",
@@ -33,7 +32,6 @@ CONFIGURATION_GROUPS = {
     "development": {
         "description": "Development configuration with volumes and debugging",
         "enabled_options": [
-            "deploy",
             "volume",
             "force_cpu",
             "rviz",
@@ -44,7 +42,6 @@ CONFIGURATION_GROUPS = {
     "production": {
         "description": "Production deployment configuration",
         "enabled_options": [
-            "deploy",
             "zed_option",
         ],
     },
@@ -55,7 +52,6 @@ CONFIGURATION_GROUPS = {
             "force_cpu",
             "rviz",
             "rosbag_playback",
-            "debug_arduino",
             "vscode",
             "install_vscode_extensions",
         ],
@@ -70,14 +66,12 @@ CONFIGURATION_GROUPS = {
             "no_build",
         ],
     },
-    "deploy-full": {
+    "deploy": {
         "description": "Full deployment with all hardware components (tmux, Arduino, virtual Arduino)",
         "enabled_options": [
-            "deploy",
             "tmux_sessions",
             "arduino_compile",
             "virtual_arduino",
-            "debug_arduino",
         ],
     },
 }
@@ -124,7 +118,6 @@ class ConfigurationManager:
     def create_base_config(args) -> dict:
         """Create base configuration from command line arguments"""
         return {
-            "deploy": args.deploy,
             "volume": args.volume,
             "force_cpu": args.force_cpu,
             "force_jetson": args.force_jetson,
@@ -143,8 +136,6 @@ class ConfigurationManager:
     @staticmethod
     def apply_argument_overrides(config: dict, args) -> dict:
         """Apply argument overrides (negation arguments) to configuration"""
-        if args.no_deploy:
-            config["deploy"] = False
         if args.no_volume:
             config["volume"] = False
         if args.no_rviz:

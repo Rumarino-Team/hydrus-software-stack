@@ -72,9 +72,6 @@ Examples:
         # Configuration arguments
         config_group = parser.add_argument_group("Configuration")
         config_group.add_argument(
-            "--deploy", action="store_true", help="Enable deployment mode"
-        )
-        config_group.add_argument(
             "--volume", action="store_true", help="Use volume mounting"
         )
         config_group.add_argument("--rviz", action="store_true", help="Enable RViz")
@@ -119,9 +116,6 @@ Examples:
         )
 
         # Negation arguments for overriding configuration groups
-        config_group.add_argument(
-            "--no-deploy", action="store_true", help="Disable deployment mode"
-        )
         config_group.add_argument(
             "--no-volume", action="store_true", help="Disable volume mounting"
         )
