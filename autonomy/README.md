@@ -130,7 +130,7 @@ rosrun autonomy submarine_teleop.py
 ```
 **Controls**:
 - `W/S`: Forward/backward
-- `A/D`: Yaw left/right  
+- `A/D`: Yaw left/right
 - `I/K`: Up/down
 - `Space`: Stop all motors
 - `Q`: Quit
@@ -313,7 +313,7 @@ Navigate through an underwater gate with style points for rotations.
 - Chooses optimal side based on animal selection
 - Performs stylistic maneuvers while passing through
 
-#### Slalom Mission  
+#### Slalom Mission
 Navigate around buoys in a specific sequence.
 - Follows waypoint-based search pattern
 - Identifies buoy colors and positions
@@ -333,7 +333,7 @@ To create a new mission:
    ```python
    # src/mission_planner/my_mission.py
    from mission_planner.base_mission import BaseMission
-   
+
    class MyMission(BaseMission):
        def __init__(self):
            super().__init__("my_mission")
@@ -372,7 +372,7 @@ rosrun autonomy color_filter_controller.py load red
 
 **Color Presets** (stored in `scripts/cv/color_presets/`):
 - `red.json`: Red object detection
-- `green.json`: Green object detection  
+- `green.json`: Green object detection
 - `blue.json`: Blue object detection
 - `yellow.json`: Yellow object detection
 
@@ -395,7 +395,7 @@ The system communicates with Arduino via serial for thruster control:
 ```
 T1 ---- T5
 |        |
-T2      T6  
+T2      T6
 |        |
 T3 ---- T7
 |        |
@@ -403,11 +403,11 @@ T4 ---- T8
 ```
 
 - **T1, T4, T5, T8**: Regular thrusters (movement/rotation)
-- **T2, T7**: Torpedo thrusters  
+- **T2, T7**: Torpedo thrusters
 - **T3, T6**: Depth thrusters
 
 ---
 
-**Last Updated**: June 2025  
-**ROS Version**: Noetic  
+**Last Updated**: June 2025
+**ROS Version**: Noetic
 **Python Version**: 3.8+

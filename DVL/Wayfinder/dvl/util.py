@@ -1,22 +1,25 @@
-"""Contains several utilities classes.
-"""
-import math
-import threading
+"""Contains several utilities classes."""
+
 import datetime
+import math
 import os.path
+import threading
 from threading import Thread
 from time import sleep
+
 import serial
 
+
 class Setting:
-    """Helper class for data display.
-    """
-    #pylint: disable=too-many-instance-attributes
-    #pylint: disable=too-many-arguments
+    """Helper class for data display."""
+
+    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-arguments
     INVALID = "INVALID"
     """String for display when data are invalid."""
     NO_DATA = "NO DATA"
     """String for display when there is no new data."""
+
     def __init__(self, setting_id, name, value, fmt="", units=""):
         self.setting_id = setting_id
         """Setting's ID."""
@@ -37,14 +40,12 @@ class Setting:
         self.update(value)
 
     def set_min_max(self, min_value, max_value):
-        """Sets minimum and maximum values.
-        """
+        """Sets minimum and maximum values."""
         self.min_value = min_value
         self.max_value = max_value
 
     def update(self, value):
-        """Updates value and value_string.
-        """
+        """Updates value and value_string."""
         self.value = value
         if isinstance(value, float) and math.isnan(value):
             self.value_string = Setting.INVALID
@@ -64,7 +65,8 @@ class SerialPort:
     baud_rate : int
         Baud-rate to use when opening the port.
     """
-    #pylint: disable=too-many-instance-attributes
+
+    # pylint: disable=too-many-instance-attributes
     _THREAD_DELAY = 0.01
 
     def __init__(self, com="COM1", baud_rate=115200):
@@ -81,13 +83,12 @@ class SerialPort:
         self._lock = threading.Lock()
 
     def __enter__(self):
-        """Opens port on enter.
-        """
+        """Opens port on enter."""
         self.close()
         try:
             com = self.com
             if com.startswith("COM"):
-                com = "\\\\.\\"+ com
+                com = "\\\\.\\" + com
             self._port = serial.Serial(com, self.baudrate)
             self._port.setDTR(True)
             self._port.setRTS(True)
@@ -98,15 +99,16 @@ class SerialPort:
 
         if (self._port is not None) and self._port.isOpen() and not self._run:
             self._run = True
-            self._thread = Thread(target=self._receive_listener, name="Wayfinder serial thread")
+            self._thread = Thread(
+                target=self._receive_listener, name="Wayfinder serial thread"
+            )
             self._thread.daemon = True
             self._thread.start()
         else:
             self._port = None
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Closes port on exit.
-        """
+        """Closes port on exit."""
         self.close()
 
     def open(self, com: str, baud_rate: int) -> bool:
@@ -140,8 +142,7 @@ class SerialPort:
         return self._run
 
     def close(self):
-        """Closes serial port.
-        """
+        """Closes serial port."""
         if self._run:
             self._run = False
             self._thread.join(2)
@@ -175,13 +176,11 @@ class SerialPort:
         self._receive_callback.append(function)
 
     def unregister_all_callbacks(self):
-        """Unregisters all callback functions.
-        """
+        """Unregisters all callback functions."""
         self._receive_callback.clear()
 
     def _receive_listener(self):
-        """Thread function that reads bytes from port.
-        """
+        """Thread function that reads bytes from port."""
         while self._run:
             if self._port.isOpen():
                 bytes_to_read = self._port.inWaiting()
@@ -192,7 +191,7 @@ class SerialPort:
                         for func in self._receive_callback:
                             func(arr)
             sleep(SerialPort._THREAD_DELAY)
-        #print("Finished serial thread")
+        # print("Finished serial thread")
 
     def set_baudrate(self, baud_rate: int) -> bool:
         """Changes baud-rate of the open port.
@@ -213,9 +212,10 @@ class SerialPort:
             sleep(0.1)
         return self.open(self.com, self.baudrate)
 
-class DataLogger():
-    """ Class responsible for data logging.
-    """
+
+class DataLogger:
+    """Class responsible for data logging."""
+
     def __init__(self):
         self._log_file = None
         self._log_file_name = ""
@@ -287,8 +287,7 @@ class DataLogger():
         return name
 
     def close_file(self):
-        """Closes log file.
-        """
+        """Closes log file."""
         if self._log_file is not None:
             self._log_file.close()
             self._log_file = None
@@ -323,6 +322,8 @@ class DataLogger():
                 self._log_file.flush()
             except ValueError:
                 pass
+
+
 def print_bytes(array: bytearray) -> str:
     """Outputs byte array and formats for pretty print.
 
@@ -354,6 +355,7 @@ def print_bytes(array: bytearray) -> str:
         output += byte_string + " "
     return output
 
+
 def print_bytearray(array: bytearray) -> str:
     """Outputs string of all bytes in HEX without any formatting.
 
@@ -371,6 +373,7 @@ def print_bytearray(array: bytearray) -> str:
     output = "".join(strings)
     return output
 
+
 ## Indents string for printing
 def indent_string(string: str) -> str:
     """Indents string for printing.
@@ -387,5 +390,5 @@ def indent_string(string: str) -> str:
     """
     output = ""
     for line in string.splitlines():
-        output += ("    {0}\n".format(line))
+        output += "    {0}\n".format(line)
     return output

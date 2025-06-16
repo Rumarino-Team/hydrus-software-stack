@@ -58,20 +58,20 @@ CONNECTION OVERVIEW:
 import asyncio
 import json
 import time
+from typing import Any, Dict, List, Optional, Set
+
 import cv2
 import numpy as np
 import rospy
 import uvicorn
-from typing import List, Dict, Any, Set, Optional
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-
-from sensor_msgs.msg import Image, CameraInfo
+from fastapi.responses import StreamingResponse
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, PoseStamped
+from sensor_msgs.msg import CameraInfo, Image
 from std_msgs.msg import Header, Int16
+
 from autonomy.msg import Detections
 
 # ─────────────────────────────  FASTAPI APP  ──────────────────────────────
@@ -95,6 +95,7 @@ clients: Set[WebSocket] = set()
 cmd_vel_queue: "asyncio.Queue[Dict]" = asyncio.Queue(maxsize=10)
 thruster_queue: "asyncio.Queue[Dict]" = asyncio.Queue(maxsize=10)
 
+
 # ─────────────────────────  ROS CALLBACKS & HELPERS  ─────────────────────
 def rgb_image_callback(msg: Image) -> None:
     """Process incoming RGB images from ROS"""
@@ -107,13 +108,13 @@ def rgb_image_callback(msg: Image) -> None:
         if channels is None:
             rospy.logwarn(f"Unsupported encoding: {enc}")
             return
-            
+
         expected = h * w * channels
         buf = np.frombuffer(msg.data, dtype=np.uint8)
         if buf.size != expected:
             rospy.logwarn(f"Image data size mismatch ({buf.size} vs {expected})")
             return
-            
+
         img = buf.reshape((h, w, channels))
         if channels == 4:  # strip alpha
             img = img[:, :, :3]
@@ -128,17 +129,17 @@ def depth_image_callback(msg: Image) -> None:
     try:
         h, w = msg.height, msg.width
         enc = msg.encoding
-        
+
         if enc != "32FC1":  # Standard encoding for depth images
             rospy.logwarn(f"Unexpected depth encoding: {enc}")
-            
+
         # Convert Float32 depth data
         buf = np.frombuffer(msg.data, dtype=np.float32)
         expected = h * w
         if buf.size != expected:
             rospy.logwarn(f"Depth data size mismatch ({buf.size} vs {expected})")
             return
-            
+
         depth_image = buf.reshape((h, w))
     except Exception as e:
         rospy.logerr(f"Error processing depth image: {e}")
@@ -185,13 +186,13 @@ def cmd_vel_callback(msg: Twist) -> None:
             "linear": {
                 "x": float(msg.linear.x),
                 "y": float(msg.linear.y),
-                "z": float(msg.linear.z)
+                "z": float(msg.linear.z),
             },
             "angular": {
                 "x": float(msg.angular.x),
                 "y": float(msg.angular.y),
-                "z": float(msg.angular.z)
-            }
+                "z": float(msg.angular.z),
+            },
         }
         cmd_vel_queue.put_nowait({"cmd_vel": cmd})
     except asyncio.QueueFull:
@@ -246,24 +247,29 @@ def godot_state_to_odom(state: Dict[str, Any]) -> Odometry:
     odom.twist.twist.linear.x = vel[0]
     odom.twist.twist.linear.y = vel[1]
     odom.twist.twist.linear.z = vel[2]
-    
+
     ang_vel = state.get("ang_vel", [0, 0, 0])
     odom.twist.twist.angular.x = ang_vel[0]
     odom.twist.twist.angular.y = ang_vel[1]
     odom.twist.twist.angular.z = ang_vel[2]
-    
+
     return odom
 
 
 def godot_camera_to_image(camera_data: Dict[str, Any]) -> Image:
     """Convert camera data from Godot to ROS Image message."""
-    if "data" not in camera_data or "width" not in camera_data or "height" not in camera_data:
+    if (
+        "data" not in camera_data
+        or "width" not in camera_data
+        or "height" not in camera_data
+    ):
         raise ValueError("Camera data missing required fields")
-    
+
     # Decode base64 image data from Godot
     import base64
+
     raw_data = base64.b64decode(camera_data["data"])
-    
+
     # Create Image message
     img_msg = Image()
     img_msg.header = Header(stamp=rospy.Time.now(), frame_id="camera_sim")
@@ -273,19 +279,24 @@ def godot_camera_to_image(camera_data: Dict[str, Any]) -> Image:
     img_msg.is_bigendian = False
     img_msg.step = img_msg.width * (3 if img_msg.encoding in ["rgb8", "bgr8"] else 1)
     img_msg.data = raw_data
-    
+
     return img_msg
 
 
 def godot_depth_to_image(depth_data: Dict[str, Any]) -> Image:
     """Convert depth data from Godot to ROS depth Image message."""
-    if "data" not in depth_data or "width" not in depth_data or "height" not in depth_data:
+    if (
+        "data" not in depth_data
+        or "width" not in depth_data
+        or "height" not in depth_data
+    ):
         raise ValueError("Depth data missing required fields")
-    
+
     # Decode base64 depth data from Godot
     import base64
+
     raw_data = base64.b64decode(depth_data["data"])
-    
+
     # Create Image message for depth
     img_msg = Image()
     img_msg.header = Header(stamp=rospy.Time.now(), frame_id="camera_depth_sim")
@@ -295,7 +306,7 @@ def godot_depth_to_image(depth_data: Dict[str, Any]) -> Image:
     img_msg.is_bigendian = False
     img_msg.step = img_msg.width * 4  # 4 bytes per float32
     img_msg.data = raw_data
-    
+
     return img_msg
 
 
@@ -309,9 +320,7 @@ def generate_video_stream():
                 if ok:
                     yield (
                         b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n\r\n"
-                        + jpeg.tobytes()
-                        + b"\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n"
                     )
             except Exception as e:
                 rospy.logerr(f"Error encoding video frame: {e}")
@@ -354,21 +363,21 @@ async def websocket_endpoint(ws: WebSocket):
     clients.add(ws)
     simulation_active = True
     rospy.loginfo("Godot WebSocket connected")
-    
+
     try:
         # Launch background producer coroutine for this client
         producer_task = asyncio.create_task(ws_producer(ws))
-        
+
         # Process incoming messages from Godot
         async for text in ws.iter_text():
             try:
                 data = json.loads(text)
-                
+
                 # Handle different message types
                 if "state" in data:
                     state = data["state"]
                     odom_pub.publish(godot_state_to_odom(state))
-                    
+
                 elif "camera" in data:
                     try:
                         camera_data = data["camera"]
@@ -376,7 +385,7 @@ async def websocket_endpoint(ws: WebSocket):
                         camera_pub.publish(img_msg)
                     except Exception as e:
                         rospy.logwarn(f"Camera data processing error: {e}")
-                        
+
                 elif "depth" in data:
                     try:
                         depth_data = data["depth"]
@@ -384,15 +393,15 @@ async def websocket_endpoint(ws: WebSocket):
                         depth_pub.publish(depth_msg)
                     except Exception as e:
                         rospy.logwarn(f"Depth data processing error: {e}")
-                        
+
                 elif "log" in data:
                     rospy.loginfo(f"Godot: {data['log']}")
-                    
+
             except json.JSONDecodeError:
                 rospy.logwarn("Invalid JSON received from Godot")
             except Exception as e:
                 rospy.logwarn(f"Error processing Godot message: {e}")
-                
+
     except WebSocketDisconnect:
         rospy.loginfo("Godot WebSocket disconnected")
     except Exception as e:
@@ -408,7 +417,7 @@ async def ws_producer(ws: WebSocket):
     try:
         cmd_task = asyncio.create_task(process_cmd_queue(ws))
         thruster_task = asyncio.create_task(process_thruster_queue(ws))
-        
+
         # Wait for both tasks to complete (which should be never)
         await asyncio.gather(cmd_task, thruster_task)
     except asyncio.CancelledError:
@@ -444,36 +453,43 @@ async def process_thruster_queue(ws: WebSocket):
 def main():
     """Initialize ROS node and start FastAPI server."""
     global odom_pub, camera_pub, depth_pub
-    
+
     rospy.init_node("godot_bridge", anonymous=True)
     rospy.loginfo("Starting Godot-ROS bridge...")
-    
+
     # Publishers for simulator data
     odom_pub = rospy.Publisher("/sim/odom", Odometry, queue_size=10)
     camera_pub = rospy.Publisher("/sim/camera/rgb/image_raw", Image, queue_size=5)
     depth_pub = rospy.Publisher("/sim/camera/depth/image_raw", Image, queue_size=5)
-    
+
     # Subscribe to control topics
     rospy.Subscriber("/cmd_vel", Twist, cmd_vel_callback)
     rospy.Subscriber("/submarine/cmd_vel", Twist, cmd_vel_callback)
-    
+
     # Subscribe to thruster topics
     for i in range(8):
-        rospy.Subscriber(f"/hydrus/thrusters/{i+1}", Int16, 
-                        lambda msg, idx=i+1: thruster_callback(msg, idx))
-    
+        rospy.Subscriber(
+            f"/hydrus/thrusters/{i+1}",
+            Int16,
+            lambda msg, idx=i + 1: thruster_callback(msg, idx),
+        )
+
     # Subscribe to depth and torpedo control
     rospy.Subscriber("/hydrus/depth", Int16, depth_control_callback)
     rospy.Subscriber("/hydrus/torpedo", Int16, torpedo_control_callback)
-    
+
     # Subscribe to actual camera topics to stream them in web interface
-    rgb_topic = rospy.get_param("~rgb_image_topic", "/zed2i/zed_node/rgb/image_rect_color")
-    depth_topic = rospy.get_param("~depth_image_topic", "/zed2i/zed_node/depth/depth_registered")
-    
+    rgb_topic = rospy.get_param(
+        "~rgb_image_topic", "/zed2i/zed_node/rgb/image_rect_color"
+    )
+    depth_topic = rospy.get_param(
+        "~depth_image_topic", "/zed2i/zed_node/depth/depth_registered"
+    )
+
     rospy.Subscriber(rgb_topic, Image, rgb_image_callback)
     rospy.Subscriber(depth_topic, Image, depth_image_callback)
     rospy.Subscriber("/detector/box_detection", Detections, detection_callback)
-    
+
     # Start FastAPI server with uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
 

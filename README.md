@@ -10,25 +10,44 @@ The Hydrus Software Stack is a comprehensive ROS-based toolkit for autonomous un
 
 ## 🚀 Quick Start
 
-### Clone the Repository
+### Prerequisites Check
+Run our dependency doctor to check and install required dependencies:
+
 ```bash
+# Clone the repository
 git clone https://github.com/Rumarino-Team/hydrus-software-stack.git
 cd hydrus-software-stack
+
+# Check and install dependencies (Docker, Python3, Git)
+./doctor.sh
 ```
 
-### Build and Run with Docker
+The doctor script will automatically detect your OS and offer to install missing dependencies. Required dependencies:
+- **Docker & Docker Compose**: Container platform for isolated environments
+- **Python3**: Required for Hocker and various scripts
+- **Git**: Version control (usually pre-installed)
+
+### Build and Run with Hocker
+We use **Hocker** (Hydrus Docker), our intelligent deployment tool that automatically detects your platform and configures the optimal Docker environment.
+
 ```bash
-# Make the script executable
-chmod +x docker/run_docker.sh
+# Make hocker executable
+chmod +x docker/hydrus-docker/hocker
 
 # Run with automatic platform detection
-./docker/run_docker.sh
+./docker/hydrus-docker/hocker
 
 # Test the installation
-./docker/run_docker.sh --test
+./docker/hydrus-docker/hocker --test
+
+# Quick development mode
+./docker/hydrus-docker/hocker --dev
+
+# Force CPU-only mode
+./docker/hydrus-docker/hocker --force-cpu
 ```
 
-The `run_docker.sh` script automatically detects your platform (CPU, NVIDIA GPU, or Jetson) and runs the appropriate Docker configuration. For detailed Docker options and configurations, see the [Docker README](docker/README.md).
+Hocker automatically detects your platform (CPU, NVIDIA GPU, WSL, or Jetson) and runs the appropriate Docker configuration with intelligent defaults. For detailed options and configurations, see the [Docker README](docker/README.md).
 
 ### Launch the Autonomy System
 ```bash
@@ -43,11 +62,12 @@ roslaunch autonomy controller.launch
 
 ## 🎯 Key Features
 
+- **Intelligent Deployment**: Hocker automatically detects and configures your platform
 - **Mission Planning**: Hierarchical mission execution for competition tasks (Gate, Slalom, Tagging)
 - **Computer Vision**: YOLO-based object detection with configurable color filtering
 - **Motion Control**: Precise 3-phase movement control (depth → rotation → linear)
 - **Hardware Integration**: Arduino serial communication for thruster control
-- **Simulation Ready**: Multi-platform simulation support
+- **Simulation Ready**: Multi-platform simulation support with configuration groups
 - **Web Interface**: Real-time monitoring and visualization tools
 
 ## 📁 Project Structure
@@ -56,6 +76,7 @@ roslaunch autonomy controller.launch
 hydrus-software-stack/
 ├── autonomy/           # Main autonomy system (see autonomy/README.md)
 ├── docker/            # Docker configurations and deployment
+│   └── hydrus-docker/ # Hocker deployment tool
 ├── embedded_arduino/   # Arduino firmware for hardware control
 ├── DVL/               # Doppler Velocity Logger integration
 ├── Embedded_IMU/      # IMU sensor drivers
@@ -68,11 +89,29 @@ hydrus-software-stack/
 Run the test suite to verify your installation:
 
 ```bash
-# Quick test with Docker
-./docker/run_docker.sh --test
+# Quick test with Hocker
+./docker/hydrus-docker/hocker --test
 
 # Manual testing
 ./run_tests.sh
+```
+
+## 🐳 Docker Deployment Options
+
+Hocker provides several configuration groups for different use cases:
+
+```bash
+# Development with live code editing
+./docker/hydrus-docker/hocker --dev
+
+# Testing and CI/CD
+./docker/hydrus-docker/hocker --test
+
+# Competition deployment
+./docker/hydrus-docker/hocker --competition
+
+# Simulation with rosbag playback
+./docker/hydrus-docker/hocker --simulation
 ```
 
 ## 🤝 Contributing
@@ -91,11 +130,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **General Questions**: Check the [autonomy README](autonomy/README.md)
-- **Docker Issues**: See the [docker README](docker/README.md)  
+- **Docker Issues**: See the [docker README](docker/README.md)
 - **Bug Reports**: Open an issue with detailed reproduction steps
 - **Feature Requests**: Start a discussion in the repository
 
 ---
 
 **Mission**: To become the definitive toolkit for underwater robotics - making autonomous underwater vehicles accessible, maintainable, and powerful for teams worldwide.
-

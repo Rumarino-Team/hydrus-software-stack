@@ -7,7 +7,7 @@ This directory contains the Arduino firmware for the Hydrus underwater vehicle h
 The Hydrus Arduino system provides low-level hardware control for:
 - **8 T100 Thrusters**: Propulsion and maneuvering
 - **Depth Control**: Vertical movement motors
-- **Torpedo System**: Projectile launch mechanisms  
+- **Torpedo System**: Projectile launch mechanisms
 - **Camera Motor**: Pan/tilt camera positioning
 - **Serial Communication**: Command interface with ROS
 
@@ -79,7 +79,7 @@ T4:1700    # Thruster 4 forward
 ```bash
 # Controls both depth motors (T5, T6) simultaneously
 D:1600     # Ascend
-D:1400     # Descend  
+D:1400     # Descend
 D:1500     # Neutral buoyancy
 ```
 

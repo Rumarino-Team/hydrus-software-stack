@@ -1,8 +1,144 @@
-# Docker Setup and Configuration
+# Hocker - Hydrus Docker Deployment Tool
 
-This directory contains Docker configurations for deploying the Hydrus Software Stack across different platforms and environments. Docker ensures consistent deployment regardless of your host system configuration.
+**Hocker** (Hydrus Docker) is our intelligent deployment orchestrator that automatically detects your platform and configures the optimal Docker environment for the Hydrus Software Stack. No more guessing which Docker Compose file to use or manually setting environment variables - Hocker handles it all.
 
-## Why Docker?
+## Why Hocker?
+
+Traditional Docker deployment required manual configuration selection and environment variable management. Hocker eliminates this complexity by:
+
+- **Automatic Platform Detection**: Detects CPU, NVIDIA GPU, WSL, or Jetson platforms
+- **Intelligent Configuration**: Applies optimal settings based on your hardware and use case
+- **Configuration Groups**: Pre-defined settings for development, testing, competition, and simulation
+- **Modular Architecture**: Clean separation of concerns with dedicated managers for different aspects
+- **Environment Management**: Handles all Docker Compose files and environment variables automatically
+
+## Quick Start
+
+### Make Hocker Executable
+```bash
+chmod +x docker/hydrus-docker/hocker
+```
+
+### Basic Usage
+```bash
+# Run with automatic platform detection
+./docker/hydrus-docker/hocker
+
+# Test your installation
+./docker/hydrus-docker/hocker --test
+
+# Development mode with live code editing
+./docker/hydrus-docker/hocker --dev
+```
+
+## Configuration Groups
+
+Hocker provides pre-configured groups that bundle common settings:
+
+### `--dev` (Development)
+```bash
+./docker/hydrus-docker/hocker --dev
+```
+- **Purpose**: Active development with live code editing
+- **Features**: Volume mounting, RViz enabled, development tools
+- **Best for**: Writing and testing code changes
+
+### `--test` (Automated Testing)
+```bash
+./docker/hydrus-docker/hocker --test
+```
+- **Purpose**: CI/CD and automated testing pipelines
+- **Features**: CPU-only, no interactivity, abort on container exit
+- **Best for**: GitHub Actions, automated validation
+
+### `--competition` (Competition Deployment)
+```bash
+./docker/hydrus-docker/hocker --competition
+```
+- **Purpose**: RobSub competition environment
+- **Features**: Hardware deployment, optimized performance
+- **Best for**: Competition day, performance testing
+
+### `--simulation` (Simulation Mode)
+```bash
+./docker/hydrus-docker/hocker --simulation
+```
+- **Purpose**: Simulation with rosbag playback
+- **Features**: Automatic rosbag download, playback enabled
+- **Best for**: Algorithm testing, mission replay
+
+## Platform Detection
+
+Hocker automatically detects your platform and selects the appropriate Docker configuration:
+
+| Platform | Auto-Selected Configuration | Description |
+|----------|----------------------------|-------------|
+| **WSL** | `docker-compose-amd64-cpu.yaml` | Windows Subsystem for Linux |
+| **Jetson TX2** | Jetson deployment scripts | ARM64 embedded platform |
+| **NVIDIA GPU** | `docker-compose-amd64-cuda.yaml` | GPU-accelerated processing |
+| **CPU Only** | `docker-compose-amd64-cpu.yaml` | Standard x86_64 systems |
+
+## Advanced Options
+
+### Force Platform Override
+```bash
+# Force CPU-only (override GPU detection)
+./docker/hydrus-docker/hocker --force-cpu
+
+# Force Jetson deployment
+./docker/hydrus-docker/hocker --force-jetson
+```
+
+### Individual Features
+```bash
+# Enable hardware deployment mode
+./docker/hydrus-docker/hocker --deploy
+
+# Enable volume mounting for development
+./docker/hydrus-docker/hocker --volume
+
+# Enable RViz visualization
+./docker/hydrus-docker/hocker --rviz
+
+# Enable rosbag playback
+./docker/hydrus-docker/hocker --rosbag-playback
+```
+
+### Container Management
+```bash
+# Execute into running container
+./docker/hydrus-docker/hocker --exec
+
+# Destroy all containers and cleanup
+./docker/hydrus-docker/hocker --destroy
+```
+
+### Option Combinations
+```bash
+# Development with hardware integration
+./docker/hydrus-docker/hocker --dev --deploy
+
+# Testing with CPU override
+./docker/hydrus-docker/hocker --test --force-cpu
+
+# Custom configuration
+./docker/hydrus-docker/hocker --volume --rviz --rosbag-playback
+```
+
+## Architecture Overview
+
+Hocker is built with a modular architecture:
+
+```
+hocker (main script)
+├── cli.py              # Command line argument parsing
+├── config.py           # Configuration management and groups
+├── system_detector.py  # Platform and hardware detection
+├── docker_manager.py   # Docker Compose orchestration
+└── vscode_integration.py # VS Code development integration
+```
+
+### Why Docker?
 
 Docker is our primary deployment technology for several critical reasons:
 
@@ -12,171 +148,26 @@ Docker is our primary deployment technology for several critical reasons:
 - **Hardware Abstraction**: Supports different architectures (AMD64, ARM64, Jetson) and GPU configurations
 - **Environment Isolation**: Prevents conflicts between development and production environments
 
-## Prerequisites
+## Docker Compose Files
 
-### All Platforms
-- [Docker](https://www.docker.com/) installed and running
-- Docker Compose (included with Docker Desktop)
-
-### Linux/WSL
-```bash
-# Verify Docker is working
-docker --version
-docker compose --version
-```
-
-### Windows
-- Windows Subsystem for Linux (WSL) 2
-- Docker Desktop with WSL integration enabled
-
-### NVIDIA GPU Support (Optional)
-- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-- CUDA drivers installed on host system
-
-## Quick Start
-
-### Basic Usage
-```bash
-# Make script executable
-chmod +x docker/run_docker.sh
-
-# Run with automatic platform detection
-./docker/run_docker.sh
-
-# Test installation
-./docker/run_docker.sh --test
-```
-
-## Available Configurations
-
-### Platform Detection
-The script automatically detects your platform and selects the appropriate configuration:
-
-| Platform | Configuration | Description |
-|----------|---------------|-------------|
-| **WSL** | `docker-compose-amd64-cpu.yaml` | Windows Subsystem for Linux |
-| **Jetson TX2** | Jetson scripts | ARM64 embedded platform |
-| **NVIDIA GPU** | `docker-compose-amd64-cuda.yaml` | GPU-accelerated processing |
-| **CPU Only** | `docker-compose-amd64-cpu.yaml` | Standard x86_64 systems |
-
-### Docker Compose Files
-
-#### `docker-compose-amd64-cpu.yaml`
+### `docker-compose-amd64-cpu.yaml`
 - **Use Case**: Development, testing, CPU-only systems
 - **Services**: ROS Master, Hydrus CPU container
 - **Features**: Basic autonomy stack without GPU acceleration
 
-#### `docker-compose-amd64-cuda.yaml`
+### `docker-compose-amd64-cuda.yaml`
 - **Use Case**: Production, GPU-accelerated computer vision
 - **Services**: ROS Master, ZED Camera, Hydrus CUDA container
 - **Features**: Full GPU support, ZED camera integration, hardware acceleration
 
-#### `docker-compose-jetson-tx2.yaml`
+### `docker-compose-jetson-tx2.yaml`
 - **Use Case**: Embedded deployment on Jetson platforms
 - **Services**: Optimized for ARM64 architecture
 - **Features**: Low-power operation, embedded-specific optimizations
 
-## Command Line Options
-
-### Core Options
-
-#### `--test`
-**Purpose**: Automated testing mode
-```bash
-./docker/run_docker.sh --test
-```
-- Forces CPU-only mode
-- Disables interactive prompts
-- Uses `--abort-on-container-exit` for CI/CD
-- Skips RViz and visualization components
-
-#### `--force-cpu`
-**Purpose**: Force CPU-only deployment
-```bash
-./docker/run_docker.sh --force-cpu
-```
-- Overrides GPU detection
-- Uses CPU-only Docker Compose
-- Useful for debugging or resource-constrained environments
-
-#### `--force-jetson`
-**Purpose**: Force Jetson deployment
-```bash
-./docker/run_docker.sh --force-jetson
-```
-- Bypasses platform detection
-- Runs Jetson-specific configuration
-- Executes `../jetson.sh` script
-
-#### `--deploy`
-**Purpose**: Enable hardware deployment mode
-```bash
-./docker/run_docker.sh --deploy
-```
-- Configures Arduino upload functionality
-- Enables hardware integration features
-- Sets deployment-specific environment variables
-
-#### `--volume`
-**Purpose**: Enable volume mounting for development
-```bash
-./docker/run_docker.sh --volume
-```
-- Mounts additional development volumes
-- Enables live code editing without rebuilds
-- Useful for active development workflows
-
-### Option Combinations
-```bash
-# Testing with hardware deployment
-./docker/run_docker.sh --test --deploy
-
-# Development with CPU override
-./docker/run_docker.sh --force-cpu --volume
-
-# All options combined
-./docker/run_docker.sh --deploy --volume --force-cpu
-```
-
-## Interactive Features
-
-When running without `--test` mode, the script prompts for additional configuration:
-
-### ROS Bag Playback
-```
-Do you want to play rosbag files from the rosbags folder? (y/n)
-```
-- **Yes**: Enables automatic rosbag playback from `/rosbags` directory
-- **Auto-download**: Offers to download default rosbag if none exist
-- **Uses**: `download_rosbag.py` for automated downloading
-
-### Arduino Debug Monitoring
-```
-Do you want to monitor Arduino serial output for debugging? (y/n)
-```
-- **Purpose**: Real-time serial port monitoring
-- **Shows**: Arduino logs before ROS node initialization
-- **Useful**: Hardware debugging and development
-
-### RViz Visualization (CPU/WSL only)
-```
-Do you want to use RViz? (y/n)
-```
-- **Available**: CPU mode and WSL environments
-- **Purpose**: 3D visualization of robot state and sensor data
-- **Requires**: X11 forwarding for WSL
-
-### ZED Camera Display (GPU mode only)
-```
-Do you want to display the ZED2i camera in RViz? (y/n)
-```
-- **Available**: NVIDIA GPU configurations only
-- **Purpose**: Real-time camera feed visualization
-- **Performance**: GPU-accelerated image processing
-
 ## Environment Variables
 
-The script sets various environment variables for container configuration:
+Hocker automatically sets these environment variables based on configuration:
 
 | Variable | Purpose | Values |
 |----------|---------|---------|
@@ -187,6 +178,72 @@ The script sets various environment variables for container configuration:
 | `ROSBAG_PLAYBACK` | Automatic rosbag playback | `true`/`false` |
 | `DEBUG_ARDUINO` | Arduino serial monitoring | `true`/`false` |
 | `TEST` | Automated testing mode | `true`/`false` |
+| `FORCE_CPU` | Force CPU-only mode | `true`/`false` |
+| `VSCODE` | VS Code integration | `true`/`false` |
+
+## Interactive Features
+
+When running without `--test` mode, Hocker provides interactive prompts for additional configuration:
+
+### Automatic Rosbag Download
+```
+No rosbag files found. Download sample rosbag? (y/n)
+```
+- **Purpose**: Automatically downloads sample data for simulation
+- **Uses**: `download_rosbag.py` for automated downloading
+
+### Arduino Debug Monitoring
+```
+Enable Arduino serial output monitoring? (y/n)
+```
+- **Purpose**: Real-time serial port monitoring
+- **Shows**: Arduino logs before ROS node initialization
+- **Useful**: Hardware debugging and development
+
+### RViz Visualization
+```
+Enable RViz for 3D visualization? (y/n)
+```
+- **Available**: CPU mode and WSL environments
+- **Purpose**: 3D visualization of robot state and sensor data
+- **Requires**: X11 forwarding for WSL
+
+### ZED Camera Display
+```
+Display ZED2i camera feed in RViz? (y/n)
+```
+- **Available**: NVIDIA GPU configurations only
+- **Purpose**: Real-time camera feed visualization
+- **Performance**: GPU-accelerated image processing
+
+## Development Workflow
+
+### Local Development
+```bash
+# Start development environment
+./docker/hydrus-docker/hocker --dev
+
+# Make code changes on host
+# Changes are immediately available in container
+```
+
+### Testing Pipeline
+```bash
+# Automated testing
+./docker/hydrus-docker/hocker --test
+
+# Integration testing with hardware
+./docker/hydrus-docker/hocker --test --deploy
+```
+
+### Hardware Deployment
+```bash
+# Competition deployment
+./docker/hydrus-docker/hocker --competition
+
+# With custom settings
+./docker/hydrus-docker/hocker --deploy --rviz
+```
 
 ## Volumes and Ports
 
@@ -206,51 +263,18 @@ The script sets various environment variables for container configuration:
 - **Graphics**: `/dev/dri` (for hardware acceleration)
 - **GPU**: NVIDIA devices (CUDA configurations only)
 
-## Development Workflow
-
-### Local Development
-```bash
-# Start development environment
-./docker/run_docker.sh --volume
-
-# Make code changes on host
-# Changes are immediately available in container
-```
-
-### Testing Pipeline
-```bash
-# Automated testing
-./docker/run_docker.sh --test
-
-# Integration testing with hardware
-./docker/run_docker.sh --test --deploy
-```
-
-### Hardware Deployment
-```bash
-# Production deployment
-./docker/run_docker.sh --deploy
-
-# With debug monitoring
-./docker/run_docker.sh --deploy
-# Select 'y' for Arduino monitoring
-```
-
+## Troubleshooting
 
 ### Debug Commands
 
-#### List Running Containers
+#### Check Running Containers
 ```bash
 docker ps
 ```
 
 #### Enter Container Shell
 ```bash
-# Find container name/ID
-docker ps
-
-# Enter container
-docker exec -it <container_name> bash
+./docker/hydrus-docker/hocker --exec
 ```
 
 #### View Container Logs
@@ -262,7 +286,37 @@ docker compose logs
 docker compose logs hydrus_cpu
 ```
 
+#### Clean Reset
+```bash
+# Destroy all containers and start fresh
+./docker/hydrus-docker/hocker --destroy
+./docker/hydrus-docker/hocker --dev
+```
+
+### Common Issues
+
+#### Permission Errors
+```bash
+# Make sure hocker is executable
+chmod +x docker/hydrus-docker/hocker
+```
+
+#### Docker Not Running
+```bash
+# Start Docker service
+sudo systemctl start docker
+
+# Or start Docker Desktop on Windows/Mac
+```
+
+#### GPU Not Detected
+```bash
+# Force CPU mode for testing
+./docker/hydrus-docker/hocker --force-cpu
+
+# Check NVIDIA Docker setup
+nvidia-smi
+docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
+```
 
 For general Hydrus issues, see the main [README](../README.md) and [autonomy documentation](../autonomy/README.md).
-
-
