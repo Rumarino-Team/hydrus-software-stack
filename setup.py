@@ -22,15 +22,17 @@ CORE_REQUIREMENTS = [
     "requests",
     "colorama",
     "pyserial",
+    "fastapi",
+    "Flask",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "pre-commit>=3.0.0",
+    "mypy>=1.0.0",
 ]
 
 # Optional dependencies grouped by feature
 OPTIONAL_REQUIREMENTS = {
-    "web": [
-        "uvicorn",
-        "fastapi",
-        "Flask",
-    ],
     "depth-estimation": [
         "onnx",
         "onnxruntime-gpu",
@@ -40,13 +42,6 @@ OPTIONAL_REQUIREMENTS = {
         "torchvision",
         "tqdm",
         "typer",
-    ],
-    "dev": [
-        "black>=23.0.0",
-        "isort>=5.12.0",
-        "flake8>=6.0.0",
-        "pre-commit>=3.0.0",
-        "mypy>=1.0.0",
     ],
 }
 

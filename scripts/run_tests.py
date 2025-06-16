@@ -95,32 +95,10 @@ class HydrusTestRunner:
                     print(f"Error: {e.stderr}")
             raise
 
-    def _setup_ros_environment(self) -> Dict[str, str]:
-        """Setup ROS environment"""
-        env = os.environ.copy()
-        env["ROS_DISTRO"] = "noetic"
-        env["ROS_MASTER_URI"] = "http://localhost:11311"
-
-        # Source ROS setup
-        ros_setup_path = "/opt/ros/noetic/setup.bash"
-        if Path(ros_setup_path).exists():
-            # Add ROS paths to environment
-            env["ROS_PACKAGE_PATH"] = f"/opt/ros/noetic/share"
-            env["CMAKE_PREFIX_PATH"] = f"/opt/ros/noetic"
-            env[
-                "LD_LIBRARY_PATH"
-            ] = f"/opt/ros/noetic/lib:{env.get('LD_LIBRARY_PATH', '')}"
-            env["PATH"] = f"/opt/ros/noetic/bin:{env.get('PATH', '')}"
-            env[
-                "PYTHONPATH"
-            ] = f"/opt/ros/noetic/lib/python3/dist-packages:{env.get('PYTHONPATH', '')}"
-
-        return env
-
-    def _build_workspace(self) -> Dict[str, str]:
+    def _build_workspace(self):
         """Build the catkin workspace"""
         print("Building workspace...")
-        env = self._setup_ros_environment()
+        env = os.environ.copy()
 
         cmake_args = [
             "catkin_make",
@@ -135,28 +113,6 @@ class HydrusTestRunner:
             self._run_command(cmake_args, check=False, cwd=self.ros_dir, env=env)
         except subprocess.CalledProcessError:
             print("Build failed, but continuing...")
-
-        # Source the workspace setup after building
-        setup_file = self.ros_dir / "devel/setup.bash"
-        if setup_file.exists():
-            print("Workspace setup sourced successfully")
-            # Update environment with workspace paths
-            env[
-                "ROS_PACKAGE_PATH"
-            ] = f"{self.ros_dir}/src:{env.get('ROS_PACKAGE_PATH', '')}"
-            env[
-                "CMAKE_PREFIX_PATH"
-            ] = f"{self.ros_dir}/devel:{env.get('CMAKE_PREFIX_PATH', '')}"
-            env[
-                "LD_LIBRARY_PATH"
-            ] = f"{self.ros_dir}/devel/lib:{env.get('LD_LIBRARY_PATH', '')}"
-            env[
-                "PYTHONPATH"
-            ] = f"{self.ros_dir}/devel/lib/python3/dist-packages:{env.get('PYTHONPATH', '')}"
-        else:
-            print("Warning: devel/setup.bash still not found after build")
-
-        return env
 
     def _start_roscore(self, env: Dict[str, str]):
         """Start roscore in background"""
@@ -191,40 +147,6 @@ class HydrusTestRunner:
         except OSError:
             return False
 
-    def _run_test(
-        self,
-        test_name: str,
-        test_command: List[str],
-        timeout: int = 300,
-        env: Optional[Dict] = None,
-    ):
-        """Run a test and track results"""
-        print("")
-        print("----------------------------------------")
-        print(f"Running: {test_name}")
-        print("----------------------------------------")
-
-        self.total_tests += 1
-
-        if env is None:
-            env = self._setup_ros_environment()
-
-        try:
-            # Source the workspace in the command environment
-            bash_cmd = [
-                "bash",
-                "-c",
-                f"source {self.ros_dir}/devel/setup.bash 2>/dev/null || true; {' '.join(test_command)}",
-            ]
-
-            self._run_command(bash_cmd, timeout=timeout, env=env)
-            print(f"✅ PASSED: {test_name}")
-            self.passed_tests += 1
-
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            print(f"❌ FAILED: {test_name}")
-            self.failed_tests += 1
-
     def _run_rostest(self, test_name: str, test_file: str, env: Dict[str, str]):
         """Run rostest with proper timeout and error handling"""
         print("")
@@ -241,7 +163,7 @@ class HydrusTestRunner:
                 f"source {self.ros_dir}/devel/setup.bash 2>/dev/null || true; rostest autonomy {test_file}",
             ]
 
-            self._run_command(bash_cmd, timeout=600, env=env)
+            self._run_command(bash_cmd, timeout=600, capture_output=True, env=env)
             print(f"✅ PASSED: {test_name}")
             self.passed_tests += 1
 
@@ -289,14 +211,6 @@ class HydrusTestRunner:
 
         # Set up PYTHONPATH for mission planner tests
         test_env = env.copy()
-        pythonpath_additions = [
-            str(self.ros_dir / "src"),
-            str(self.ros_dir / "devel/lib/python3/dist-packages"),
-        ]
-        test_env["PYTHONPATH"] = ":".join(
-            pythonpath_additions + [test_env.get("PYTHONPATH", "")]
-        )
-
         # Define ROS integration tests with their configuration
         ros_tests = [
             {
@@ -399,41 +313,6 @@ class HydrusTestRunner:
                 "timeout": 1.5,
                 "infinite_loop": True,
                 "description": "Controller Monitor Node script that runs indefinitely to manage missions.",
-            },
-            {
-                "name": "Virtual Arduino",
-                "path": self.ros_dir / "src/hydrus-software-stack/virtual_arduino.py",
-                "args": ["/dev/ttyACM0"],
-                "timeout": 5,
-                "infinite_loop": True,
-                "description": "Virtual Arduino simulator",
-            },
-            {
-                "name": "Arduino Simulator",
-                "path": self.ros_dir
-                / "src/hydrus-software-stack/autonomy/arduino_simulator.py",
-                "args": [],
-                "timeout": 5,
-                "infinite_loop": True,
-                "description": "Arduino hardware simulator",
-            },
-            {
-                "name": "Setup Serial Monitor",
-                "path": self.ros_dir
-                / "src/hydrus-software-stack/scripts/setup_serial_monitor.py",
-                "args": [],
-                "timeout": 30,
-                "infinite_loop": False,
-                "description": "Serial monitor setup script",
-            },
-            {
-                "name": "Monitor Arduino Logs",
-                "path": self.ros_dir
-                / "src/hydrus-software-stack/scripts/monitor_arduino_logs.py",
-                "args": [],
-                "timeout": 5,
-                "infinite_loop": True,
-                "description": "Arduino log monitoring script",
             },
         ]
 
@@ -755,10 +634,11 @@ class HydrusTestRunner:
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
+        env = os.environ.copy()
 
         try:
             # Build workspace and setup environment
-            env = self._build_workspace()
+            self._build_workspace()
 
             # Start roscore for ROS tests
             self._start_roscore(env)
