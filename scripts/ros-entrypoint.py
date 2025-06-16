@@ -37,6 +37,9 @@ class HydrusROSManager:
             "ROS_DISTRO": os.environ.get("ROS_DISTRO", "not set"),
             "ROS_PACKAGE_PATH": os.environ.get("ROS_PACKAGE_PATH", "not set"),
             "NO_BUILD": os.environ.get("NO_BUILD", "false"),
+            "TMUX_SESSIONS": os.environ.get("TMUX_SESSIONS", "false"),
+            "ARDUINO_COMPILE": os.environ.get("ARDUINO_COMPILE", "false"),
+            "VIRTUAL_ARDUINO": os.environ.get("VIRTUAL_ARDUINO", "false"),
         }
 
         for var_name, var_value in env_vars.items():
@@ -53,6 +56,11 @@ class HydrusROSManager:
         self.rosbag_playback = env_vars["ROSBAG_PLAYBACK"].lower() == "true"
         self.rviz = env_vars["RVIZ"].lower() == "true"
         self.no_build = False  # env_vars["NO_BUILD"].lower() == "true"
+
+        # Individual hardware component flags
+        self.tmux_sessions = env_vars["TMUX_SESSIONS"].lower() == "true"
+        self.arduino_compile = env_vars["ARDUINO_COMPILE"].lower() == "true"
+        self.virtual_arduino = env_vars["VIRTUAL_ARDUINO"].lower() == "true"
 
         # Determine ROS directory based on volume usage
         if self.volume:
@@ -360,7 +368,7 @@ class HydrusROSManager:
         tmux_script = (
             self.ros_dir / "src/hydrus-software-stack/scripts/start_tmux_sessions.py"
         )
-        if tmux_script.exists():
+        if tmux_script.exists() and False:
             try:
                 subprocess.run([sys.executable, str(tmux_script)], check=False)
             except Exception as e:
@@ -560,6 +568,19 @@ class HydrusROSManager:
                 print(
                     "Deploy is not set or is set to false. Skipping deployment setup."
                 )
+
+            # INDIVIDUAL HARDWARE COMPONENT SECTIONS
+            if self.tmux_sessions:
+                print("Starting tmux sessions individually...")
+                self._setup_serial_monitoring()
+
+            if self.arduino_compile:
+                print("Compiling and uploading Arduino individually...")
+                self._compile_and_upload_arduino()
+
+            if self.virtual_arduino:
+                print("Starting virtual Arduino individually...")
+                self._start_virtual_arduino()
 
             # TEST SECTION
             if self.test:

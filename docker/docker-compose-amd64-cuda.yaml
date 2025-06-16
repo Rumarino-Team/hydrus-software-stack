@@ -66,14 +66,19 @@ services:
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:uno
-      - DISPLAY=${DISPLAY}
       - DEPLOY
       - VOLUME
       - ROSBAG_PLAYBACK
       - DEBUG_ARDUINO
+      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
+      - RVIZ
+      - TEST
+      - NO_BUILD
+      - TMUX_SESSIONS
+      - ARDUINO_COMPILE
+      - VIRTUAL_ARDUINO
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
-      - NO_BUILD
     depends_on:
       - ros-master
       - zed-camera

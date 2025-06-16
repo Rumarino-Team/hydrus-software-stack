@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -34,6 +35,31 @@ class HydrusTestRunner:
 
         # Process tracking
         self.roscore_pid = None
+
+        # Logging setup
+        self.test_logs_dir = self.ros_dir / "src/hydrus-software-stack/test_logs"
+        self.test_logs_dir.mkdir(exist_ok=True)
+
+        # Create timestamped log file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_file = self.test_logs_dir / f"test_run_{timestamp}.log"
+        self.current_test_log = None
+
+        print(f"Test logs will be saved to: {self.test_logs_dir}")
+        print(f"Main log file: {self.log_file}")
+
+    def _log_message(self, message: str, also_print: bool = True):
+        """Log a message to the main log file and optionally print to console"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] {message}\n"
+
+        # Write to main log file
+        with open(self.log_file, "a") as f:
+            f.write(log_entry)
+
+        # Optionally print to console
+        if also_print:
+            print(message)
 
     def _run_command(
         self,
@@ -229,16 +255,30 @@ class HydrusTestRunner:
         print("Running Unit Tests (Non-ROS)")
         print("==========================================")
 
-        # Tagging mission unit tests
-        tagging_test_dir = (
-            self.ros_dir / "src/hydrus-software-stack/autonomy/src/mission_planner"
-        )
-        if (tagging_test_dir / "tagging_mission_test.py").exists():
-            self._run_test(
-                "Tagging Mission Unit Tests",
-                ["python3", str(tagging_test_dir / "tagging_mission_test.py")],
-                env=env,
-            )
+        # Define unit tests with their configuration
+        unit_tests = [
+            {
+                "name": "Tagging Mission Unit Tests",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/src/mission_planner/tagging_mission_test.py",
+                "args": [],
+                "timeout": 30,
+                "infinite_loop": False,
+                "description": "Unit tests for tagging mission functionality",
+            }
+        ]
+
+        for test_config in unit_tests:
+            if test_config["path"].exists():
+                self._run_unified_test(
+                    test_config["name"],
+                    test_config["path"],
+                    test_config["args"],
+                    test_config["timeout"],
+                    test_config["infinite_loop"],
+                    test_config["description"],
+                    env,
+                )
 
     def _run_ros_integration_tests(self, env: Dict[str, str]):
         """Run ROS integration tests using rostest"""
@@ -246,18 +286,6 @@ class HydrusTestRunner:
         print("==========================================")
         print("Running ROS Integration Tests (rostest)")
         print("==========================================")
-
-        # Controller tests using rostest
-        controller_test = (
-            self.ros_dir / "src/hydrus-software-stack/autonomy/test/controller.test"
-        )
-        if controller_test.exists():
-            self._run_rostest("Controller Tests", "controller.test", env)
-
-        # Mission planner integration tests
-        mission_planner_dir = (
-            self.ros_dir / "src/hydrus-software-stack/autonomy/src/mission_planner"
-        )
 
         # Set up PYTHONPATH for mission planner tests
         test_env = env.copy()
@@ -269,32 +297,155 @@ class HydrusTestRunner:
             pythonpath_additions + [test_env.get("PYTHONPATH", "")]
         )
 
-        # Slalom integration tests
-        if (mission_planner_dir / "test_slalom_integration.py").exists():
-            self._run_test(
-                "Slalom Integration Tests",
-                ["python3", str(mission_planner_dir / "test_slalom_integration.py")],
-                env=test_env,
-            )
+        # Define ROS integration tests with their configuration
+        ros_tests = [
+            {
+                "name": "Controller Tests",
+                "path": "controller.test",  # Special case for rostest
+                "args": [],
+                "timeout": 600,
+                "infinite_loop": False,
+                "description": "ROS controller integration tests using rostest",
+                "is_rostest": True,
+            },
+            {
+                "name": "Slalom Integration Tests",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/src/mission_planner/test_slalom_integration.py",
+                "args": [],
+                "timeout": 300,
+                "infinite_loop": False,
+                "description": "Slalom mission integration tests",
+            },
+            {
+                "name": "Gate Mission Tests",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/src/mission_planner/gate_mission_tester.py",
+                "args": [],
+                "timeout": 300,
+                "infinite_loop": False,
+                "description": "Gate mission functionality tests",
+            },
+            {
+                "name": "DVL Driver Tests",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/DVL/Wayfinder/driver_test.py",
+                "args": [],
+                "timeout": 60,
+                "infinite_loop": False,
+                "description": "DVL driver functionality tests",
+            },
+        ]
 
-        # Gate mission tests
-        if (mission_planner_dir / "gate_mission_tester.py").exists():
-            self._run_test(
-                "Gate Mission Tests",
-                ["python3", str(mission_planner_dir / "gate_mission_tester.py")],
-                env=test_env,
-            )
+        for test_config in ros_tests:
+            if test_config.get("is_rostest"):
+                # Handle rostest differently
+                self._run_rostest(test_config["name"], test_config["path"], test_env)
+            elif test_config["path"].exists():
+                self._run_unified_test(
+                    test_config["name"],
+                    test_config["path"],
+                    test_config["args"],
+                    test_config["timeout"],
+                    test_config["infinite_loop"],
+                    test_config["description"],
+                    test_env,
+                )
 
-        # DVL driver tests if available
-        dvl_test = (
-            self.ros_dir / "src/hydrus-software-stack/DVL/Wayfinder/driver_test.py"
-        )
-        if dvl_test.exists():
-            dvl_dir = self.ros_dir / "src/hydrus-software-stack/DVL/Wayfinder"
-            self._run_test(
-                "DVL Driver Tests",
-                ["python3", str(dvl_dir / "driver_test.py")],
-                env=env,
+    def _run_script_tests(self, env: Dict[str, str]):
+        """This tests is mainly to check that the scripts do not have obvious runtime errors.
+        Like depedencies not being met, or syntax errors.
+        It does not test the functionality of the scripts, just that they can run without crashing.
+        """
+        print("")
+        print("==========================================")
+        print("Running Script Tests")
+        print("==========================================")
+
+        # Define scripts to test with their configuration
+        scripts_to_test = [
+            {
+                "name": "API Server",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/src/api_server.py",
+                "args": [],
+                "timeout": 1.5,
+                "infinite_loop": True,
+                "description": "API Server script that runs indefinitely to handle API requests.",
+            },
+            {
+                "name": "Controllers Node",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/src/controllers.py",
+                "args": [],
+                "timeout": 1.5,
+                "infinite_loop": True,
+                "description": "Controllers Node script that runs indefinitely. Handles controller logic for the robot.",
+            },
+            {
+                "name": "Computer Vision Node",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/src/cv_publishers.py",
+                "args": [],
+                "timeout": 1.5,
+                "infinite_loop": True,
+                "description": "Computer vision Node script that runs indefinitely for image processing.",
+            },
+            {
+                "name": "Controller Monitor Node",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/scripts/controller/controller_monitor.py",
+                "args": [],
+                "timeout": 1.5,
+                "infinite_loop": True,
+                "description": "Controller Monitor Node script that runs indefinitely to manage missions.",
+            },
+            {
+                "name": "Virtual Arduino",
+                "path": self.ros_dir / "src/hydrus-software-stack/virtual_arduino.py",
+                "args": ["/dev/ttyACM0"],
+                "timeout": 5,
+                "infinite_loop": True,
+                "description": "Virtual Arduino simulator",
+            },
+            {
+                "name": "Arduino Simulator",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/autonomy/arduino_simulator.py",
+                "args": [],
+                "timeout": 5,
+                "infinite_loop": True,
+                "description": "Arduino hardware simulator",
+            },
+            {
+                "name": "Setup Serial Monitor",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/scripts/setup_serial_monitor.py",
+                "args": [],
+                "timeout": 30,
+                "infinite_loop": False,
+                "description": "Serial monitor setup script",
+            },
+            {
+                "name": "Monitor Arduino Logs",
+                "path": self.ros_dir
+                / "src/hydrus-software-stack/scripts/monitor_arduino_logs.py",
+                "args": [],
+                "timeout": 5,
+                "infinite_loop": True,
+                "description": "Arduino log monitoring script",
+            },
+        ]
+
+        for script_config in scripts_to_test:
+            self._run_unified_test(
+                script_config["name"],
+                script_config["path"],
+                script_config["args"],
+                script_config["timeout"],
+                script_config["infinite_loop"],
+                script_config["description"],
+                env,
             )
 
     def _cleanup_roscore(self):
@@ -334,6 +485,267 @@ class HydrusTestRunner:
         self._cleanup_roscore()
         sys.exit(1)
 
+    def _run_unified_test(
+        self,
+        test_name: str,
+        test_path: Path,
+        test_args: List[str],
+        timeout: int,
+        is_infinite_loop: bool,
+        description: str,
+        env: Dict[str, str],
+        working_dir: Optional[Path] = None,
+    ):
+        """Unified test execution function that handles all types of tests"""
+        # Create individual test log file
+        safe_test_name = "".join(
+            c for c in test_name if c.isalnum() or c in (" ", "-", "_")
+        ).replace(" ", "_")
+        test_log_file = self.test_logs_dir / f"{safe_test_name}.log"
+
+        # Log test start
+        self._log_message(f"=== Starting Test: {test_name} ===")
+        self._log_message(f"Description: {description}")
+        self._log_message(f"Path: {test_path}")
+        self._log_message(
+            f"Expected behavior: {'Infinite loop' if is_infinite_loop else 'Clean exit'} (timeout: {timeout}s)"
+        )
+
+        print("")
+        print("----------------------------------------")
+        print(f"Running: {test_name}")
+        print(f"Description: {description}")
+        print(f"Path: {test_path}")
+        if is_infinite_loop:
+            print(f"Expected behavior: Infinite loop ({timeout}s timeout)")
+        else:
+            print(f"Expected behavior: Should exit cleanly (max {timeout}s)")
+        print("----------------------------------------")
+
+        self.total_tests += 1
+
+        # Check if test file exists
+        if not test_path.exists():
+            error_msg = f"❌ FAILED: {test_name} - Test file not found at {test_path}"
+            print(error_msg)
+            self._log_message(error_msg)
+
+            # Save individual test log
+            with open(test_log_file, "w") as f:
+                f.write(f"Test: {test_name}\n")
+                f.write(f"Status: FAILED\n")
+                f.write(f"Reason: Test file not found\n")
+                f.write(f"Path: {test_path}\n")
+
+            self.failed_tests += 1
+            return
+
+        # Prepare command with ROS environment sourcing
+        test_command = ["python3", str(test_path)] + test_args
+        bash_cmd = [
+            "bash",
+            "-c",
+            f"source {self.ros_dir}/devel/setup.bash 2>/dev/null || true; {' '.join(test_command)}",
+        ]
+        cmd_str = " ".join(bash_cmd)
+
+        # Set working directory
+        cwd = working_dir or test_path.parent
+
+        # Log command being executed
+        self._log_message(f"Executing command: {cmd_str}")
+        self._log_message(f"Working directory: {cwd}")
+
+        try:
+            if is_infinite_loop:
+                # For infinite loop tests, run with timeout and capture output
+                print(f"Running {test_name} with {timeout}-second timeout...")
+                self._log_message(
+                    f"Running {test_name} with {timeout}-second timeout..."
+                )
+
+                try:
+                    result = self._run_command(
+                        bash_cmd,
+                        timeout=timeout,
+                        check=False,
+                        capture_output=True,
+                        env=env,
+                        cwd=cwd,
+                    )
+
+                    # If process finished within timeout, check exit code
+                    if result.returncode != 0:
+                        error_msg = f"❌ FAILED: {test_name} - Test exited with code {result.returncode} within {timeout} seconds"
+                        print(error_msg)
+                        self._log_message(error_msg)
+
+                        if result.stderr:
+                            print(f"Error output: {result.stderr}")
+                            self._log_message(f"Error output: {result.stderr}")
+
+                        # Save individual test log
+                        with open(test_log_file, "w") as f:
+                            f.write(f"Test: {test_name}\n")
+                            f.write(f"Status: FAILED\n")
+                            f.write(f"Exit Code: {result.returncode}\n")
+                            f.write(f"Command: {cmd_str}\n")
+                            f.write(f"Timeout: {timeout}s\n")
+                            f.write(f"\n--- STDOUT ---\n{result.stdout}\n")
+                            f.write(f"\n--- STDERR ---\n{result.stderr}\n")
+
+                        self.failed_tests += 1
+                    else:
+                        warning_msg = f"⚠️  WARNING: {test_name} - Test completed within {timeout} seconds (expected infinite loop)"
+                        print(warning_msg)
+                        self._log_message(warning_msg)
+
+                        if result.stdout:
+                            print(f"Output: {result.stdout}")
+                            self._log_message(f"Output: {result.stdout}")
+
+                        # Save individual test log
+                        with open(test_log_file, "w") as f:
+                            f.write(f"Test: {test_name}\n")
+                            f.write(f"Status: PASSED (WARNING)\n")
+                            f.write(
+                                f"Note: Completed within timeout (expected infinite loop)\n"
+                            )
+                            f.write(f"Command: {cmd_str}\n")
+                            f.write(f"Timeout: {timeout}s\n")
+                            f.write(f"\n--- STDOUT ---\n{result.stdout}\n")
+                            f.write(f"\n--- STDERR ---\n{result.stderr}\n")
+
+                        self.passed_tests += 1
+
+                except subprocess.TimeoutExpired:
+                    # This is expected for infinite loop tests
+                    success_msg = f"✅ PASSED: {test_name} - Test ran successfully for {timeout} seconds"
+                    print(success_msg)
+                    self._log_message(success_msg)
+
+                    # For timeout case, we don't have stdout/stderr from the result
+                    # Save individual test log
+                    with open(test_log_file, "w") as f:
+                        f.write(f"Test: {test_name}\n")
+                        f.write(f"Status: PASSED\n")
+                        f.write(f"Note: Ran for expected timeout duration\n")
+                        f.write(f"Command: {cmd_str}\n")
+                        f.write(f"Timeout: {timeout}s\n")
+                        f.write(
+                            f"\n--- NOTE ---\nTest timed out as expected for infinite loop script\n"
+                        )
+
+                    self.passed_tests += 1
+
+            else:
+                # For finite tests, expect them to exit cleanly
+                print(f"Running {test_name} (expecting clean exit)...")
+                self._log_message(f"Running {test_name} (expecting clean exit)...")
+
+                try:
+                    result = self._run_command(
+                        bash_cmd,
+                        timeout=timeout,
+                        check=False,
+                        capture_output=True,
+                        env=env,
+                        cwd=cwd,
+                    )
+
+                    if result.returncode == 0:
+                        success_msg = (
+                            f"✅ PASSED: {test_name} - Test completed successfully"
+                        )
+                        print(success_msg)
+                        self._log_message(success_msg)
+
+                        if result.stdout:
+                            print(f"Output: {result.stdout}")
+                            self._log_message(f"Output: {result.stdout}")
+
+                        # Save individual test log
+                        with open(test_log_file, "w") as f:
+                            f.write(f"Test: {test_name}\n")
+                            f.write(f"Status: PASSED\n")
+                            f.write(f"Exit Code: 0\n")
+                            f.write(f"Command: {cmd_str}\n")
+                            f.write(f"Timeout: {timeout}s\n")
+                            f.write(f"\n--- STDOUT ---\n{result.stdout}\n")
+                            f.write(f"\n--- STDERR ---\n{result.stderr}\n")
+
+                        self.passed_tests += 1
+                    else:
+                        error_msg = f"❌ FAILED: {test_name} - Test failed with exit code {result.returncode}"
+                        print(error_msg)
+                        self._log_message(error_msg)
+
+                        if result.stderr:
+                            print(f"Error output: {result.stderr}")
+                            self._log_message(f"Error output: {result.stderr}")
+                        if result.stdout:
+                            print(f"Standard output: {result.stdout}")
+                            self._log_message(f"Standard output: {result.stdout}")
+
+                        # Save individual test log
+                        with open(test_log_file, "w") as f:
+                            f.write(f"Test: {test_name}\n")
+                            f.write(f"Status: FAILED\n")
+                            f.write(f"Exit Code: {result.returncode}\n")
+                            f.write(f"Command: {cmd_str}\n")
+                            f.write(f"Timeout: {timeout}s\n")
+                            f.write(f"\n--- STDOUT ---\n{result.stdout}\n")
+                            f.write(f"\n--- STDERR ---\n{result.stderr}\n")
+
+                        self.failed_tests += 1
+
+                except subprocess.TimeoutExpired:
+                    error_msg = f"❌ FAILED: {test_name} - Test timed out (exceeded {timeout} seconds)"
+                    print(error_msg)
+                    self._log_message(error_msg)
+
+                    # Save individual test log
+                    with open(test_log_file, "w") as f:
+                        f.write(f"Test: {test_name}\n")
+                        f.write(f"Status: FAILED\n")
+                        f.write(f"Reason: Timeout after {timeout} seconds\n")
+                        f.write(f"Command: {cmd_str}\n")
+
+                    self.failed_tests += 1
+
+        except FileNotFoundError:
+            error_msg = (
+                f"❌ FAILED: {test_name} - Python interpreter or test file not found"
+            )
+            print(error_msg)
+            self._log_message(error_msg)
+
+            # Save individual test log
+            with open(test_log_file, "w") as f:
+                f.write(f"Test: {test_name}\n")
+                f.write(f"Status: FAILED\n")
+                f.write(f"Reason: Python interpreter or test file not found\n")
+                f.write(f"Command: {cmd_str}\n")
+
+            self.failed_tests += 1
+        except Exception as e:
+            error_msg = f"❌ FAILED: {test_name} - Unexpected error: {e}"
+            print(error_msg)
+            self._log_message(error_msg)
+
+            # Save individual test log
+            with open(test_log_file, "w") as f:
+                f.write(f"Test: {test_name}\n")
+                f.write(f"Status: FAILED\n")
+                f.write(f"Reason: Unexpected error\n")
+                f.write(f"Error: {str(e)}\n")
+                f.write(f"Command: {cmd_str}\n")
+
+            self.failed_tests += 1
+
+        # Log test completion
+        self._log_message(f"=== Completed Test: {test_name} ===\n")
+
     def main(self):
         """Main execution function"""
         print("==========================================")
@@ -356,6 +768,9 @@ class HydrusTestRunner:
 
             # Run ROS integration tests
             self._run_ros_integration_tests(env)
+
+            # Run script tests
+            self._run_script_tests(env)
 
         finally:
             # Always clean up

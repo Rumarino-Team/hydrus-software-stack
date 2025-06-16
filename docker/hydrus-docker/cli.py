@@ -100,6 +100,24 @@ Examples:
             help="Skip catkin workspace build - useful for debugging",
         )
 
+        # Individual hardware component arguments
+        hardware_group = parser.add_argument_group("Hardware Components")
+        hardware_group.add_argument(
+            "--tmux-sessions",
+            action="store_true",
+            help="Start tmux sessions for monitoring",
+        )
+        hardware_group.add_argument(
+            "--arduino-compile",
+            action="store_true",
+            help="Compile and upload Arduino code",
+        )
+        hardware_group.add_argument(
+            "--virtual-arduino",
+            action="store_true",
+            help="Start virtual Arduino processes",
+        )
+
         # Negation arguments for overriding configuration groups
         config_group.add_argument(
             "--no-deploy", action="store_true", help="Disable deployment mode"

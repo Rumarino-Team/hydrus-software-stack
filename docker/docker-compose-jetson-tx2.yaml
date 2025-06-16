@@ -49,8 +49,18 @@ services:
       - "/dev/ttyACM0:/dev/ttyACM0"
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
-      - ARDUINO_BOARD=arduino:avr:mega
+      - ARDUINO_BOARD=arduino:avr:uno
+      - DEPLOY
+      - VOLUME
       - ROSBAG_PLAYBACK
+      - DEBUG_ARDUINO
+      - DISPLAY=${DISPLAY}
+      - RVIZ
+      - TEST
+      - NO_BUILD
+      - TMUX_SESSIONS
+      - ARDUINO_COMPILE
+      - VIRTUAL_ARDUINO
     depends_on:
       - ros-master
       - zed-camera

@@ -62,6 +62,9 @@ class DockerManager:
                 "DEBUG_ARDUINO": str(config["debug_arduino"]).lower(),
                 "TEST": str(config.get("test", False)).lower(),
                 "NO_BUILD": str(config.get("no_build", False)).lower(),
+                "TMUX_SESSIONS": str(config.get("tmux_sessions", False)).lower(),
+                "ARDUINO_COMPILE": str(config.get("arduino_compile", False)).lower(),
+                "VIRTUAL_ARDUINO": str(config.get("virtual_arduino", False)).lower(),
             }
         )
 

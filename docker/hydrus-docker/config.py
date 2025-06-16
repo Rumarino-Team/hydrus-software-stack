@@ -16,6 +16,9 @@ AVAILABLE_OPTIONS = [
     "install_vscode_extensions",
     "test",
     "no_build",
+    "tmux_sessions",
+    "arduino_compile",
+    "virtual_arduino",
 ]
 
 # Predefined configuration groups - only list enabled options
@@ -65,6 +68,16 @@ CONFIGURATION_GROUPS = {
             "vscode",
             "install_vscode_extensions",
             "no_build",
+        ],
+    },
+    "deploy-full": {
+        "description": "Full deployment with all hardware components (tmux, Arduino, virtual Arduino)",
+        "enabled_options": [
+            "deploy",
+            "tmux_sessions",
+            "arduino_compile",
+            "virtual_arduino",
+            "debug_arduino",
         ],
     },
 }
@@ -122,6 +135,9 @@ class ConfigurationManager:
             "vscode": args.vscode,
             "install_vscode_extensions": args.install_vscode_extensions,
             "no_build": args.no_build,
+            "tmux_sessions": getattr(args, "tmux_sessions", False),
+            "arduino_compile": getattr(args, "arduino_compile", False),
+            "virtual_arduino": getattr(args, "virtual_arduino", False),
         }
 
     @staticmethod
