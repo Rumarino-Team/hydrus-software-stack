@@ -41,6 +41,7 @@ fov = 90.0
 fov = 90.0
 
 [node name="Thrusters" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0266665, 0)
 
 [node name="Thruster1" type="MeshInstance3D" parent="Thrusters"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.7, 0, -0.48)

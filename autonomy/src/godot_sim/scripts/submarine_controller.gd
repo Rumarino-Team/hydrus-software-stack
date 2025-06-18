@@ -1,7 +1,7 @@
 extends RigidBody3D
 
 # WebSocket connection variables
-var ws := WebSocketClient.new()
+var ws := WebSocketPeer.new()
 var ws_connected := false
 var connection_url := "ws://localhost:8000/ws"
 
@@ -26,7 +26,7 @@ var current_cmd_vel = {"linear": Vector3.ZERO, "angular": Vector3.ZERO}
 	$Thrusters/Thruster1,
 	$Thrusters/Thruster2,
 	$Thrusters/Thruster3,
-	$Thrusters/Thruster4,
+	$Thruster/Thruster4,
 	$Thrusters/Thruster5,
 	$Thrusters/Thruster6,
 	$Thrusters/Thruster7,
@@ -44,7 +44,7 @@ var camera_timer := 0.0
 var STATE_INTERVAL := 0.05  # 20 Hz
 var CAMERA_INTERVAL := 0.1  # 10 Hz
 
-class Thruster:
+class SubmarineThruster:
 	var position: Vector3  # Position relative to center of mass
 	var direction: Vector3  # Thrust direction vector (normalized)
 	var max_force: float
@@ -128,15 +128,13 @@ func setup_thrusters():
 	for i in range(thruster_configs.size()):
 		if i < thruster_nodes.size() and thruster_nodes[i]:
 			var config = thruster_configs[i]
-			var thruster = Thruster.new(config.pos, config.dir, max_thrust, thruster_nodes[i])
+			var thruster = SubmarineThruster.new(config.pos, config.dir, max_thrust, thruster_nodes[i])
 			thrusters.append(thruster)
 
 func setup_websocket():
-	# Connect WebSocket signals
-	ws.connect("connection_established", self, "_on_connection_established")
-	ws.connect("connection_error", self, "_on_connection_error")
-	ws.connect("connection_closed", self, "_on_connection_closed")
-	ws.connect("data_received", self, "_on_data_received")
+	# Connect WebSocket signals (Godot 4 syntax)
+	# Note: WebSocket implementation in Godot 4 requires manual polling
+	print("WebSocket setup - connecting to: " + connection_url)
 
 	# Start connection
 	var err = ws.connect_to_url(connection_url)
@@ -160,22 +158,23 @@ func _on_connection_closed(was_clean = false):
 	print("WebSocket connection closed, clean: ", was_clean)
 
 	# Try to reconnect after a delay
-	yield(get_tree().create_timer(2.0), "timeout")
+	await get_tree().create_timer(2.0).timeout
 	var err = ws.connect_to_url(connection_url)
 	if err != OK:
 		print("Unable to reconnect to WebSocket server: ", err)
 
 func _on_data_received():
 	# Process incoming data from ROS
-	var data = ws.get_peer(1).get_packet().get_string_from_utf8()
+	var data = ws.get_packet().get_string_from_utf8()
 
-	# Parse JSON data
-	var json = JSON.parse(data)
-	if json.error != OK:
-		print("JSON parse error: ", json.error)
+	# Parse JSON data (Godot 4 syntax)
+	var json = JSON.new()
+	var parse_result = json.parse(data)
+	if parse_result != OK:
+		print("JSON parse error: ", parse_result)
 		return
 
-	var payload = json.result
+	var payload = json.data
 
 	# Handle different types of messages
 	if payload.has("cmd_vel"):
@@ -288,6 +287,7 @@ func _physics_process(delta):
 
 func send_state():
 	# Send submarine state to ROS
+	var quat = global_transform.basis.get_rotation_quaternion()
 	var state = {
 		"pos": [
 			global_transform.origin.x,
@@ -295,10 +295,10 @@ func send_state():
 			global_transform.origin.z
 		],
 		"orient": [
-			global_transform.basis.get_rotation_quat().x,
-			global_transform.basis.get_rotation_quat().y,
-			global_transform.basis.get_rotation_quat().z,
-			global_transform.basis.get_rotation_quat().w
+			quat.x,
+			quat.y,
+			quat.z,
+			quat.w
 		],
 		"vel": [
 			linear_velocity.x,
@@ -313,7 +313,8 @@ func send_state():
 	}
 
 	var json_data = {"state": state}
-	ws.get_peer(1).put_packet(JSON.print(json_data).to_utf8())
+	var json_string = JSON.stringify(json_data)
+	ws.send_text(json_string)
 
 func send_camera_image():
 	if !camera:
@@ -321,7 +322,7 @@ func send_camera_image():
 
 	# Capture viewport texture
 	var viewport = camera.get_viewport()
-	var img = viewport.get_texture().get_data()
+	var img = viewport.get_texture().get_image()
 	img.flip_y() # Godot renders upside down compared to OpenCV convention
 
 	# Convert to RGB format
@@ -340,7 +341,8 @@ func send_camera_image():
 
 	# Send camera data
 	var json_data = {"camera": camera_data}
-	ws.get_peer(1).put_packet(JSON.print(json_data).to_utf8())
+	var json_string = JSON.stringify(json_data)
+	ws.send_text(json_string)
 
 func send_depth_image():
 	if !depth_camera:
@@ -352,16 +354,15 @@ func send_depth_image():
 	var height = 240
 
 	# Create fake depth data (in a real implementation, this would come from the depth camera)
-	var depth_data = PoolByteArray()
+	var depth_data = PackedByteArray()
 	for y in height:
 		for x in width:
 			# Create simple depth value (increasing from left to right)
 			var depth_value = 1.0 + (float(x) / width * 5.0)
 
 			# Convert float to bytes
-			var bytes = var2bytes(depth_value)
-			for b in bytes:
-				depth_data.append(b)
+			var bytes = var_to_bytes(depth_value)
+			depth_data.append_array(bytes)
 
 	# Encode to base64
 	var base64_depth = Marshalls.raw_to_base64(depth_data)
@@ -376,10 +377,12 @@ func send_depth_image():
 
 	# Send depth data
 	var json_data = {"depth": depth_payload}
-	ws.get_peer(1).put_packet(JSON.print(json_data).to_utf8())
+	var json_string = JSON.stringify(json_data)
+	ws.send_text(json_string)
 
 func send_log_message(message):
 	# Send a log message to ROS
 	var json_data = {"log": message}
+	var json_string = JSON.stringify(json_data)
 	if ws_connected:
-		ws.get_peer(1).put_packet(JSON.print(json_data).to_utf8())
+		ws.send_text(json_string)
