@@ -11,10 +11,10 @@ extends Node3D
 @export var directional_light_energy: float = 0.6
 
 # References to scene nodes
-@onready var water_surface: Node3D = $WaterSurface
-@onready var water_volume: MeshInstance3D = $WaterVolume
+@onready var water_surface: StaticBody3D = $WaterSurface
+@onready var water_volume: Area3D = $WaterVolume
 @onready var directional_light: DirectionalLight3D = $DirectionalLight
-@onready var ambient_light: WorldEnvironment = $AmbientLight
+@onready var ambient_light: WorldEnvironment = get_node("../WorldEnvironment")
 
 # Objects in the environment
 var objects: Array = []
@@ -23,14 +23,12 @@ var targets: Array = []
 func _ready():
 	# Initialize water properties
 	if water_surface:
-		var mat = water_surface.get_surface_override_material(0)
-		if mat:
-			mat.albedo_color = water_color
-
-	if water_volume:
-		var volume_material = water_volume.get_surface_override_material(0)
-		if volume_material:
-			volume_material.albedo_color = Color(water_color.r, water_color.g, water_color.b, 0.1)
+		# Get the MeshInstance3D child of the StaticBody3D
+		var mesh_instance = water_surface.get_node("MeshInstance")
+		if mesh_instance:
+			var mat = mesh_instance.get_surface_override_material(0)
+			if mat:
+				mat.albedo_color = water_color
 
 	# Initialize lighting
 	if ambient_light and ambient_light.environment:
@@ -90,16 +88,14 @@ func find_cameras(node: Node) -> Array:
 
 func add_water_collision():
 	if water_volume:
-		var water_area = Area3D.new()
-		water_area.name = "WaterArea"
-		water_volume.add_child(water_area)
-
-		var collision_shape = CollisionShape3D.new()
-		collision_shape.shape = water_volume.mesh.create_convex_shape()
-		water_area.add_child(collision_shape)
-
-		water_area.body_entered.connect(_on_body_entered_water)
-		water_area.body_exited.connect(_on_body_exited_water)
+		# The water_volume is already an Area3D, so we can connect directly to it
+		# First, make sure it has a collision shape
+		var existing_collision = water_volume.get_node("CollisionShape")
+		if existing_collision:
+			water_volume.body_entered.connect(_on_body_entered_water)
+			water_volume.body_exited.connect(_on_body_exited_water)
+		else:
+			print("Warning: WaterVolume Area3D has no CollisionShape3D child")
 
 func _on_body_entered_water(body: Node):
 	if body.has_method("enter_water"):

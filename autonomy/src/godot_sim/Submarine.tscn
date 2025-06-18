@@ -1,9 +1,31 @@
-[gd_scene load_steps=2 format=3 uid="uid://divbf01wtjlgk"]
+[gd_scene load_steps=7 format=3 uid="uid://divbf01wtjlgk"]
 
-[ext_resource type="Script" uid="uid://cohrpwrwt2baj" path="res://scripts/submarine_simulation.gd" id="1"]
+[ext_resource type="Script" uid="uid://ct8jrxfxnfvw7" path="res://scripts/submarine_controller.gd" id="1"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_submarine"]
+size = Vector3(2, 0.6, 0.8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_submarine"]
+albedo_color = Color(0.2, 0.2, 0.8, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_submarine"]
+size = Vector3(2, 0.6, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_thruster"]
+size = Vector3(0.1, 0.1, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_thruster_neutral"]
+albedo_color = Color(0.8, 0.2, 0.2, 1)
 
 [node name="Submarine" type="RigidBody3D"]
 script = ExtResource("1")
+
+[node name="SubmarineBody" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_submarine")
+surface_material_override/0 = SubResource("StandardMaterial3D_submarine")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_submarine")
 
 [node name="Camera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 2, 4)
@@ -17,3 +39,77 @@ fov = 90.0
 
 [node name="DepthCamera" type="Camera3D" parent="CameraGimbal"]
 fov = 90.0
+
+[node name="Thrusters" type="Node3D" parent="."]
+
+[node name="Thruster1" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.7, 0, -0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "1"
+
+[node name="Thruster2" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3, 0, -0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "2"
+
+[node name="Thruster3" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0, -0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "3"
+
+[node name="Thruster4" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 0, -0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster4"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "4"
+
+[node name="Thruster5" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.7, 0, 0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster5"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "5"
+
+[node name="Thruster6" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0, 0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster6"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "6"
+
+[node name="Thruster7" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3, 0, 0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster7"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "7"
+
+[node name="Thruster8" type="MeshInstance3D" parent="Thrusters"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 0, 0.48)
+mesh = SubResource("BoxMesh_thruster")
+surface_material_override/0 = SubResource("StandardMaterial3D_thruster_neutral")
+
+[node name="Label3D" type="Label3D" parent="Thrusters/Thruster8"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+text = "8"

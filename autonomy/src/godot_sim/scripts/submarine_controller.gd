@@ -1,4 +1,4 @@
-extends RigidBody
+extends RigidBody3D
 
 # WebSocket connection variables
 var ws := WebSocketClient.new()
@@ -6,19 +6,37 @@ var ws_connected := false
 var connection_url := "ws://localhost:8000/ws"
 
 # Submarine physical properties
-export var buoyancy_factor := 1.0
-export var water_drag := 0.1
-export var water_angular_drag := 0.3
-export var max_thrust := 100.0
-export var max_torque := 20.0
+@export var buoyancy_factor := 1.0
+@export var water_drag := 0.1
+@export var water_angular_drag := 0.3
+@export var max_thrust := 100.0
+@export var max_torque := 20.0
 
 # Thruster configuration
 var thrusters = []
 var current_cmd_vel = {"linear": Vector3.ZERO, "angular": Vector3.ZERO}
 
-# Camera reference
-onready var camera = $Camera
-onready var depth_camera = $DepthCamera
+# Camera references
+@onready var camera = $Camera
+@onready var forward_camera = $CameraGimbal/ForwardCamera
+@onready var depth_camera = $CameraGimbal/DepthCamera
+
+# Thruster node references
+@onready var thruster_nodes = [
+	$Thrusters/Thruster1,
+	$Thrusters/Thruster2,
+	$Thrusters/Thruster3,
+	$Thrusters/Thruster4,
+	$Thrusters/Thruster5,
+	$Thrusters/Thruster6,
+	$Thrusters/Thruster7,
+	$Thrusters/Thruster8
+]
+
+# Materials for thruster visual feedback
+@onready var material_neutral: StandardMaterial3D
+@onready var material_forward: StandardMaterial3D
+@onready var material_reverse: StandardMaterial3D
 
 # Timers for data transmission
 var state_timer := 0.0
@@ -31,11 +49,13 @@ class Thruster:
 	var direction: Vector3  # Thrust direction vector (normalized)
 	var max_force: float
 	var current_value: float = 0.0  # Current PWM value (normalized -1 to 1)
+	var mesh_node: MeshInstance3D  # Reference to the visual mesh
 
-	func _init(pos: Vector3, dir: Vector3, max_f: float):
+	func _init(pos: Vector3, dir: Vector3, max_f: float, node: MeshInstance3D):
 		position = pos
 		direction = dir.normalized()
 		max_force = max_f
+		mesh_node = node
 
 	func set_value(pwm_value: float):
 		# Convert PWM (-255 to 255) to normalized value (-1 to 1)
@@ -49,40 +69,67 @@ class Thruster:
 		var lever = position - center_of_mass
 		return lever.cross(force)
 
+	func update_visual(mat_neutral: StandardMaterial3D, mat_forward: StandardMaterial3D, mat_reverse: StandardMaterial3D):
+		if mesh_node:
+			if current_value > 0.1:
+				mesh_node.set_surface_override_material(0, mat_forward)
+			elif current_value < -0.1:
+				mesh_node.set_surface_override_material(0, mat_reverse)
+			else:
+				mesh_node.set_surface_override_material(0, mat_neutral)
+
 func _ready():
 	# Initialize physics
 	set_use_custom_integrator(true)
 	set_max_contacts_reported(4)
 	set_contact_monitor(true)
 
-	# Initialize thrusters (position, direction, max force)
+	# Create materials for thruster visual feedback
+	setup_materials()
+
+	# Initialize thrusters using existing scene nodes
 	setup_thrusters()
 
 	# Initialize WebSocket connection
 	setup_websocket()
 
 	# Set up camera
-	if camera:
-		camera.set_current(true)
+	if forward_camera:
+		forward_camera.current = true
 
 	# Initial notification
-	print("Submarine controller initialized")
+	print("Submarine controller initialized with ", thrusters.size(), " thrusters")
+
+func setup_materials():
+	# Create materials for visual feedback
+	material_neutral = StandardMaterial3D.new()
+	material_neutral.albedo_color = Color(0.8, 0.2, 0.2, 1.0)  # Red
+
+	material_forward = StandardMaterial3D.new()
+	material_forward.albedo_color = Color(1.0, 1.0, 0.0, 1.0)  # Yellow
+
+	material_reverse = StandardMaterial3D.new()
+	material_reverse.albedo_color = Color(0.0, 0.0, 1.0, 1.0)  # Blue
 
 func setup_thrusters():
-	# This configuration depends on your submarine's actual thruster layout
-	# Example of 8 thrusters: 4 vertical, 4 horizontal
+	# Thruster configuration matching the layout in the scene
+	# Positions are based on the transform positions in the .tscn file
+	var thruster_configs = [
+		{"pos": Vector3(-0.7, 0, -0.48), "dir": Vector3(-1, 0, -1)},  # Thruster 1
+		{"pos": Vector3(-0.3, 0, -0.48), "dir": Vector3(0, 1, 0)},    # Thruster 2 (depth)
+		{"pos": Vector3(0.3, 0, -0.48), "dir": Vector3(-1, 0, 0)},    # Thruster 3 (torpedo)
+		{"pos": Vector3(0.7, 0, -0.48), "dir": Vector3(1, 0, -1)},    # Thruster 4
+		{"pos": Vector3(-0.7, 0, 0.48), "dir": Vector3(-1, 0, 1)},    # Thruster 5
+		{"pos": Vector3(0.3, 0, 0.48), "dir": Vector3(1, 0, 0)},      # Thruster 6 (torpedo)
+		{"pos": Vector3(-0.3, 0, 0.48), "dir": Vector3(0, 1, 0)},     # Thruster 7 (depth)
+		{"pos": Vector3(0.7, 0, 0.48), "dir": Vector3(1, 0, 1)}       # Thruster 8
+	]
 
-	# Horizontal thrusters (X-configuration)
-	thrusters.append(Thruster.new(Vector3(0.3, 0, 0.3), Vector3(1, 0, -1), max_thrust))
-	thrusters.append(Thruster.new(Vector3(-0.3, 0, 0.3), Vector3(-1, 0, -1), max_thrust))
-	thrusters.append(Thruster.new(Vector3(-0.3, 0, -0.3), Vector3(-1, 0, 1), max_thrust))
-	thrusters.append(Thruster.new(Vector3(0.3, 0, -0.3), Vector3(1, 0, 1), max_thrust))
-
-	# Vertical thrusters
-	thrusters.append(Thruster.new(Vector3(0.25, 0.1, 0.25), Vector3(0, 1, 0), max_thrust))
-	thrusters.append(Thruster.new(Vector3(-0.25, 0.1, 0.25), Vector3(0, 1, 0), max_thrust))
-	thrusters.append(Thruster.new(Vector3(-0.25, 0.1, -0.25), Vector3(0, 1, 0), max_thrust))
-	thrusters.append(Thruster.new(Vector3(0.25, 0.1, -0.25), Vector3(0, 1, 0), max_thrust))
+	for i in range(thruster_configs.size()):
+		if i < thruster_nodes.size() and thruster_nodes[i]:
+			var config = thruster_configs[i]
+			var thruster = Thruster.new(config.pos, config.dir, max_thrust, thruster_nodes[i])
+			thrusters.append(thruster)
 
 func setup_websocket():
 	# Connect WebSocket signals
@@ -213,6 +260,9 @@ func _process(delta):
 	if ws_connected:
 		ws.poll()
 
+	# Update thruster visuals
+	update_thruster_visuals()
+
 	# Send state updates at regular intervals
 	state_timer += delta
 	if state_timer >= STATE_INTERVAL and ws_connected:
@@ -225,6 +275,11 @@ func _process(delta):
 		camera_timer = 0
 		send_camera_image()
 		send_depth_image()
+
+func update_thruster_visuals():
+	# Update visual feedback for all thrusters
+	for thruster in thrusters:
+		thruster.update_visual(material_neutral, material_forward, material_reverse)
 
 func _physics_process(delta):
 	# Apply forces from cmd_vel (simplified)
