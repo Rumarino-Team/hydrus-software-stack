@@ -1,19 +1,21 @@
-"""Contains several classes that hold information from Wayfinder.
-"""
-#pylint: disable=too-many-lines
-#pylint: disable=too-many-instance-attributes
-#pylint: disable=too-many-statements
+"""Contains several classes that hold information from Wayfinder."""
+
+# pylint: disable=too-many-lines
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-statements
+import datetime
 import math
 import struct
-import datetime
 from enum import Enum, auto
+
 import numpy as np
-from dvl.packets import AppLayerPacket, AppLayerIdType, calc_checksum
+from dvl.packets import AppLayerIdType, AppLayerPacket, calc_checksum
 from dvl.util import Setting, indent_string
 
-class DateTime():
-    """Date and time helper class for getting/setting system time.
-    """
+
+class DateTime:
+    """Date and time helper class for getting/setting system time."""
+
     _STRUCTURE_ID = 0x23
     _VERSION = 0x10
     _SIZE = 12
@@ -21,12 +23,11 @@ class DateTime():
 
     @classmethod
     def decode(cls, packet: AppLayerPacket):
-        """Decodes date and time from application layer packet.
-        """
+        """Decodes date and time from application layer packet."""
         arr = packet.get_payload()
         if len(arr) < DateTime._SIZE:
             return None
-        arr = arr[DateTime._OFFSET:]
+        arr = arr[DateTime._OFFSET :]
         try:
             [size] = struct.unpack("I", arr[2:6])
             if size != DateTime._SIZE:
@@ -42,7 +43,9 @@ class DateTime():
             if day <= 0 or day > 31 or month <= 0 or month > 12:
                 date_time = None
             else:
-                date_time = datetime.datetime(year, month, day, hour, minutes, second, 0)
+                date_time = datetime.datetime(
+                    year, month, day, hour, minutes, second, 0
+                )
         except ValueError:
             date_time = None
         return date_time
@@ -63,10 +66,10 @@ class DateTime():
         AppLayerPacket
             Application layer packet class.
         """
-        arr = bytearray(DateTime._SIZE+4)
+        arr = bytearray(DateTime._SIZE + 4)
         struct.pack_into("I", arr, 0, cmd_id)
         year = date_time.year
-        year = year - int(year/100) * 100
+        year = year - int(year / 100) * 100
         arr[4] = DateTime._STRUCTURE_ID
         arr[5] = DateTime._VERSION
         struct.pack_into("I", arr, 6, DateTime._SIZE)
@@ -80,10 +83,11 @@ class DateTime():
         pkt.create_from_payload(AppLayerIdType.CMD_BIN, arr)
         return pkt
 
+
 class SystemInfo:
-    """Class that contains system information.
-    """
-    #pylint: disable=too-many-instance-attributes
+    """Class that contains system information."""
+
+    # pylint: disable=too-many-instance-attributes
 
     _STRUCTURE_ID = 0x21
     _VERSION = 0x10
@@ -155,8 +159,7 @@ class SystemInfo:
         )
 
     def to_string(self):
-        """Outputs information to string for logging
-        """
+        """Outputs information to string for logging"""
         return (
             "System Info\n"
             "-----------\n"
@@ -174,21 +177,20 @@ class SystemInfo:
             self.system_id,
             self.xducer_type,
             self.beam_angle,
-            self.has_vertical_beam
+            self.has_vertical_beam,
         )
+
     def decode(self, packet: AppLayerPacket):
-        """Decodes system info from application layer packet.
-        """
+        """Decodes system info from application layer packet."""
         arr = packet.get_payload()
         self.decode_from_array(arr)
 
     def decode_from_array(self, arr: bytearray):
-        """Decodes system info from byte array.
-        """
+        """Decodes system info from byte array."""
         length = len(arr)
         if length < SystemInfo._SIZE + SystemInfo._OFFSET - 2:
             return
-        arr = arr[SystemInfo._OFFSET:]
+        arr = arr[SystemInfo._OFFSET :]
         try:
             self.struct_id = arr[0]
             self.version = arr[1]
@@ -215,17 +217,18 @@ class SystemInfo:
             self.is_valid = False
 
     def get_fw_version(self):
-        """Returns firmware version string in format 'x.xx.xx.xx'.
-        """
+        """Returns firmware version string in format 'x.xx.xx.xx'."""
         if self.is_valid:
             return "{0:d}.{1:02d}.{2:02d}.{3:02d}".format(
-                self.fw_major_version, self.fw_minor_version,
-                self.fw_patch_version, self.fw_build_version)
+                self.fw_major_version,
+                self.fw_minor_version,
+                self.fw_patch_version,
+                self.fw_build_version,
+            )
         return "-"
 
     def get_settings(self):
-        """Returns system info in form of settings.
-        """
+        """Returns system info in form of settings."""
         settings = []
 
         setting = Setting(0, "Frequency", self.frequency * 0.001, "{0:.0f}", "kHz")
@@ -246,10 +249,11 @@ class SystemInfo:
 
         return settings
 
+
 class SystemComponents:
-    """Class that contains system hardware components information.
-    """
-    #pylint: disable=too-many-instance-attributes
+    """Class that contains system hardware components information."""
+
+    # pylint: disable=too-many-instance-attributes
 
     _STRUCTURE_ID = 0x29
     _VERSION = 0x10
@@ -282,8 +286,9 @@ class SystemComponents:
     def __str__(self):
         boards = ""
         for i in range(self._NUM_HARDWARE):
-            boards += "{0}{1} : {2}\n".format(self.hardware_pn[i],\
-                self.hardware_rev[i], self.hardware_sn[i])
+            boards += "{0}{1} : {2}\n".format(
+                self.hardware_pn[i], self.hardware_rev[i], self.hardware_sn[i]
+            )
         return (
             "System Components\n"
             "-----------\n"
@@ -298,40 +303,35 @@ class SystemComponents:
             self.version,
             self.size,
             self.num_hardware,
-            indent_string(boards)
+            indent_string(boards),
         )
 
     def to_string(self):
-        """Outputs information to string for logging
-        """
+        """Outputs information to string for logging"""
         boards = ""
         for i in range(self._NUM_HARDWARE):
-            boards += "{0}{1} : {2}\n".format(self.hardware_pn[i],\
-                self.hardware_rev[i], self.hardware_sn[i])
+            boards += "{0}{1} : {2}\n".format(
+                self.hardware_pn[i], self.hardware_rev[i], self.hardware_sn[i]
+            )
         return (
             "System Components\n"
             "-----------\n"
             "Components       : {}\n"
             "Boards           :\n"
             "{}\n"
-        ).format(
-            self.num_hardware,
-            indent_string(boards)
-        )
+        ).format(self.num_hardware, indent_string(boards))
 
     def decode(self, packet: AppLayerPacket):
-        """Decodes system info from application layer packet.
-        """
+        """Decodes system info from application layer packet."""
         arr = packet.get_payload()
         self.decode_from_array(arr)
 
     def decode_from_array(self, arr: bytearray):
-        """Decodes system info from byte array.
-        """
+        """Decodes system info from byte array."""
         length = len(arr)
         if length < SystemComponents._SIZE + SystemComponents._OFFSET - 2:
             return
-        arr = arr[SystemComponents._OFFSET:]
+        arr = arr[SystemComponents._OFFSET :]
         try:
             self.struct_id = arr[0]
             self.version = arr[1]
@@ -343,13 +343,19 @@ class SystemComponents:
             self.hardware_sn = []
             if self.num_hardware == SystemComponents._NUM_HARDWARE:
                 for _ in range(SystemComponents._NUM_HARDWARE):
-                    limit = offset+32
+                    limit = offset + 32
                     data = arr[offset:limit]
-                    data_bin = data.strip(b'\x00').split(b"\x00")
+                    data_bin = data.strip(b"\x00").split(b"\x00")
                     if len(data_bin) >= 3:
-                        self.hardware_pn.append(data_bin[0].decode("utf-8", errors='ignore'))
-                        self.hardware_rev.append(data_bin[1].decode("utf-8", errors='ignore'))
-                        self.hardware_sn.append(data_bin[2].decode("utf-8", errors='ignore'))
+                        self.hardware_pn.append(
+                            data_bin[0].decode("utf-8", errors="ignore")
+                        )
+                        self.hardware_rev.append(
+                            data_bin[1].decode("utf-8", errors="ignore")
+                        )
+                        self.hardware_sn.append(
+                            data_bin[2].decode("utf-8", errors="ignore")
+                        )
                     offset = limit
 
             self.is_valid = True
@@ -358,16 +364,14 @@ class SystemComponents:
             self.is_valid = False
 
     def get_index(self, string):
-        """Returns index of string in part number.
-        """
+        """Returns index of string in part number."""
         for i in range(len(self.hardware_pn)):
             if string in self.hardware_pn[i]:
                 return i
         return 0
 
     def get_settings(self):
-        """Returns system info in form of settings.
-        """
+        """Returns system info in form of settings."""
         settings = []
 
         cpu = self.get_index("CPU")
@@ -430,12 +434,17 @@ class SystemComponents:
         return settings
 
     def _get_hardware_pn_sn_string(self, num):
-        return self.hardware_pn[num] + self.hardware_rev[num] + " / " + self.hardware_sn[num]
+        return (
+            self.hardware_pn[num]
+            + self.hardware_rev[num]
+            + " / "
+            + self.hardware_sn[num]
+        )
 
 
 class SystemFeatures:
-    """Class that contains system features results.
-    """
+    """Class that contains system features results."""
+
     _STRUCTURE_ID = 0x26
     _VERSION = 0x10
     _SIZE = 7
@@ -472,8 +481,7 @@ class SystemFeatures:
         )
 
     def to_string(self):
-        """Outputs information to string for logging
-        """
+        """Outputs information to string for logging"""
         return (
             "System Features\n"
             "---------------\n"
@@ -485,12 +493,11 @@ class SystemFeatures:
         )
 
     def decode_from_array(self, arr: bytearray):
-        """Decodes system features from byte array.
-        """
+        """Decodes system features from byte array."""
         length = len(arr)
         if length < SystemFeatures._SIZE + SystemFeatures._OFFSET:
             return
-        arr = arr[SystemFeatures._OFFSET:]
+        arr = arr[SystemFeatures._OFFSET :]
         try:
             self.struct_id = arr[0]
             self.version = arr[1]
@@ -508,26 +515,23 @@ class SystemFeatures:
             self.is_valid = False
 
     def decode(self, packet: AppLayerPacket):
-        """Decodes system features from application layer packet.
-        """
+        """Decodes system features from application layer packet."""
         self.decode_from_array(packet.get_payload())
 
     @classmethod
     def encode(cls, feature_code: bytearray, cmd_id: int):
-        """Encodes arr of feature codes to AppLayerPacket.
-        """
+        """Encodes arr of feature codes to AppLayerPacket."""
         length = len(feature_code)
         arr = bytearray(length + 4)
         struct.pack_into("I", arr, 0, cmd_id)
         for i in range(length):
-            arr[i+4] = feature_code[i]
+            arr[i + 4] = feature_code[i]
         pkt = AppLayerPacket()
         pkt.create_from_payload(AppLayerIdType.CMD_BIN, arr)
         return pkt
 
     def get_settings(self):
-        """Returns array of settings for features.
-        """
+        """Returns array of settings for features."""
         features_names = ["Base accuracy feature", "High accuracy feature"]
         settings = []
         for i in range(SystemFeatures._NUM_FEATURES):
@@ -536,31 +540,32 @@ class SystemFeatures:
             settings.append(setting)
         return settings
 
+
 def _init_features(num: int):
-    """Initialize array of settings for tests
-    """
+    """Initialize array of settings for tests"""
     features = []
     for _ in range(num):
         features.append(0)
     return features
 
-def _features_to_string(value: int) ->str:
-    """Converts feature value to string
-    """
+
+def _features_to_string(value: int) -> str:
+    """Converts feature value to string"""
     value_string = "-"
     if value == 1:
         value_string = "✓"
     return value_string
 
+
 class SystemSetup:
-    """Class that contains user system setup.
-    """
-    #pylint: disable=too-many-instance-attributes
+    """Class that contains user system setup."""
+
+    # pylint: disable=too-many-instance-attributes
 
     _STRUCTURE_ID = 0x22
     _VERSION = 0x11
     _SIZE = 16
-    _SIZEx11 = 16+4
+    _SIZEx11 = 16 + 4
     _OFFSET = 6
 
     def __init__(self):
@@ -603,12 +608,11 @@ class SystemSetup:
             self.baud_rate_type,
             self.speed_of_sound,
             self.max_depth,
-            self.max_vb_range
+            self.max_vb_range,
         )
 
     def to_string(self):
-        """Outputs information to string for logging
-        """
+        """Outputs information to string for logging"""
         baud_rate = 115200 if self.baud_rate_type == 7 else 9600
         return (
             "System Setup\n"
@@ -620,18 +624,19 @@ class SystemSetup:
             "Max VB range     : {:.3f}\n\n"
         ).format(
             self.software_trigger,
-            baud_rate, self.baud_rate_type,
+            baud_rate,
+            self.baud_rate_type,
             self.speed_of_sound,
             self.max_depth,
-            self.max_vb_range
+            self.max_vb_range,
         )
+
     def decode_from_array(self, arr: bytearray):
-        """Decodes system setup from byte array.
-        """
+        """Decodes system setup from byte array."""
         length = len(arr)
         if length < SystemSetup._SIZE + SystemSetup._OFFSET:
             return
-        arr = arr[SystemSetup._OFFSET:]
+        arr = arr[SystemSetup._OFFSET :]
         try:
             self.struct_id = arr[0]
             self.version = arr[1]
@@ -649,12 +654,11 @@ class SystemSetup:
 
     @classmethod
     def encode(cls, setup, cmd_id: int):
-        """Encodes system setup to application layer packet.
-        """
+        """Encodes system setup to application layer packet."""
         if setup.version > 0x10:
-            arr = bytearray(SystemSetup._SIZEx11+4)
+            arr = bytearray(SystemSetup._SIZEx11 + 4)
         else:
-            arr = bytearray(SystemSetup._SIZE+4)
+            arr = bytearray(SystemSetup._SIZE + 4)
         struct.pack_into("I", arr, 0, cmd_id)
         arr[4] = setup.struct_id
         arr[5] = setup.version
@@ -668,14 +672,12 @@ class SystemSetup:
         return pkt
 
     def decode(self, packet: AppLayerPacket):
-        """Decodes system setup from application layer packet.
-        """
+        """Decodes system setup from application layer packet."""
         arr = packet.get_payload()
         self.decode_from_array(arr)
 
     def get_settings(self):
-        """Returns system setup in form of settings.
-        """
+        """Returns system setup in form of settings."""
         settings = []
 
         setting = Setting(0, "Software trigger", self.software_trigger, "{0:d}")
@@ -697,8 +699,7 @@ class SystemSetup:
         return settings
 
     def set_from_settings(self, settings):
-        """Sets system setup from settings.
-        """
+        """Sets system setup from settings."""
         if len(settings) < SetupIdType.NUM_SETTINGS.value:
             return
         self.software_trigger = settings[0].value
@@ -706,9 +707,10 @@ class SystemSetup:
         self.speed_of_sound = settings[2].value
         self.max_depth = settings[3].value
 
+
 class SystemTests:
-    """Class that contains system tests results.
-    """
+    """Class that contains system tests results."""
+
     _STRUCTURE_ID = 0x24
     _VERSION = 0x10
     _SIZE = 12
@@ -728,24 +730,20 @@ class SystemTests:
         """List of test results."""
 
     def to_string(self):
-        """Outputs information to string for logging
-        """
+        """Outputs information to string for logging"""
         tests = self.get_settings()
         txt = "System Tests\n" + "------------\n"
         for test in tests:
-            txt += "{0:20s}: {1}\n".format(test.name,\
-               _test_to_string(test.value))
+            txt += "{0:20s}: {1}\n".format(test.name, _test_to_string(test.value))
         return txt
 
     def decode(self, pkt: AppLayerPacket):
-        """Decodes system tests from application layer packet.
-        """
+        """Decodes system tests from application layer packet."""
         arr = pkt.get_payload()
         self.decode_from_array(arr)
 
     def decode_from_array(self, arr: bytearray):
-        """Decodes system tests from byte array.
-        """
+        """Decodes system tests from byte array."""
         length = len(arr)
         offset = 6
         if length == SystemTests._STATUS_SIZE:
@@ -757,34 +755,39 @@ class SystemTests:
             [self.size] = struct.unpack("I", arr[2:6])
             self.tests = []
             for i in range(SystemTests._NUM_TESTS):
-                self.tests.append(arr[6+i])
+                self.tests.append(arr[6 + i])
             self.is_valid = True
 
         except ValueError:
             self.is_valid = False
 
     def get_settings(self):
-        """Returns arrays of settings for tests.
-        """
-        test_names = ["SDRAM test", "FRAM test", "RTC test", \
-        "EEPROM test", "QSPI DSC test", "ADC test"]
+        """Returns arrays of settings for tests."""
+        test_names = [
+            "SDRAM test",
+            "FRAM test",
+            "RTC test",
+            "EEPROM test",
+            "QSPI DSC test",
+            "ADC test",
+        ]
         settings = []
         for i in range(SystemTests._NUM_TESTS):
             setting = Setting(i, test_names[i], self.tests[i], "{0:d}")
             settings.append(setting)
         return settings
 
+
 def _init_tests(num: int):
-    """Initialize array of settings for tests.
-    """
+    """Initialize array of settings for tests."""
     tests = []
     for _ in range(num):
         tests.append(TestResultIdType.NOT_RUN.value)
     return tests
 
+
 def _test_to_string(value):
-    """Converts test result to string
-    """
+    """Converts test result to string"""
     value_string = "NOT RUN"
     if value == 1:
         value_string = "PASSED"
@@ -792,9 +795,10 @@ def _test_to_string(value):
         value_string = "FAILED"
     return value_string
 
+
 class SystemUpdate:
-    """Class that contains system firmware update logic.
-    """
+    """Class that contains system firmware update logic."""
+
     _STRUCTURE_ID = 0x27
     _VERSION = 0x10
     _SIZE = 14
@@ -809,9 +813,8 @@ class SystemUpdate:
 
     @classmethod
     def encode(cls, file_size: int, chunk_size: int, cmd_id: int):
-        """Encodes request to start firmware update to AppLayerPacket.
-        """
-        arr = bytearray(SystemUpdate._SIZE+4)
+        """Encodes request to start firmware update to AppLayerPacket."""
+        arr = bytearray(SystemUpdate._SIZE + 4)
         struct.pack_into("I", arr, 0, cmd_id)
         arr[4] = SystemUpdate._STRUCTURE_ID
         arr[5] = SystemUpdate._VERSION
@@ -824,20 +827,20 @@ class SystemUpdate:
 
     @classmethod
     def encode_data(cls, data: bytearray, cmd_id: int, chunk_size: int):
-        """Encodes request to start firmware update to AppLayerPacket.
-        """
+        """Encodes request to start firmware update to AppLayerPacket."""
         length = len(data)
-        arr = bytearray(chunk_size+4)
+        arr = bytearray(chunk_size + 4)
         struct.pack_into("I", arr, 0, cmd_id)
-        arr[4:4+length] = data
+        arr[4 : 4 + length] = data
         pkt = AppLayerPacket()
         pkt.create_from_payload(AppLayerIdType.CMD_BIN, arr)
         return pkt
 
+
 class SystemUpdateStatus:
-    """Class that contains system firmware update status.
-    """
-    #pylint: disable=too-many-instance-attributes
+    """Class that contains system firmware update status."""
+
+    # pylint: disable=too-many-instance-attributes
     _STRUCTURE_ID = 0x28
     _VERSION = 0x10
     _SIZE = 11
@@ -864,12 +867,11 @@ class SystemUpdateStatus:
         """Firmware update status."""
 
     def decode_from_array(self, arr: bytearray):
-        """Decodes system firmware update status from byte array.
-        """
+        """Decodes system firmware update status from byte array."""
         length = len(arr)
         if length < SystemUpdateStatus._SIZE + SystemUpdateStatus._OFFSET:
             return
-        arr = arr[SystemUpdateStatus._OFFSET:]
+        arr = arr[SystemUpdateStatus._OFFSET :]
         try:
             self.struct_id = arr[0]
             self.version = arr[1]
@@ -885,14 +887,13 @@ class SystemUpdateStatus:
             self.is_valid = False
 
     def decode(self, packet: AppLayerPacket):
-        """Decodes system update from application layer packet.
-        """
+        """Decodes system update from application layer packet."""
         arr = packet.get_payload()
         self.decode_from_array(arr)
 
+
 class OutputData:
-    """Class that contains output ping data.
-     """
+    """Class that contains output ping data."""
 
     _MIN_SIZE = 87
     _VERSION = 0x11
@@ -906,7 +907,7 @@ class OutputData:
 
         length = len(arr)
         [self.size] = struct.unpack("I", arr[2:6])
-        self.is_valid = (length == self.size)
+        self.is_valid = length == self.size
         """Defines if data in the class are valid."""
         if length < OutputData._MIN_SIZE:
             self.is_valid = False
@@ -961,7 +962,9 @@ class OutputData:
         """Beam 3 or Z velocity in m/s."""
         self.vel_err = 0
         """Beam 4 or error velocity in m/s."""
-        [self.vel_x, self.vel_y, self.vel_z, self.vel_err] = struct.unpack("ffff", arr[21:37])
+        [self.vel_x, self.vel_y, self.vel_z, self.vel_err] = struct.unpack(
+            "ffff", arr[21:37]
+        )
         self.range_beam1 = 0
         """ Beam 1 range to bottom in meters."""
         self.range_beam2 = 0
@@ -970,8 +973,12 @@ class OutputData:
         """ Beam 3 range to bottom in meters."""
         self.range_beam4 = 0
         """ Beam 4 range to bottom in meters."""
-        [self.range_beam1, self.range_beam2, self.range_beam3, self.range_beam4] \
-            = struct.unpack("ffff", arr[37:53])
+        [
+            self.range_beam1,
+            self.range_beam2,
+            self.range_beam3,
+            self.range_beam4,
+        ] = struct.unpack("ffff", arr[37:53])
         self.mean_range = 0
         """ Mean range to bottom in meters."""
         [self.mean_range] = struct.unpack("f", arr[53:57])
@@ -1001,7 +1008,7 @@ class OutputData:
         else:
             start = 83
             try:
-                value = arr[77:83].decode("utf-8", errors='ignore')
+                value = arr[77:83].decode("utf-8", errors="ignore")
             except UnicodeDecodeError:
                 value = "0"
             self.serial_number = value
@@ -1052,7 +1059,7 @@ class OutputData:
         valid = False
         if self.is_valid:
             if component is None:
-                valid = not(math.isnan(self.vel_x) or math.isnan(self.vel_y))
+                valid = not (math.isnan(self.vel_x) or math.isnan(self.vel_y))
             if isinstance(component, int):
                 if component == 1:
                     valid = not math.isnan(self.vel_x)
@@ -1064,23 +1071,31 @@ class OutputData:
                     valid = not math.isnan(self.vel_err)
         return valid
 
-    def get_fw_version(self) ->str:
-        """Gets firmware version as string
-        """
+    def get_fw_version(self) -> str:
+        """Gets firmware version as string"""
         if self.is_valid:
-            return "{0:d}.{1:02d}.{2:02d}.{3:02d}".format(self.fw_major_version,\
-               self.fw_minor_version, self.fw_patch_version, self.fw_build_version)
+            return "{0:d}.{1:02d}.{2:02d}.{3:02d}".format(
+                self.fw_major_version,
+                self.fw_minor_version,
+                self.fw_patch_version,
+                self.fw_build_version,
+            )
         return "-"
 
     def get_date_time(self):
-        """Gets date time
-        """
-        return datetime.datetime(self.year, self.month, self.day, \
-            self.hour, self.minute, self.second, self.millisecond * 1000)
+        """Gets date time"""
+        return datetime.datetime(
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.millisecond * 1000,
+        )
 
     def _create_empty(self):
-        """Create empty structure
-        """
+        """Create empty structure"""
         self.count = 0
         self.struct_id = 0
         self.version = 0
@@ -1113,8 +1128,7 @@ class OutputData:
         self.is_valid = False
 
     def get_settings(self):
-        """Returns data in form of settings
-        """
+        """Returns data in form of settings"""
         settings = []
         settings.append(Setting(0, "Count", self.count, "{0:d}"))
 
@@ -1122,8 +1136,9 @@ class OutputData:
         setting = Setting(1, "Date", date, "{0:s}")
         settings.append(setting)
 
-        time = "{:02d}:{:02d}:{:02d}.{:03d}".format(self.hour, \
-            self.minute, self.second, self.millisecond)
+        time = "{:02d}:{:02d}:{:02d}.{:03d}".format(
+            self.hour, self.minute, self.second, self.millisecond
+        )
         setting = Setting(2, "Time", time, "{0:s}")
         settings.append(setting)
 
@@ -1180,11 +1195,12 @@ class OutputData:
 
         return settings
 
+
 class FftTest:
-    """Class that contains FFT (interference) test
-    """
-    #pylint: disable=too-many-instance-attributes
-    #pylint: disable=too-few-public-methods
+    """Class that contains FFT (interference) test"""
+
+    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-few-public-methods
     _STRUCTURE_ID = 0x25
     _VERSION = 0x10
     _SIZE = 34
@@ -1216,9 +1232,8 @@ class FftTest:
 
     @classmethod
     def encode(cls, setup, cmd_id: int):
-        """Encodes system setup to byte array
-        """
-        arr = bytearray(FftTest._SIZE+4)
+        """Encodes system setup to byte array"""
+        arr = bytearray(FftTest._SIZE + 4)
         struct.pack_into("I", arr, 0, cmd_id)
         arr[4] = setup.struct_id
         arr[5] = FftTest._VERSION
@@ -1234,10 +1249,11 @@ class FftTest:
         pkt.create_from_payload(AppLayerIdType.CMD_BIN, arr)
         return pkt
 
+
 class FftData:
-    """Class that contains FFT (interference) test data
-    """
-    #pylint: disable=too-many-instance-attributes
+    """Class that contains FFT (interference) test data"""
+
+    # pylint: disable=too-many-instance-attributes
     NUM_BEAMS = 4
     _SIZE = 32812
 
@@ -1261,8 +1277,7 @@ class FftData:
             self.decode_from_array(arr)
 
     def decode_from_array(self, arr: bytearray):
-        """Decodes system tests from byte array
-        """
+        """Decodes system tests from byte array"""
         length = len(arr)
         if length < FftData._SIZE:
             self.__init__(None)
@@ -1291,7 +1306,7 @@ class FftData:
             fft_len = samples
             for i in range(fft_len):
                 for beam_data in self.data:
-                    end = offset+8
+                    end = offset + 8
                     [real, imag] = struct.unpack("ii", arr[offset:end])
                     offset = end
                     beam_data.signal[i] = complex(real, imag)
@@ -1301,19 +1316,17 @@ class FftData:
             self.is_valid = False
 
     def decode(self, packet: AppLayerPacket):
-        """Decodes system tests from application layer packet
-        """
+        """Decodes system tests from application layer packet"""
         self.decode_from_array(packet.get_payload())
 
     def process(self):
-        """Processes FFT data
-        """
+        """Processes FFT data"""
         if self.is_valid:
             base_freq = self.system_freq * 0.001
             freq_khz = base_freq
             if self.bandwidth == 1:
                 freq_khz /= 4.0
-            freqband = freq_khz/self.fft_len
+            freqband = freq_khz / self.fft_len
             self.xdata = np.zeros(self.fft_len, dtype=np.float)
             for i in range(self.fft_len):
                 self.xdata[i] = freqband * i - freq_khz / 2
@@ -1322,8 +1335,7 @@ class FftData:
                 beam_data.frequency_peak = self.xdata[beam_data.peak_index] + base_freq
 
     def average(self, fft):
-        """Averages FFT
-        """
+        """Averages FFT"""
         if self.count == 0:
             self.xdata = fft.xdata
             self.data = fft.data
@@ -1337,10 +1349,11 @@ class FftData:
             beam_data.frequency_peak = self.xdata[beam_data.peak_index] + base_freq
         self.count += 1
 
+
 class FftBeamData:
-    """Class that stores FFT beam data
-    """
-    #pylint: disable=too-many-instance-attributes
+    """Class that stores FFT beam data"""
+
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, beam_no: int, fft_len: int):
         self.beam = beam_no
         """Beam number (0-3)"""
@@ -1362,17 +1375,16 @@ class FftBeamData:
         """Flag to indicate if data were processed."""
 
     def do_fft(self):
-        """Performs FFT.
-        """
+        """Performs FFT."""
         data = self.signal
         spectrum = np.fft.fft(data)
         mag2 = 0
         for i in range(self.fft_len):
             mag = abs(spectrum[i])
-            mag2 += mag*mag
+            mag2 += mag * mag
 
         self.spectrum = np.zeros(self.fft_len, dtype=np.float)
-        half = int(self.fft_len/2)
+        half = int(self.fft_len / 2)
         for i in range(half):
             k = i + half
             self.spectrum[k] = _normalize(spectrum[i], mag2)
@@ -1396,8 +1408,7 @@ class FftBeamData:
         self.power_peak = self.power_ratio[self.peak_index]
 
     def average(self, beam_data, count: int):
-        """Averages FFT data in a beam.
-        """
+        """Averages FFT data in a beam."""
         if self.processed:
             if count == 0:
                 for i in range(self.fft_len):
@@ -1408,9 +1419,9 @@ class FftBeamData:
                     self.spectrum[i] = value / (count + 1)
             self._calc_power()
 
-def _normalize(value, mag: float) ->float:
-    """Normalizes FFT.
-    """
+
+def _normalize(value, mag: float) -> float:
+    """Normalizes FFT."""
     norm = 0
     if mag > 0:
         avalue = abs(value)
@@ -1418,9 +1429,10 @@ def _normalize(value, mag: float) ->float:
         norm = rnorm
     return norm
 
+
 class SystemInfoIdType(Enum):
-    """Enumerated type class that defines system info IDs.  Used with list of settings for display.
-    """
+    """Enumerated type class that defines system info IDs.  Used with list of settings for display."""
+
     FREQUENCY = 0
     """Frequency ID."""
     FIRMWARE_VERSION = auto()
@@ -1433,8 +1445,9 @@ class SystemInfoIdType(Enum):
 
 class ComponentsIdType(Enum):
     """Enumerated type class that defines hardware components IDs.
-       Used with list of settings for display.
+    Used with list of settings for display.
     """
+
     CPU_PN = 0
     """CPU part number."""
     XDR_PN = auto()
@@ -1468,25 +1481,28 @@ class ComponentsIdType(Enum):
     SYS_PN_SN = auto()
     """SYS part and serial number."""
 
+
 class FeaturesIdType(Enum):
-    """Enumerated type class that defines features IDs.  Used with list of settings for display.
-    """
+    """Enumerated type class that defines features IDs.  Used with list of settings for display."""
+
     BASE_ACC_FEATURE = 0
     """Base accuracy feature."""
     HIGH_ACC_FEATURE = 1
     """High accuracy feature."""
 
+
 class BaudRateType(Enum):
-    """Enumerated type class that defines baud rate types.
-    """
+    """Enumerated type class that defines baud rate types."""
+
     BAUD_9600 = 3
     """9600 baud rate."""
     BAUD_115200 = 7
     """115200 baud rate."""
 
+
 class SetupIdType(Enum):
-    """Enumerated type class that defines system setup IDs. Used with list of settings for display.
-    """
+    """Enumerated type class that defines system setup IDs. Used with list of settings for display."""
+
     SOFTWARE_TRIGGER = 0
     """Software trigger."""
     BAUD_RATE_TYPE = auto()
@@ -1498,9 +1514,10 @@ class SetupIdType(Enum):
     NUM_SETTINGS = auto()
     """Number of setup settings"""
 
+
 class TestsIdType(Enum):
-    """Enumerated type class that defines system tests IDs.  Used with list of settings for display.
-    """
+    """Enumerated type class that defines system tests IDs.  Used with list of settings for display."""
+
     SDRAM_TEST = 0
     """SDRAM test."""
     FRAM_TEST = auto()
@@ -1514,9 +1531,10 @@ class TestsIdType(Enum):
     ADC_TEST = auto()
     """ADC test."""
 
+
 class TestResultIdType(Enum):
-    """Enumerated type class that defines system tests results IDs.
-    """
+    """Enumerated type class that defines system tests results IDs."""
+
     NOT_RUN = -1
     """Test was not executed yet."""
     FAILED = auto()
@@ -1531,6 +1549,7 @@ class DataIdType(Enum):
     """Enumerated type class that defines IDs for output data. \
    Used with list of settings for display.
     """
+
     COUNT = 0
     """Count of packets."""
     DATE = auto()

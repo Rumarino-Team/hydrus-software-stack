@@ -10,10 +10,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Build Hydrus AMD64 Docker with cache
         uses: docker/build-push-action@v5
         with:
@@ -23,9 +23,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
-      
-      - name: Run Tests using run_docker.sh
+
+      - name: Run Tests using Hocker
         run: |
-          cd docker
-          chmod +x run_docker.sh
-          ./run_docker.sh --test
+          cd docker/hydrus-docker
+          chmod +x hocker
+          ./hocker --test

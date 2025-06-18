@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- 
+  <!--
     CV Publishers Launch File
     This launch file starts the cv_publishers node with proper topic parameters
   -->
@@ -10,7 +10,7 @@
   <arg name="depth_topic" default="/zed2i/zed_node/depth/depth_registered" />
   <arg name="camera_info_topic" default="/zed2i/zed_node/rgb/camera_info" />
   <arg name="camera_pose_topic" default="/zed2i/zed_node/pose" />
-  
+
   <!-- Launch the cv_publishers node with specified topics -->
   <node pkg="autonomy" type="cv_publishers.py" name="cv_publisher" output="screen">
     <param name="rgb_image_topic" value="$(arg rgb_topic)" />

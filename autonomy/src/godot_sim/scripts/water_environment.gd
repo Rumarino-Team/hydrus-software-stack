@@ -26,26 +26,26 @@ func _ready():
 		var mat = water_surface.get_surface_override_material(0)
 		if mat:
 			mat.albedo_color = water_color
-		
+
 	if water_volume:
 		var volume_material = water_volume.get_surface_override_material(0)
 		if volume_material:
 			volume_material.albedo_color = Color(water_color.r, water_color.g, water_color.b, 0.1)
-			
+
 	# Initialize lighting
 	if ambient_light and ambient_light.environment:
 		ambient_light.environment.ambient_light_color = ambient_light_color
-		
+
 	if directional_light:
 		directional_light.light_color = directional_light_color
 		directional_light.light_energy = directional_light_energy
-	
+
 	# Apply water effects to cameras in the scene
 	setup_underwater_effects()
-	
+
 	# Add collision detection for water volume
 	add_water_collision()
-	
+
 	print("Water environment initialized")
 
 func setup_underwater_effects():
@@ -55,29 +55,29 @@ func setup_underwater_effects():
 		if environment == null:
 			environment = Environment.new()
 			camera.environment = environment
-		
+
 		# Set underwater fog
 		environment.fog_enabled = true
 		environment.fog_color = water_color
 		environment.fog_depth_enabled = true
 		environment.fog_depth_begin = 1.0
 		environment.fog_depth_end = 15.0 * water_clarity
-		
+
 		# Underwater light absorption
 		environment.adjustment_enabled = true
 		environment.adjustment_brightness = 0.9
 		environment.adjustment_contrast = 1.1
 		environment.adjustment_saturation = 1.2
-		
+
 		# Slight color shifting
 		if not environment.adjustment_color_correction:
 			var gradient = Gradient.new()
 			gradient.add_point(0.0, Color(0.8, 0.9, 1.0))
 			gradient.add_point(1.0, Color(1.0, 1.0, 1.0))
-			
+
 			var gradient_texture = GradientTexture1D.new()
 			gradient_texture.gradient = gradient
-			
+
 			environment.adjustment_color_correction = gradient_texture
 
 func find_cameras(node: Node) -> Array:
@@ -93,11 +93,11 @@ func add_water_collision():
 		var water_area = Area3D.new()
 		water_area.name = "WaterArea"
 		water_volume.add_child(water_area)
-		
+
 		var collision_shape = CollisionShape3D.new()
 		collision_shape.shape = water_volume.mesh.create_convex_shape()
 		water_area.add_child(collision_shape)
-		
+
 		water_area.body_entered.connect(_on_body_entered_water)
 		water_area.body_exited.connect(_on_body_exited_water)
 

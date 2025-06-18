@@ -22,10 +22,10 @@ export var simulation_name := "Hydrus Submarine Simulation"
 func _ready():
     OS.set_window_title(simulation_name)
     print("Starting " + simulation_name)
-    
+
     if enable_target_spawning:
         spawn_targets()
-    
+
     # Connect signals
     if submarine:
         submarine.connect("target_detected", self, "_on_submarine_target_detected")
@@ -34,9 +34,9 @@ func spawn_targets():
     if not target_container or not buoy_scene:
         print("Can't spawn targets: missing target container or scene")
         return
-    
+
     print("Spawning targets...")
-    
+
     # Spawn buoys in a pattern
     var colors = [
         Color(1.0, 0.0, 0.0),  # Red
@@ -45,34 +45,34 @@ func spawn_targets():
         Color(1.0, 1.0, 0.0),  # Yellow
         Color(1.0, 0.0, 1.0)   # Purple
     ]
-    
+
     # Create a grid of targets
     var grid_size = ceil(sqrt(num_targets))
     var index = 0
-    
+
     for i in range(grid_size):
         for j in range(grid_size):
             if index >= num_targets:
                 break
-                
+
             var position = Vector3(
                 (i - grid_size/2) * target_spacing,
                 -1.0 - randf() * 2.0,
                 (j - grid_size/2) * target_spacing
             )
-            
+
             # Create the target
             var target = buoy_scene.instance()
             target_container.add_child(target)
-            
+
             # Configure the target
             target.global_transform.origin = position
             target.target_color = colors[index % colors.size()]
             target.target_id = index
             target.is_moving = (randf() > 0.5)
-            
+
             index += 1
-    
+
     print("Spawned " + str(index) + " targets")
 
 func _on_submarine_target_detected(target):

@@ -1,9 +1,8 @@
-
 from dataclasses import dataclass
 from typing import List, Optional
 
 
-@dataclass 
+@dataclass
 class Point3D:
     x: float
     y: float
@@ -15,7 +14,7 @@ class Rotation3D:
     x: float
     y: float
     z: float
-    w:float
+    w: float
 
 
 @dataclass
@@ -28,6 +27,7 @@ class Detection:
     conf: float
     depth: float = 0
     point: Optional[Point3D] = None
+
 
 @dataclass
 class Detections:
