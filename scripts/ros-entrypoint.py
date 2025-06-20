@@ -62,27 +62,16 @@ class HydrusROSEntrypoint:
 
         print(f"Using ROS workspace: {self.ros_dir}")
 
-        # Find hydrus-cli
-        self.hydrus_cli_path = self._find_hydrus_cli()
-
-    def _find_hydrus_cli(self):
-        """Find hydrus-cli executable"""
-        possible_locations = [
-            "/usr/local/bin/hydrus-cli",
-            "/usr/bin/hydrus-cli",
-            self.ros_dir / "src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli",
-            Path(
-                "/catkin_ws/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
-            ),
-        ]
-
-        for location in possible_locations:
-            if Path(location).exists():
-                print(f"✅ Found hydrus-cli at: {location}")
-                return Path(location)
-
-        print("❌ hydrus-cli not found in any expected location")
-        return None
+        # Always use hydrus-cli from the repo inside the ROS workspace
+        self.hydrus_cli_path = (
+            self.ros_dir / "src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
+        )
+        if self.hydrus_cli_path.exists():
+            print(f"✅ Found hydrus-cli at: {self.hydrus_cli_path}")
+        else:
+            print(
+                f"❌ hydrus-cli not found at expected location: {self.hydrus_cli_path}"
+            )
 
     def build_hydrus_cli_command(self):
         """Build hydrus-cli command based on environment variables"""
@@ -121,13 +110,19 @@ class HydrusROSEntrypoint:
 
         if not self.hydrus_cli_path:
             print("❌ hydrus-cli not found! Cannot start Hydrus software.")
-            print("🔧 Please ensure hydrus-cli is installed in the container.")
-            print("📍 Expected locations:")
-            print("   - /usr/local/bin/hydrus-cli")
-            print("   - /usr/bin/hydrus-cli")
+            print("🔧 Please ensure hydrus-cli is available in the container.")
+            print("📍 Expected locations (in priority order):")
             print(
                 "   - {workspace}/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
             )
+            print(
+                "   - /catkin_ws/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
+            )
+            print(
+                "   - /home/catkin_ws/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
+            )
+            print("   - /usr/local/bin/hydrus-cli")
+            print("   - /usr/bin/hydrus-cli")
             sys.exit(1)
 
         # Build command
