@@ -132,10 +132,41 @@ class HydrusROSEntrypoint:
             print(f"💻 Executing: {' '.join(cmd)}")
             print("=" * 60)
 
-            # Make hydrus-cli executable and replace current process
+            # Make hydrus-cli executable
             try:
                 os.chmod(str(self.hydrus_cli_path), 0o755)
-                os.execv(str(self.hydrus_cli_path), cmd)
+
+                if self.test:
+                    # In test mode, execute and exit when done
+                    os.execv(str(self.hydrus_cli_path), cmd)
+                else:
+                    # In non-test mode, run hydrus-cli and then keep container alive
+                    import subprocess
+                    import time
+
+                    # Start hydrus-cli in background
+                    print("🔄 Running in production mode - container will stay alive")
+                    process = subprocess.Popen(cmd)
+
+                    try:
+                        # Wait for the process and keep container alive
+                        while True:
+                            # Check if process is still running
+                            if process.poll() is not None:
+                                print(
+                                    f"⚠️  hydrus-cli process exited with code {process.returncode}"
+                                )
+                                print("🔄 Keeping container alive...")
+
+                            # Sleep to prevent high CPU usage
+                            time.sleep(10)
+
+                    except KeyboardInterrupt:
+                        print("\n🛑 Received interrupt signal, shutting down...")
+                        process.terminate()
+                        process.wait()
+                        sys.exit(0)
+
             except Exception as e:
                 print(f"❌ Failed to execute hydrus-cli: {e}")
                 sys.exit(1)
