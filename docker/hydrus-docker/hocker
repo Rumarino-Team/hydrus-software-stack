@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Hydrus Docker Deployment Script - Refactored Modular Version
-Clean, modular architecture with separated concerns
+Hocker - Hydrus Docker Deployment Tool (Docker-focused only)
+Pure Docker management - delegates all Hydrus software control to hydrus-cli
 """
 
 import sys
@@ -14,11 +14,10 @@ from cli import CLIParser
 from config import ConfigurationManager
 from docker_manager import DockerManager
 from system_detector import SystemDetector
-from vscode_integration import VSCodeIntegration
 
 
-class HydrusDockerDeployment:
-    """Main orchestrator for Hydrus Docker deployment"""
+class HockerDockerDeployment:
+    """Pure Docker orchestrator - focused only on container management"""
 
     def __init__(self):
         self.script_dir = Path(
@@ -44,8 +43,8 @@ class HydrusDockerDeployment:
         ]
         return active_groups[0] if active_groups else None
 
-    def build_final_configuration(self, args):
-        """Build the final configuration from arguments and groups"""
+    def build_docker_configuration(self, args):
+        """Build Docker configuration from arguments and groups"""
         # Start with base configuration from arguments
         config = self.config_manager.create_base_config(args)
 
@@ -54,10 +53,23 @@ class HydrusDockerDeployment:
         if active_group:
             print(f"🔧 Applying configuration group: {active_group}")
             config = self.config_manager.apply_configuration_group(active_group, config)
-            print(f"🔧 Configuration after applying {active_group}:")
-            for key, value in config.items():
-                if value:  # Only show enabled options
-                    print(f"   {key} = {value}")
+            print(f"🔧 Docker configuration after applying {active_group}:")
+            # Only show Docker-related options
+            docker_options = [
+                "volume",
+                "force_cpu",
+                "force_jetson",
+                "rviz",
+                "zed_option",
+                "rosbag_playback",
+                "debug_arduino",
+                "vscode",
+                "install_vscode_extensions",
+                "no_build",
+            ]
+            for key in docker_options:
+                if config.get(key):
+                    print(f"   {key} = {config[key]}")
         else:
             print("🔧 No configuration group specified, using individual flags")
 
@@ -77,20 +89,44 @@ class HydrusDockerDeployment:
                     )
                     sys.exit(1)
 
+    def show_container_info(self):
+        """Show basic container information"""
+        print("\n" + "=" * 60)
+        print("🐳 DOCKER CONTAINER STARTED")
+        print("=" * 60)
+        print("Container is running in detached mode.")
+        print()
+        print("To interact with the container:")
+        print("  hocker --exec                     # Enter container shell")
+        print()
+        print("Inside the container, use 'hydrus-cli' to control Hydrus software:")
+        print("  hydrus-cli --help                 # Show all available commands")
+        print("  hydrus-cli build                  # Build workspace")
+        print("  hydrus-cli test                   # Run tests")
+        print("  hydrus-cli tmux                   # Start monitoring")
+        print()
+        print("To stop the container:")
+        print("  hocker --destroy                  # Stop and remove containers")
+        print("=" * 60)
+
     def execute_action(self, args, compose_file):
-        """Execute the specified action"""
+        """Execute the specified Docker action"""
         if args.exec:
             self.docker_manager.exec_into_container(compose_file)
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)
         else:
             # Default action: deploy containers
-            config = self.build_final_configuration(args)
+            config = self.build_docker_configuration(args)
             self.handle_rosbag_requirements(config, args)
 
             if args.force_jetson or SystemDetector.is_jetson_tx2():
                 self.docker_manager.run_jetson_deployment()
             else:
+                # For detached mode, show helpful info
+                if args.detach:
+                    self.show_container_info()
+
                 # Pass detach flag to docker manager
                 self.docker_manager.run_docker_compose(
                     compose_file, config, detach=args.detach
@@ -124,5 +160,5 @@ class HydrusDockerDeployment:
 
 
 if __name__ == "__main__":
-    deployment = HydrusDockerDeployment()
+    deployment = HockerDockerDeployment()
     deployment.main()

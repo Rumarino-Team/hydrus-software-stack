@@ -104,5 +104,10 @@ COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
-RUN chmod +x scripts/ros-entrypoint.py
+
+# Install hydrus-cli globally
+RUN cp docker/hydrus-docker/hydrus-cli /usr/local/bin/hydrus-cli && \
+    chmod +x /usr/local/bin/hydrus-cli && \
+    chmod +x scripts/ros-entrypoint.py
+
 CMD ["python3", "scripts/ros-entrypoint.py"]

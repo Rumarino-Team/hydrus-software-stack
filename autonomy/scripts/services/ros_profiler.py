@@ -447,9 +447,11 @@ class ROSNodeProfiler:
                     "memory_mb": stats["memory_mb"][-1],
                     "memory_percent": stats["memory_percent"][-1],
                     "topic_count": len(stats["fps"]),
-                    "avg_fps": sum(stats["fps"].values()) / len(stats["fps"])
-                    if stats["fps"]
-                    else 0,
+                    "avg_fps": (
+                        sum(stats["fps"].values()) / len(stats["fps"])
+                        if stats["fps"]
+                        else 0
+                    ),
                     "total_cpu_time": stats["total_cpu_time"],
                     "memory_peak": stats["total_memory_peak"],
                     "uptime": current_time - stats["start_time"],
