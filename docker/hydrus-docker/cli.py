@@ -39,14 +39,26 @@ Examples:
   # Deployment with VS Code integration
   python3 run_docker.py --vscode --install-vscode-extensions
 
-  # Execute into running container
+  # Execute into running container (NEW WORKFLOW)
   python3 run_docker.py --exec
+  # Inside container, use: hydrus-cli build --test --tmux
 
   # Destroy all containers
   python3 run_docker.py --destroy
 
   # Override configuration group settings
   python3 run_docker.py --development --force-cpu --no-debug-arduino
+
+HYDRUS-CLI WORKFLOW:
+  After using --exec to enter the container, use 'hydrus-cli' for software control:
+  hydrus-cli build                    # Build workspace
+  hydrus-cli test                     # Run tests
+  hydrus-cli tmux                     # Start monitoring sessions
+  hydrus-cli arduino-compile          # Compile Arduino
+  hydrus-cli virtual-arduino          # Start virtual Arduino
+  hydrus-cli rosbag-download          # Download rosbags
+  hydrus-cli rosbag-play              # Play rosbags
+  hydrus-cli rviz                     # Start RViz
             """,
         )
 
@@ -97,22 +109,24 @@ Examples:
             help="Skip catkin workspace build - useful for debugging",
         )
 
-        # Individual hardware component arguments
-        hardware_group = parser.add_argument_group("Hardware Components")
+        # Individual hardware component arguments (kept for Docker environment setup)
+        hardware_group = parser.add_argument_group(
+            "Hardware Components (Docker Environment)"
+        )
         hardware_group.add_argument(
             "--tmux-sessions",
             action="store_true",
-            help="Start tmux sessions for monitoring",
+            help="Setup environment for tmux sessions (use 'hydrus-cli tmux' inside container)",
         )
         hardware_group.add_argument(
             "--arduino-compile",
             action="store_true",
-            help="Compile and upload Arduino code",
+            help="Setup environment for Arduino compilation (use 'hydrus-cli arduino-compile' inside container)",
         )
         hardware_group.add_argument(
             "--virtual-arduino",
             action="store_true",
-            help="Start virtual Arduino processes",
+            help="Setup environment for virtual Arduino (use 'hydrus-cli virtual-arduino' inside container)",
         )
 
         # Negation arguments for overriding configuration groups

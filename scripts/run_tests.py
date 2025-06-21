@@ -70,9 +70,41 @@ class HydrusTestRunner:
         env: Optional[Dict] = None,
         cwd: Optional[Path] = None,
     ) -> subprocess.CompletedProcess:
-        """Run a command with proper error handling and timeout"""
+        """
+        Execute a shell command with comprehensive error handling and logging.
+
+        This method provides a robust wrapper around subprocess.run() with enhanced
+        error reporting, timeout handling, and execution context logging. It's designed
+        to execute commands in a controlled environment with clear feedback about
+        what's happening and why failures occur.
+
+        Args:
+            cmd (List[str]): Command and arguments to execute as a list of strings.
+                           Example: ['python3', '-m', 'pytest', 'tests/']
+            timeout (Optional[int], optional): Maximum execution time in seconds.
+                                             If None, no timeout is applied.
+                                             Defaults to None.
+            check (bool, optional): If True, raises CalledProcessError for non-zero
+                                  exit codes. If False, allows commands to fail
+                                  without raising exceptions. Defaults to True.
+            capture_output (bool, optional): If True, captures stdout and stderr
+                                           for programmatic access. If False,
+                                           output goes directly to terminal.
+                                           Defaults to False.
+            env (Optional[Dict], optional): Environment variables for the command.
+                                          If None, inherits current environment.
+                                          Defaults to None.
+            cwd (Optional[Path], optional): Working directory for command execution.
+                                          If None, uses current working directory.
+                                          Defaults to None.
+        """
         if env is None:
             env = os.environ.copy()
+
+        # Always print the command being executed
+        cmd_str = " ".join(cmd)
+        cwd_str = f" (in {cwd})" if cwd else ""
+        print(f"🔧 Executing command: {cmd_str}{cwd_str}")
 
         try:
             return subprocess.run(
@@ -84,15 +116,21 @@ class HydrusTestRunner:
                 cwd=cwd,
                 text=True,
             )
+        except FileNotFoundError as e:
+            print(f"❌ Command not found: {cmd_str}")
+            print(f"   File not found: {e.filename}")
+            print(f"   Working directory: {cwd}")
+            print(f"   Make sure the required tool is installed in the container")
+            raise
         except subprocess.TimeoutExpired:
-            print(f"Command timed out after {timeout} seconds: {' '.join(cmd)}")
+            print(f"⏰ Command timed out after {timeout} seconds: {cmd_str}")
             raise
         except subprocess.CalledProcessError as e:
             if check:
-                print(f"Command failed: {' '.join(cmd)}")
-                print(f"Exit code: {e.returncode}")
+                print(f"❌ Command failed: {cmd_str}")
+                print(f"   Exit code: {e.returncode}")
                 if capture_output and e.stderr:
-                    print(f"Error: {e.stderr}")
+                    print(f"   Error: {e.stderr}")
             raise
 
     def _build_workspace(self):
@@ -100,14 +138,10 @@ class HydrusTestRunner:
         print("Building workspace...")
         env = os.environ.copy()
 
-        cmake_args = [
-            "catkin_make",
-            "--cmake-args",
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DPYTHON_EXECUTABLE=/usr/bin/python3",
-            "-DPYTHON_INCLUDE_DIR=/usr/include/python3.9",
-            "-DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so",
-        ]
+        # Build command that sources ROS environment first, then runs catkin_make
+        cmake_command = f"source /opt/ros/noetic/setup.bash && catkin_make --cmake-args -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.9 -DPYTHON_LIBRARY=/usr/lib/aarch64-linux-gnu/libpython3.9.so"
+
+        cmake_args = ["bash", "-c", cmake_command]
 
         try:
             self._run_command(cmake_args, check=False, cwd=self.ros_dir, env=env)
@@ -163,7 +197,7 @@ class HydrusTestRunner:
                 f"source {self.ros_dir}/devel/setup.bash 2>/dev/null || true; rostest autonomy {test_file}",
             ]
 
-            self._run_command(bash_cmd, timeout=600, capture_output=True, env=env)
+            self._run_command(bash_cmd, timeout=600, capture_output=False, env=env)
             print(f"✅ PASSED: {test_name}")
             self.passed_tests += 1
 
@@ -641,7 +675,7 @@ class HydrusTestRunner:
             self._build_workspace()
 
             # Start roscore for ROS tests
-            self._start_roscore(env)
+            # self._start_roscore(env)
 
             # Run unit tests
             self._run_unit_tests(env)
