@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  sam2-data-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sam2-data-engine:latest
+    container_name: sam2_data_engine
+
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # X11 Display support
+    environment:
+      - DISPLAY=${DISPLAY:-:0.0}
+      - QT_X11_NO_MITSHM=1
+      - QT_QPA_PLATFORM=xcb
+      - XAUTHORITY=/tmp/.docker.xauth
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+
+    # Mount X11 socket and auth
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
+      - ./data:/app/data:rw
+      - ./cache:/app/cache:rw
+      - ./projects:/app/projects:rw
+      - ./exports:/app/exports:rw
+      - ./videos:/app/videos:ro  # Mount your video files here
+
+    # Network mode for X11
+    network_mode: host
+
+    # Security options
+    security_opt:
+      - seccomp:unconfined
+
+    # Additional privileges for GPU access
+    privileged: false
+
+    # IPC mode for shared memory
+    ipc: host
+
+    # Restart policy
+    restart: unless-stopped
+
+
+
+# Networks (optional - using host network for X11)
+networks:
+  default:
+    driver: bridge
+
+# Volumes for persistent data
+volumes:
+  sam2_cache:
+    driver: local
+  sam2_projects:
+    driver: local
+  sam2_exports:
+    driver: local

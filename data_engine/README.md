@@ -26,6 +26,8 @@ An automatic data engine GUI application that uses visual prompts to interact wi
 
 ## Installation
 
+### Option 1: Local Installation
+
 1. **Clone or navigate to the data_engine directory**:
 ```bash
 cd /path/to/hydrus-software-stack/data_engine
@@ -45,6 +47,30 @@ python setup.py
 ```bash
 python main.py
 ```
+
+### Option 2: Docker Installation (Recommended)
+
+1. **Setup X11 for GUI support**:
+```bash
+make docker-setup
+```
+
+2. **Build and run with Docker**:
+```bash
+make docker-build
+make docker-run
+```
+
+3. **Alternative Docker commands**:
+```bash
+# Interactive shell
+make docker-shell
+
+# Run tests
+make docker-test
+```
+
+For detailed Docker setup, see [DOCKER.md](DOCKER.md).
 
 ## Usage
 
