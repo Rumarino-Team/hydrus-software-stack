@@ -268,7 +268,7 @@ class HydrusTestRunner:
             {
                 "name": "Gate Mission Tests",
                 "path": self.ros_dir
-                / "src/hydrus-software-stack/autonomy/src/mission_planner/gate_mission_tester.py",
+                / "src/hydrus-software-stack/autonomy/src/mission_planner/test_gate_mission.py",
                 "args": [],
                 "timeout": 300,
                 "infinite_loop": False,
