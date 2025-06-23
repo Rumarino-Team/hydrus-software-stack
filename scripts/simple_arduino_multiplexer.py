@@ -17,6 +17,7 @@ class SimpleArduinoMultiplexer:
         self.arduino_device = arduino_device
         self.control_port = "/dev/hydrus_control"
         self.monitor_port = "/dev/hydrus_monitor"
+        self.debug_port = "/dev/hydrus_debug"
         self.processes = {}
         self.running = False
 
@@ -49,7 +50,7 @@ class SimpleArduinoMultiplexer:
             return False
 
         # Clean up existing ports
-        for port in [self.control_port, self.monitor_port]:
+        for port in [self.control_port, self.monitor_port, self.debug_port]:
             if os.path.exists(port):
                 os.unlink(port)
 
@@ -79,6 +80,29 @@ class SimpleArduinoMultiplexer:
 
             print(f"✓ Control port created: {self.control_port}")
 
+            # Create debug port (bidirectional for interactive debugging)
+            print(f"Creating debug port: {self.debug_port}")
+            debug_cmd = [
+                "socat",
+                f"pty,link={self.debug_port},raw,echo=0",
+                f"{self.arduino_device},raw,echo=0,b115200",
+            ]
+
+            self.processes["debug"] = subprocess.Popen(
+                debug_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid,
+            )
+
+            time.sleep(2)
+
+            # Verify debug port was created
+            if not os.path.exists(self.debug_port):
+                print(f"Warning: Failed to create debug port: {self.debug_port}")
+            else:
+                print(f"✓ Debug port created: {self.debug_port}")
+
             # Create monitor port (read-only copy of Arduino data)
             print(f"Creating monitor port: {self.monitor_port}")
             monitor_cmd = [
@@ -104,6 +128,13 @@ class SimpleArduinoMultiplexer:
 
             self.running = True
             print("✓ Simple Arduino multiplexer started successfully")
+            print("=" * 50)
+            print("Available ports:")
+            print(f"  Control Port:  {self.control_port} (ROS Bridge)")
+            print(f"  Debug Port:    {self.debug_port} (Interactive Debug)")
+            if os.path.exists(self.monitor_port):
+                print(f"  Monitor Port:  {self.monitor_port} (Read-only Monitor)")
+            print("=" * 50)
             return True
 
         except Exception as e:
@@ -130,7 +161,7 @@ class SimpleArduinoMultiplexer:
                     pass
 
         # Clean up virtual ports
-        for port in [self.control_port, self.monitor_port]:
+        for port in [self.control_port, self.monitor_port, self.debug_port]:
             try:
                 if os.path.exists(port):
                     os.unlink(port)

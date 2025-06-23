@@ -664,8 +664,171 @@ Examples:
             print("❌ Profiler script not found")
             return False
 
+    def get_action_priorities(self):
+        """Define priority for each action (0 = highest priority)"""
+        return {
+            # Critical hardware setup (highest priority)
+            "arduino_compile": 0,
+            "build": 1,
+            # Core services
+            "virtual_arduino": 2,
+            "serial_bridge": 3,
+            # Data preparation
+            "rosbag_download": 4,
+            "rosbag_convert": 5,
+            # Monitoring and visualization (should start after core services)
+            "tmux": 6,
+            "monitor": 7,
+            "profile": 8,
+            # Playback and simulation
+            "rosbag_play": 9,
+            "rviz": 10,
+            # Web services
+            "api_server": 11,
+            "web_ui": 12,
+            # Testing and development tools
+            "test": 13,
+            "format": 14,
+            "lint": 15,
+        }
+
+    def collect_requested_actions(self, args):
+        """Collect all requested actions from arguments"""
+        requested_actions = []
+
+        # Check primary action
+        if args.action:
+            action_name = args.action.replace("-", "_")
+            requested_actions.append(action_name)
+
+        # Check all flag-based actions
+        flag_actions = [
+            "build",
+            "test",
+            "tmux",
+            "monitor",
+            "profile",
+            "arduino_compile",
+            "virtual_arduino",
+            "serial_bridge",
+            "rosbag_download",
+            "rosbag_play",
+            "rosbag_convert",
+            "rviz",
+            "web_ui",
+            "api_server",
+            "format",
+            "lint",
+        ]
+
+        for action in flag_actions:
+            if hasattr(args, action) and getattr(args, action):
+                if action not in requested_actions:  # Avoid duplicates
+                    requested_actions.append(action)
+
+        return requested_actions
+
+    def execute_actions_by_priority(self, args, workspace_dir):
+        """Execute all requested actions in priority order"""
+        priorities = self.get_action_priorities()
+        requested_actions = self.collect_requested_actions(args)
+
+        if not requested_actions:
+            print("ℹ️  No actions requested, defaulting to build")
+            requested_actions = ["build"]
+
+        # Sort actions by priority (0 = highest priority)
+        sorted_actions = sorted(
+            requested_actions,
+            key=lambda x: priorities.get(
+                x, 999
+            ),  # 999 = lowest priority for unknown actions
+        )
+
+        print("🔄 PRIORITY-BASED EXECUTION ORDER")
+        print("=" * 50)
+        for i, action in enumerate(sorted_actions, 1):
+            priority = priorities.get(action, 999)
+            print(f"   {i}. {action.replace('_', '-')} (priority: {priority})")
+        print("=" * 50)
+
+        success = True
+
+        for action in sorted_actions:
+            print(f"\n🚀 Executing: {action.replace('_', '-')}")
+
+            if action == "build":
+                if getattr(args, "clean", False):
+                    print("🧹 Cleaning workspace...")
+                    clean_cmd = f"cd {workspace_dir} && catkin_make clean"
+                    subprocess.run(["bash", "-c", clean_cmd], check=False)
+                if not getattr(args, "no_build", False):
+                    success &= self.build_workspace(workspace_dir)
+
+            elif action == "arduino_compile":
+                success &= self.compile_arduino()
+                # Add delay after Arduino compile to ensure upload is complete
+                print("⏳ Waiting for Arduino upload to stabilize...")
+                time.sleep(5)
+
+            elif action == "test":
+                success &= self.run_tests()
+
+            elif action == "tmux":
+                self.start_tmux_sessions()
+
+            elif action == "monitor":
+                success &= self.start_monitoring()
+
+            elif action == "profile":
+                success &= self.start_profiler()
+
+            elif action == "virtual_arduino":
+                success &= self.start_virtual_arduino()
+
+            elif action == "serial_bridge":
+                success &= self.start_serial_bridge(
+                    getattr(args, "port", "/dev/ttyACM0"),
+                    getattr(args, "baud_rate", 115200),
+                )
+
+            elif action == "rosbag_download":
+                success &= self.download_rosbags()
+
+            elif action == "rosbag_play":
+                success &= self.start_rosbag_playback(
+                    getattr(args, "rosbag_loop", False)
+                )
+
+            elif action == "rosbag_convert":
+                if getattr(args, "video_file", None):
+                    success &= self.convert_video_to_rosbag(args.video_file)
+                else:
+                    print("❌ --video-file required for rosbag-convert")
+                    success = False
+
+            elif action == "rviz":
+                success &= self.start_rviz()
+
+            elif action == "web_ui":
+                success &= self.start_web_ui()
+
+            elif action == "api_server":
+                success &= self.start_api_server()
+
+            elif action == "format":
+                success &= self.format_code()
+
+            elif action == "lint":
+                success &= self.lint_code()
+
+            else:
+                print(f"⚠️  Unknown action: {action}")
+
+        return success
+
     def main(self):
-        """Main execution function"""
+        """Main execution function with priority-based action execution"""
         try:
             parser = self.create_parser()
             args = parser.parse_args()
@@ -676,8 +839,6 @@ Examples:
                 f"📁 Using workspace: {workspace_dir} ({'volume' if is_volume else 'container'})"
             )
 
-            success = True
-
             # Apply configuration if specified
             if args.config:
                 config = self.apply_config(args.config)
@@ -686,132 +847,12 @@ Examples:
                     # Override args with config
                     for action in config["actions"]:
                         setattr(args, action.replace("-", "_"), True)
-                    for option, value in config["options"].items():
-                        setattr(args, option, value)
+                    if "options" in config and isinstance(config["options"], dict):
+                        for option, value in config["options"].items():
+                            setattr(args, option, value)
 
-            # Execute primary action
-            if args.action == "build" or args.action is None:
-                if args.clean:
-                    print("🧹 Cleaning workspace...")
-                    clean_cmd = f"cd {workspace_dir} && catkin_make clean"
-                    subprocess.run(["bash", "-c", clean_cmd], check=False)
-                if not args.no_build:
-                    success &= self.build_workspace(workspace_dir)
-
-            elif args.action == "test":
-                success &= self.run_tests()
-
-            elif args.action == "arduino-compile":
-                success &= self.compile_arduino()
-            elif args.action == "tmux":
-                self.start_tmux_sessions()
-
-            elif args.action == "monitor":
-                success &= self.start_monitoring()
-
-            elif args.action == "virtual-arduino":
-                success &= self.start_virtual_arduino()
-
-            elif args.action == "serial-bridge":
-                success &= self.start_serial_bridge(
-                    args.port, getattr(args, "baud_rate", 115200)
-                )
-
-            elif args.action == "rosbag-download":
-                success &= self.download_rosbags()
-
-            elif args.action == "rosbag-play":
-                success &= self.start_rosbag_playback(
-                    getattr(args, "rosbag_loop", False)
-                )
-
-            elif args.action == "rosbag-convert":
-                if getattr(args, "video_file", None):
-                    success &= self.convert_video_to_rosbag(args.video_file)
-                else:
-                    print("❌ --video-file required for rosbag-convert")
-                    success = False
-
-            elif args.action == "rviz":
-                success &= self.start_rviz()
-
-            elif args.action == "web-ui":
-                success &= self.start_web_ui()
-
-            elif args.action == "api-server":
-                success &= self.start_api_server()
-
-            elif args.action == "format":
-                success &= self.format_code()
-
-            elif args.action == "lint":
-                success &= self.lint_code()
-
-            elif args.action == "profile":
-                success &= self.start_profiler()
-
-            # Execute additional options (flags that can be combined)
-            if args.test and args.action != "test":
-                if args.test_integration:
-                    print("🧪 Running integration tests...")
-                    # Add integration test logic here
-                elif args.test_unit:
-                    print("🧪 Running unit tests...")
-                    # Add unit test logic here
-                else:
-                    success &= self.run_tests()
-
-            if args.tmux and args.action != "tmux":
-                self.start_tmux_sessions()
-
-            if args.monitor and args.action != "monitor":
-                success &= self.start_monitoring()
-
-            if (
-                getattr(args, "arduino_compile", False)
-                and args.action != "arduino-compile"
-            ):
-                success &= self.compile_arduino()
-
-            if (
-                getattr(args, "virtual_arduino", False)
-                and args.action != "virtual-arduino"
-            ):
-                success &= self.start_virtual_arduino()
-
-            if getattr(args, "serial_bridge", False) and args.action != "serial-bridge":
-                success &= self.start_serial_bridge(
-                    args.port, getattr(args, "baud_rate", 115200)
-                )
-
-            if (
-                getattr(args, "rosbag_download", False)
-                and args.action != "rosbag-download"
-            ):
-                success &= self.download_rosbags()
-
-            if getattr(args, "rosbag_play", False) and args.action != "rosbag-play":
-                success &= self.start_rosbag_playback(
-                    getattr(args, "rosbag_loop", False)
-                )
-
-            if args.rviz and args.action != "rviz":
-                success &= self.start_rviz()
-
-            if getattr(args, "web_ui", False) and args.action != "web-ui":
-                success &= self.start_web_ui()
-
-            if getattr(args, "api_server", False) and args.action != "api-server":
-                success &= self.start_api_server()
-
-            if args.format and args.action != "format":
-                success &= self.format_code()
-
-            if args.lint and args.action != "lint":
-                success &= self.lint_code()
-
-            if args.profile and args.action != "profile":
-                success &= self.start_profiler()
+            # Execute all actions in priority order
+            success = self.execute_actions_by_priority(args, workspace_dir)
 
             if success:
                 print("\n✅ All operations completed successfully")

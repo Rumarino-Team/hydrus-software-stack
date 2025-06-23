@@ -43,13 +43,13 @@ class HydrusTmuxManager:
                         "split": None,  # First pane, no split
                     },
                     {
-                        "name": "Controller Node",
-                        "command": f"echo 'Starting Controller Node'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/controllers.py",
+                        "name": "Submarine Teleop + Visualizer",
+                        "command": f"echo 'Starting Submarine Teleoperation with Live Visualization'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/thruster_visualizer.py",
                         "split": "vertical",  # Split vertically from previous pane
                     },
                     {
-                        "name": "Thruster Visualizer",
-                        "command": f"echo 'Starting Thruster Visualizer'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/thruster_visualizer.py",
+                        "name": "Controller Node",
+                        "command": f"echo 'Starting Controller Node'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/controllers.py",
                         "split": "horizontal",  # Split horizontally from previous pane
                     },
                 ],
