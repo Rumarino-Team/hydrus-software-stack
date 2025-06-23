@@ -1,53 +1,67 @@
 #!/usr/bin/env python3
 """
-Hydrus Arduino Log Monitor
-Replaces monitor_arduino_logs.sh with improved error handling
+Arduino Monitor using SOCAT virtual ports
+Real-time monitoring without interfering with ROS bridge
 """
 
+import os
 import time
-from pathlib import Path
+from datetime import datetime
+
+import serial
+from termcolor import colored
 
 
-class ArduinoLogMonitor:
-    def __init__(self):
-        self.log_file = Path("/tmp/hydrus_serial/arduinolog.txt")
+class ArduinoMonitor:
+    def __init__(self, monitor_port="/dev/hydrus_monitor"):
+        self.monitor_port = monitor_port
+        self.running = False
 
-    def wait_for_log_file(self):
-        """Wait for the Arduino log file to be created"""
-        print("Waiting for Arduino log file...")
-        while not self.log_file.exists():
+    def start_monitoring(self):
+        """Start real-time Arduino monitoring"""
+        print(colored("Arduino Monitor Starting...", "cyan"))
+        print(colored(f"Monitoring port: {self.monitor_port}", "yellow"))
+        print(colored("Press Ctrl+C to stop", "yellow"))
+        print("=" * 60)
+
+        while not os.path.exists(self.monitor_port):
+            print(colored("Waiting for monitor port to be available...", "yellow"))
             time.sleep(1)
-            print(".", end="", flush=True)
-        print()
-
-    def monitor_logs(self):
-        """Monitor and display Arduino logs"""
-        print("Found Arduino log file. Showing Arduino serial output:")
-        print("------------------------------------------------------")
 
         try:
-            # Use tail -f equivalent in Python
-            with open(self.log_file, "r") as f:
-                # Go to end of file
-                f.seek(0, 2)
+            with serial.Serial(self.monitor_port, 115200, timeout=1) as ser:
+                self.running = True
+                print(colored("✓ Connected to Arduino monitor", "green"))
 
-                while True:
-                    line = f.readline()
-                    if line:
-                        print(line.rstrip())
-                    else:
-                        time.sleep(0.1)
-        except KeyboardInterrupt:
-            print("\nStopping Arduino log monitor...")
+                while self.running:
+                    try:
+                        if ser.in_waiting > 0:
+                            line = ser.readline().decode("utf-8").strip()
+                            if line:
+                                timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                                print(f"[{colored(timestamp, 'blue')}] {line}")
+                    except Exception as e:
+                        print(colored(f"Monitor error: {e}", "red"))
+                        break
+
+                    time.sleep(0.01)
+
         except Exception as e:
-            print(f"Error monitoring logs: {e}")
+            print(colored(f"Failed to connect to monitor port: {e}", "red"))
 
-    def main(self):
-        """Main execution function"""
-        self.wait_for_log_file()
-        self.monitor_logs()
+    def stop_monitoring(self):
+        """Stop monitoring"""
+        self.running = False
+
+
+def main():
+    monitor = ArduinoMonitor()
+    try:
+        monitor.start_monitoring()
+    except KeyboardInterrupt:
+        print(colored("\nStopping Arduino monitor...", "yellow"))
+        monitor.stop_monitoring()
 
 
 if __name__ == "__main__":
-    monitor = ArduinoLogMonitor()
-    monitor.main()
+    main()

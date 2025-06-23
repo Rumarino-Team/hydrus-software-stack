@@ -114,8 +114,8 @@ void setCameraMotor(int angle) {
   int motorMsg = map(angle, -60, 60, 0, 180);
   thrusterArr[8].motor.write(motorMsg);  // Fixed array index to 8 (9th element)
 
-  Serial.print("Camera motor: angle=");
-  Serial.print(angle);
-  Serial.print(", mapped=");
-  Serial.println(motorMsg);
+  // Serial.print("Camera motor: angle=");
+  // Serial.print(angle);
+  // Serial.print(", mapped=");
+  // Serial.println(motorMsg);
 }

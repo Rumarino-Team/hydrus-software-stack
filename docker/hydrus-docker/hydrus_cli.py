@@ -701,14 +701,13 @@ Examples:
             elif args.action == "test":
                 success &= self.run_tests()
 
+            elif args.action == "arduino-compile":
+                success &= self.compile_arduino()
             elif args.action == "tmux":
                 self.start_tmux_sessions()
 
             elif args.action == "monitor":
                 success &= self.start_monitoring()
-
-            elif args.action == "arduino-compile":
-                success &= self.compile_arduino()
 
             elif args.action == "virtual-arduino":
                 success &= self.start_virtual_arduino()

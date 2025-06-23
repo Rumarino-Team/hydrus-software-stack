@@ -170,7 +170,8 @@ Thruster | Pin | PWM Value | Direction
 - **PWM Values**: Current thruster states every 5 seconds
 - **Error Messages**: Invalid commands and safety violations
 
-### Manual Testing
+### Manual Testing and Serial Device Locking
+
 ```bash
 # Connect to Arduino directly
 screen /dev/ttyACM0 115200
@@ -179,6 +180,76 @@ screen /dev/ttyACM0 115200
 T1:1600
 D:1400
 C:30
+```
+
+**Important: Serial Device Locking**
+
+When you connect to `/dev/ttyACM0` with `screen`, the device becomes **exclusively locked** to that session:
+
+#### Single Access Only
+- ✅ **One terminal can access**: `/dev/ttyACM0` at a time
+- ❌ **Cannot open multiple**: `screen` sessions to same device
+- ❌ **ROS bridge cannot connect**: while `screen` is active
+- ❌ **Other programs blocked**: until `screen` session ends
+
+#### What Happens If You Try Multiple Connections:
+
+```bash
+# Terminal 1 (works)
+$ screen /dev/ttyACM0 115200
+[Connected successfully]
+
+# Terminal 2 (fails)
+$ screen /dev/ttyACM0 115200
+[screen: cannot open terminal '/dev/ttyACM0': Device or resource busy]
+```
+
+#### Sharing Screen Sessions Instead
+
+If you need multiple terminals to see the same Arduino communication, **share the screen session**:
+
+```bash
+# Terminal 1: Start named screen session
+screen -S arduino /dev/ttyACM0 115200
+
+# Terminal 2: Attach to existing session
+screen -r arduino
+
+# Both terminals now see the same Arduino communication!
+```
+
+#### Screen Session Management
+
+```bash
+# List active screen sessions
+screen -ls
+
+# Detach from session (keeps it running)
+# Press: Ctrl+A, then D
+
+# Reattach to detached session
+screen -r arduino
+
+# Kill session completely
+# Press: Ctrl+A, then K, then Y
+```
+
+#### Integration Impact
+
+**Before Manual Testing**: Stop ROS systems that use Arduino:
+```bash
+# Stop the serial ROS bridge
+pkill -f serial_ros_bridge.py
+
+# Or stop entire tmux session
+tmux kill-session -t hydrus
+```
+
+**After Manual Testing**: Exit screen properly to release device:
+```bash
+# Exit screen: Ctrl+A, then K, then Y
+# Then restart ROS systems
+./start_tmux_sessions.sh
 ```
 
 ## Troubleshooting

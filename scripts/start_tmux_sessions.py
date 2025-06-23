@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 
 class HydrusTmuxManager:
@@ -23,6 +23,120 @@ class HydrusTmuxManager:
         else:
             print("Using Docker container directory: /catkin_ws")
             self.catkin_ws = Path("/catkin_ws")
+
+        # Window configuration
+        self.window_config = self._get_window_configuration()
+
+    def _get_window_configuration(self) -> dict:
+        """Define tmux window configuration"""
+        source_cmd = f"source {self.catkin_ws}/devel/setup.bash"
+        arduino_port = self._get_arduino_port()
+
+        return {
+            "Controls": {
+                "window_index": 0,
+                "layout": "main-horizontal",
+                "panes": [
+                    {
+                        "name": "Serial ROS Bridge",
+                        "command": f"echo 'Starting Serial ROS Bridge (using {arduino_port})'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/serial_ros_bridge.py _port:={arduino_port} _baud_rate:=115200",
+                        "split": None,  # First pane, no split
+                    },
+                    {
+                        "name": "Controller Node",
+                        "command": f"echo 'Starting Controller Node'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/controllers.py",
+                        "split": "vertical",  # Split vertically from previous pane
+                    },
+                    {
+                        "name": "Thruster Visualizer",
+                        "command": f"echo 'Starting Thruster Visualizer'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/thruster_visualizer.py",
+                        "split": "horizontal",  # Split horizontally from previous pane
+                    },
+                ],
+            },
+            "Arduino": {
+                "window_index": 1,
+                "layout": "even-horizontal",
+                "panes": [
+                    {
+                        "name": "Arduino Multiplexer",
+                        "command": self._get_command_with_fallback(
+                            "scripts/simple_arduino_multiplexer.py",
+                            "scripts/socat_arduino_multiplexer.py",
+                            "Arduino Multiplexer",
+                        ),
+                        "split": None,
+                    },
+                    {
+                        "name": "Arduino Monitor",
+                        "command": "sleep 3; "
+                        + self._get_command_with_fallback(
+                            "scripts/monitor_arduino_logs.py",
+                            "scripts/setup_serial_monitor.py",
+                            "Arduino Monitor",
+                        ),
+                        "split": "horizontal",
+                    },
+                    {
+                        "name": "Debug Terminal",
+                        "command": "sleep 5; "
+                        + self._get_command_with_fallback(
+                            "scripts/arduino_debug.py",
+                            "scripts/arduino_debug_terminal.py",
+                            "Arduino Debug Terminal",
+                        ),
+                        "split": "vertical",
+                    },
+                ],
+            },
+            "Computer Vision": {
+                "window_index": 2,
+                "layout": "main-vertical",
+                "panes": [
+                    {
+                        "name": "Color Filter Controller",
+                        "command": f"echo 'Starting Color Filter Controller'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/cv/color_filter_controller.py ui",
+                        "split": None,
+                    },
+                    {
+                        "name": "CV Publishers",
+                        "command": f"echo 'Starting Computer Vision Publishers'; {source_cmd} && roslaunch autonomy cv_publishers.launch",
+                        "split": "horizontal",
+                    },
+                    {
+                        "name": "Web Detection Viewer",
+                        "command": f"echo 'Starting Web Detection Viewer'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/web/detection_viewer.py",
+                        "split": "vertical",
+                    },
+                    {
+                        "name": "API Server",
+                        "command": f"echo 'Starting API Server'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/api_server.py",
+                        "split": "horizontal",
+                    },
+                ],
+            },
+            "Mission Planner": {
+                "window_index": 3,
+                "layout": "tiled",
+                "panes": [
+                    {
+                        "name": "Mission Manager",
+                        "command": f"echo 'Starting Mission Manager'; {source_cmd} && roslaunch autonomy mission_planner.launch",
+                        "split": None,
+                    },
+                    {
+                        "name": "Mission Controller",
+                        "command": f"echo 'Starting Mission Controller'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/mission/mission_controller.py",
+                        "split": "horizontal",
+                    },
+                    {
+                        "name": "Controller Monitor",
+                        "command": f"echo 'Starting Controller Monitor'; {source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/controller_monitor.py",
+                        "split": "vertical",
+                    },
+                ],
+            },
+        }
 
     def _run_command(
         self, cmd: List[str], check: bool = True, capture_output: bool = False
@@ -55,7 +169,7 @@ class HydrusTmuxManager:
         )
 
         try:
-            process = subprocess.Popen(
+            subprocess.run(
                 ["python3", str(virtual_arduino_script), "/dev/ttyACM0"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -99,7 +213,7 @@ class HydrusTmuxManager:
                 check=False,
                 capture_output=True,
             )
-        except:
+        except Exception:
             pass
 
     def _tmux_command(self, cmd: List[str]):
@@ -109,249 +223,179 @@ class HydrusTmuxManager:
         except Exception as e:
             print(f"Tmux command failed: {' '.join(cmd)}: {e}")
 
-    def _create_controls_window(self):
-        """Create the Controls window with controller components"""
-        print("Creating Controls window...")
+    def _create_window_from_config(self, window_name: str, config: dict):
+        """Create a tmux window based on configuration"""
+        print(f"Creating {window_name} window...")
 
-        # Create new session with Controls window
-        self._tmux_command(["new-session", "-d", "-s", "hydrus", "-n", "Controls"])
+        window_index = config["window_index"]
+        layout = config.get("layout", "even-horizontal")
+        panes = config["panes"]
 
-        # First pane: Serial ROS Bridge
-        source_cmd = f"source {self.catkin_ws}/devel/setup.bash"
-        bridge_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/serial_ros_bridge.py _port:=/dev/ttyACM0 _baud_rate:=115200"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus",
-                f"echo 'Starting Serial ROS Bridge'; {bridge_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Second pane: Controllers
-        self._tmux_command(["split-window", "-v", "-t", "hydrus"])
-        controller_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/controllers.py"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:0.1",
-                f"echo 'Starting Controller Node'; {controller_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Third pane: Thruster Visualizer
-        self._tmux_command(["split-window", "-h", "-t", "hydrus:0.1"])
-        visualizer_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/thruster_visualizer.py"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:0.2",
-                f"echo 'Starting Thruster Visualizer'; {visualizer_cmd}",
-                "C-m",
-            ]
-        )
-
-    def _create_arduino_window(self):
-        """Create the Arduino monitoring window"""
-        print("Creating Arduino window...")
-
-        # Create new window for Arduino monitoring
-        self._tmux_command(["new-window", "-t", "hydrus:1", "-n", "Arduino"])
-
-        # First pane: Setup serial monitor
-        setup_script_py = (
-            self.catkin_ws / "src/hydrus-software-stack/scripts/setup_serial_monitor.py"
-        )
-
-        if setup_script_py.exists():
-            setup_cmd = f"python3 {setup_script_py}"
+        # Create the window (first window uses new-session, others use new-window)
+        if window_index == 0:
+            self._tmux_command(["new-session", "-d", "-s", "hydrus", "-n", window_name])
         else:
-            setup_cmd = "echo 'No setup script found'"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:1.0",
-                f"echo 'Setting up Arduino monitoring'; {setup_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Second pane: Monitor Arduino logs
-        self._tmux_command(["split-window", "-h", "-t", "hydrus:1"])
-        monitor_script_py = (
-            self.catkin_ws / "src/hydrus-software-stack/scripts/monitor_arduino_logs.py"
-        )
-
-        if monitor_script_py.exists():
-            monitor_cmd = f"python3 {monitor_script_py}"
-        else:
-            monitor_cmd = "echo 'No monitor script found'"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:1.1",
-                f"echo 'Starting Arduino log monitor'; sleep 2; {monitor_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Set layout for Arduino window
-        self._tmux_command(["select-layout", "-t", "hydrus:1", "even-horizontal"])
-
-    def _create_cv_window(self):
-        """Create the Computer Vision window"""
-        print("Creating Computer Vision window...")
-
-        # Create new window for Computer Vision
-        self._tmux_command(["new-window", "-t", "hydrus:2", "-n", "Computer Vision"])
-
-        source_cmd = f"source {self.catkin_ws}/devel/setup.bash"
-
-        # First pane: Color Filter Controller (taking half the screen)
-        color_filter_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/cv/color_filter_controller.py ui"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:2.0",
-                f"echo 'Starting Color Filter Controller'; {color_filter_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Second pane: CV Publishers (right side, top half)
-        self._tmux_command(["split-window", "-h", "-t", "hydrus:2.0"])
-        cv_publishers_cmd = f"{source_cmd} && roslaunch autonomy cv_publishers.launch"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:2.1",
-                f"echo 'Starting Computer Vision Publishers'; {cv_publishers_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Third pane: Web Detection Viewer (right side, bottom left)
-        self._tmux_command(["split-window", "-v", "-t", "hydrus:2.1"])
-        detection_viewer_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/web/detection_viewer.py"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:2.2",
-                f"echo 'Starting Web Detection Viewer'; {detection_viewer_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Fourth pane: API Server (right side, bottom right)
-        self._tmux_command(["split-window", "-h", "-t", "hydrus:2.2"])
-        api_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/src/api_server.py"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:2.3",
-                f"echo 'Starting API Server'; {api_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Resize panes for desired layout
-        # Get terminal columns for resizing
-        try:
-            result = subprocess.run(["tput", "cols"], capture_output=True, text=True)
-            cols = int(result.stdout.strip()) if result.returncode == 0 else 80
-            half_cols = cols // 2
-            quarter_cols = cols // 4
-
-            # Resize controller pane to take 50% of width
             self._tmux_command(
-                ["resize-pane", "-t", "hydrus:2.0", "-x", str(half_cols)]
+                ["new-window", "-t", f"hydrus:{window_index}", "-n", window_name]
             )
 
-            # Resize bottom panes to be equal width
-            self._tmux_command(["select-pane", "-t", "hydrus:2.2"])
-            self._tmux_command(["resize-pane", "-x", str(quarter_cols)])
-        except:
-            pass  # Continue without resizing if it fails
+        # Create panes
+        for i, pane in enumerate(panes):
+            command = pane["command"]
+            split_type = pane.get("split")
 
-    def _create_mission_planner_window(self):
-        """Create the Mission Planner window"""
-        print("Creating Mission Planner window...")
+            if i == 0:
+                # First pane - just send the command
+                target = f"hydrus:{window_index}"
+            else:
+                # Subsequent panes - create splits
+                if split_type == "vertical":
+                    self._tmux_command(
+                        ["split-window", "-v", "-t", f"hydrus:{window_index}"]
+                    )
+                elif split_type == "horizontal":
+                    self._tmux_command(
+                        ["split-window", "-h", "-t", f"hydrus:{window_index}"]
+                    )
 
-        # Create new window for Mission Planning
-        self._tmux_command(["new-window", "-t", "hydrus:3", "-n", "Mission Planner"])
+                target = f"hydrus:{window_index}.{i}"
 
-        source_cmd = f"source {self.catkin_ws}/devel/setup.bash"
+            # Send command to the pane
+            self._tmux_command(["send-keys", "-t", target, command, "C-m"])
 
-        # First pane: Mission Manager
-        mission_manager_cmd = (
-            f"{source_cmd} && roslaunch autonomy mission_planner.launch"
+        # Apply layout
+        if layout:
+            self._tmux_command(
+                ["select-layout", "-t", f"hydrus:{window_index}", layout]
+            )
+
+    def _create_all_windows(self):
+        """Create all tmux windows from configuration"""
+        print("Creating tmux windows from configuration...")
+
+        # Sort windows by index to ensure proper creation order
+        sorted_windows = sorted(
+            self.window_config.items(), key=lambda x: x[1]["window_index"]
         )
 
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:3.0",
-                f"echo 'Starting Mission Manager'; {mission_manager_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Second pane: Mission Controller
-        self._tmux_command(["split-window", "-h", "-t", "hydrus:3.0"])
-        mission_controller_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/mission/mission_controller.py"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:3.1",
-                f"echo 'Starting Mission Controller'; {mission_controller_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Third pane: Controller Monitor
-        self._tmux_command(["split-window", "-v", "-t", "hydrus:3.1"])
-        controller_monitor_cmd = f"{source_cmd} && python3 {self.catkin_ws}/src/hydrus-software-stack/autonomy/scripts/controller/controller_monitor.py"
-
-        self._tmux_command(
-            [
-                "send-keys",
-                "-t",
-                "hydrus:3.2",
-                f"echo 'Starting Controller Monitor'; {controller_monitor_cmd}",
-                "C-m",
-            ]
-        )
-
-        # Set tiled layout for Mission Planning window
-        self._tmux_command(["select-layout", "-t", "hydrus:3", "tiled"])
+        for window_name, config in sorted_windows:
+            try:
+                self._create_window_from_config(window_name, config)
+            except Exception as e:
+                print(f"Failed to create {window_name} window: {e}")
+                continue
 
     def _finalize_session(self):
         """Finalize tmux session setup"""
         # Return to the main control window and select teleop pane
         self._tmux_command(["select-window", "-t", "hydrus:0"])
         self._tmux_command(["select-pane", "-t", "hydrus:0.1"])
+
+    def add_window_config(self, window_name: str, config: dict):
+        """Add a new window configuration"""
+        self.window_config[window_name] = config
+
+    def remove_window_config(self, window_name: str):
+        """Remove a window configuration"""
+        if window_name in self.window_config:
+            del self.window_config[window_name]
+
+    def get_window_config(self, window_name: str) -> dict:
+        """Get configuration for a specific window"""
+        return self.window_config.get(window_name, {})
+
+    def list_windows(self) -> List[str]:
+        """List all configured window names"""
+        return list(self.window_config.keys())
+
+    def validate_window_config(self, config: dict) -> bool:
+        """Validate window configuration structure"""
+        required_keys = ["window_index", "panes"]
+
+        # Check required keys
+        for key in required_keys:
+            if key not in config:
+                print(f"Missing required key: {key}")
+                return False
+
+        # Check panes structure
+        panes = config["panes"]
+        if not isinstance(panes, list) or len(panes) == 0:
+            print("Panes must be a non-empty list")
+            return False
+
+        for i, pane in enumerate(panes):
+            if not isinstance(pane, dict):
+                print(f"Pane {i} must be a dictionary")
+                return False
+
+            if "command" not in pane:
+                print(f"Pane {i} missing required 'command' key")
+                return False
+
+            # First pane should not have split
+            if i == 0 and pane.get("split") is not None:
+                print("First pane should not have 'split' defined")
+                return False
+
+            # Other panes should have split
+            if i > 0 and "split" not in pane:
+                print(f"Pane {i} missing required 'split' key")
+                return False
+
+        return True
+
+    def load_config_from_file(self, config_file: Path):
+        """Load window configuration from JSON file"""
+        import json
+
+        try:
+            with open(config_file, "r") as f:
+                loaded_config = json.load(f)
+
+            # Validate each window config
+            for window_name, config in loaded_config.items():
+                if self.validate_window_config(config):
+                    self.window_config[window_name] = config
+                else:
+                    print(
+                        f"Invalid configuration for window '{window_name}', skipping..."
+                    )
+
+        except Exception as e:
+            print(f"Failed to load configuration from {config_file}: {e}")
+
+    def save_config_to_file(self, config_file: Path):
+        """Save current window configuration to JSON file"""
+        import json
+
+        try:
+            with open(config_file, "w") as f:
+                json.dump(self.window_config, f, indent=2)
+            print(f"Configuration saved to {config_file}")
+        except Exception as e:
+            print(f"Failed to save configuration to {config_file}: {e}")
+
+    def _get_command_with_fallback(
+        self, primary_script: str, fallback_script: str, description: str
+    ) -> str:
+        """Get command with fallback if primary script doesn't exist"""
+        primary_path = self.catkin_ws / "src/hydrus-software-stack" / primary_script
+        fallback_path = self.catkin_ws / "src/hydrus-software-stack" / fallback_script
+
+        if primary_path.exists():
+            return f"echo 'Starting {description}'; python3 {primary_path}"
+        elif fallback_path.exists():
+            return f"echo 'Starting {description} (fallback)'; python3 {fallback_path}"
+        else:
+            return f"echo 'Error: {description} script not found'; echo 'Available commands:'; echo '  ls {self.catkin_ws}/src/hydrus-software-stack/scripts/'; ls {self.catkin_ws}/src/hydrus-software-stack/scripts/ | grep -E '(arduino|serial|monitor)' || echo '  No matching scripts found'"
+
+    def _get_arduino_port(self) -> str:
+        """Get the appropriate Arduino port (virtual if available, physical otherwise)"""
+        if os.path.exists("/dev/hydrus_control"):
+            return "/dev/hydrus_control"
+        else:
+            return "/dev/ttyACM0"
 
     def main(self):
         """Main execution function"""
@@ -368,11 +412,8 @@ class HydrusTmuxManager:
 
             print("Creating tmux session 'hydrus'...")
 
-            # Create all windows
-            self._create_controls_window()
-            self._create_arduino_window()
-            self._create_cv_window()
-            self._create_mission_planner_window()
+            # Create all windows from configuration
+            self._create_all_windows()
 
             # Finalize session
             self._finalize_session()
@@ -388,5 +429,80 @@ class HydrusTmuxManager:
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Hydrus Tmux Session Manager")
+    parser.add_argument(
+        "--config", type=str, help="Load window configuration from JSON file"
+    )
+    parser.add_argument(
+        "--save-config", type=str, help="Save current configuration to JSON file"
+    )
+    parser.add_argument(
+        "--list-windows", action="store_true", help="List all configured windows"
+    )
+    parser.add_argument(
+        "--validate", action="store_true", help="Validate current configuration"
+    )
+    parser.add_argument(
+        "--windows", type=str, nargs="*", help="Only create specified windows"
+    )
+
+    args = parser.parse_args()
+
     manager = HydrusTmuxManager()
+
+    # Load custom configuration if specified
+    if args.config:
+        config_path = Path(args.config)
+        if config_path.exists():
+            manager.load_config_from_file(config_path)
+        else:
+            print(f"Configuration file not found: {config_path}")
+            sys.exit(1)
+
+    # Handle utility commands
+    if args.list_windows:
+        print("Configured windows:")
+        for window in manager.list_windows():
+            print(f"  - {window}")
+        sys.exit(0)
+
+    if args.validate:
+        print("Validating configuration...")
+        all_valid = True
+        for window_name, config in manager.window_config.items():
+            if manager.validate_window_config(config):
+                print(f"✓ {window_name}: Valid")
+            else:
+                print(f"✗ {window_name}: Invalid")
+                all_valid = False
+
+        if all_valid:
+            print("All configurations are valid!")
+        else:
+            print("Some configurations are invalid!")
+            sys.exit(1)
+        sys.exit(0)
+
+    if args.save_config:
+        manager.save_config_to_file(Path(args.save_config))
+        sys.exit(0)
+
+    # Filter windows if specified
+    if args.windows:
+        filtered_config = {}
+        for window_name in args.windows:
+            if window_name in manager.window_config:
+                filtered_config[window_name] = manager.window_config[window_name]
+            else:
+                print(f"Warning: Window '{window_name}' not found in configuration")
+
+        if filtered_config:
+            manager.window_config = filtered_config
+        else:
+            print("No valid windows specified!")
+            sys.exit(1)
+
+    # Run the main session creation
     manager.main()

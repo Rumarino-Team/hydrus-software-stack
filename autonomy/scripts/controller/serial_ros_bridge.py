@@ -20,6 +20,7 @@ Serial command format:
 - C:value  - Camera motor angle (-60 to 60 degrees)
 """
 
+import os
 import threading
 import time
 
@@ -36,19 +37,16 @@ class SerialROSBridge:
         rospy.init_node("serial_ros_bridge", anonymous=True)
 
         # Get serial port parameters from ROS params
-        port = rospy.get_param("~port", "/dev/ttyACM0")
+        self.control_port = rospy.get_param("~control_port", "/dev/hydrus_control")
         baud_rate = rospy.get_param("~baud_rate", 115200)
 
         # Serial connection
         self.ser = None
         self.is_connected = False
-        self.connect_serial(port, baud_rate)
+        self._connect_to_control_port(baud_rate)
 
         # Start serial reading thread
         self.running = True
-        self.response_thread = threading.Thread(target=self._read_responses)
-        self.response_thread.daemon = True
-        self.response_thread.start()
 
         # ROS Subscribers - Changed to Int16 for PWM values (1000-2000)
         rospy.Subscriber(
@@ -69,18 +67,36 @@ class SerialROSBridge:
         # Register shutdown function
         rospy.on_shutdown(self.shutdown)
 
-    def connect_serial(self, port, baud_rate):
-        """Establish a serial connection to the Arduino"""
-        try:
-            self.ser = serial.Serial(port=port, baudrate=baud_rate, timeout=1)
-            self.is_connected = True
+    def _connect_to_control_port(self, baud_rate):
+        """Connect to SOCAT virtual control port"""
+        max_retries = 10
+        retry_count = 0
 
-            # Allow time for Arduino to reset
-            time.sleep(2)
-            return True
-        except serial.SerialException as e:
-            # Error handled silently
-            return False
+        while retry_count < max_retries and not rospy.is_shutdown():
+            try:
+                if not os.path.exists(self.control_port):
+                    rospy.logwarn(
+                        f"Control port {self.control_port} not found, waiting..."
+                    )
+                    time.sleep(2)
+                    retry_count += 1
+                    continue
+
+                self.ser = serial.Serial(
+                    port=self.control_port, baudrate=baud_rate, timeout=1
+                )
+                self.is_connected = True
+                rospy.loginfo(f"Connected to Arduino via {self.control_port}")
+                time.sleep(2)  # Allow Arduino reset
+                return True
+
+            except serial.SerialException as e:
+                rospy.logwarn(f"Failed to connect to {self.control_port}: {e}")
+                time.sleep(2)
+                retry_count += 1
+
+        rospy.logerr(f"Failed to connect to control port after {max_retries} attempts")
+        return False
 
     def send_command(self, cmd):
         """Send a command to the Arduino"""
@@ -98,17 +114,6 @@ class SerialROSBridge:
         except serial.SerialException as e:
             self.is_connected = False
             return False
-
-    def _read_responses(self):
-        """Thread to read and log responses from the Arduino"""
-        while self.running and not rospy.is_shutdown():
-            try:
-                if self.is_connected and self.ser and self.ser.in_waiting > 0:
-                    line = self.ser.readline().decode("utf-8").strip()
-            except Exception as e:
-                if self.running:
-                    self.is_connected = False
-            time.sleep(0.1)
 
     # Topic callbacks - Now accepting PWM values directly
     def thruster_callback(self, thruster_num, msg):
@@ -144,15 +149,10 @@ class SerialROSBridge:
             self.ser.close()
             self.is_connected = False
 
-        # Wait for thread to end
-        if self.response_thread is not None:
-            self.response_thread.join(timeout=1)
-
 
 def main():
     try:
-        bridge = SerialROSBridge()
-
+        SerialROSBridge()
         # Keep the node running
         rospy.spin()
 
