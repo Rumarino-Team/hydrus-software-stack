@@ -302,24 +302,39 @@ class SlalomMissionTester:
         """Test if the mission has proper subscribers set up"""
         rospy.loginfo("Checking mission subscribers...")
         
-        # Check if mission has the necessary attributes for receiving data
-        has_detection_sub = hasattr(self.mission, 'detection_sub') or hasattr(self.mission, 'detections_sub')
-        has_pose_sub = hasattr(self.mission, 'pose_sub') or hasattr(self.mission, 'submarine_pose_sub')
+        # Look for the callback methods and data attributes
+        has_detection_callback = hasattr(self.mission, 'detection_callback') and callable(getattr(self.mission, 'detection_callback'))
+        has_pose_callback = hasattr(self.mission, 'pose_callback') and callable(getattr(self.mission, 'pose_callback'))
+        has_current_detections = hasattr(self.mission, 'current_detections')
+        has_submarine_pose = hasattr(self.mission, 'submarine_pose')
         
-        rospy.loginfo(f"Mission has detection subscriber: {has_detection_sub}")
-        rospy.loginfo(f"Mission has pose subscriber: {has_pose_sub}")
+        rospy.loginfo(f"Mission has detection callback: {has_detection_callback}")
+        rospy.loginfo(f"Mission has pose callback: {has_pose_callback}")
+        rospy.loginfo(f"Mission has current_detections attribute: {has_current_detections}")
+        rospy.loginfo(f"Mission has submarine_pose attribute: {has_submarine_pose}")
         
-        # Additional debugging - check what attributes the mission actually has
-        mission_attrs = [attr for attr in dir(self.mission) if not attr.startswith('_')]
-        subscriber_attrs = [attr for attr in mission_attrs if 'sub' in attr.lower()]
-        rospy.loginfo(f"Mission subscriber attributes: {subscriber_attrs}")
+        # Test if the callbacks can be called
+        detection_callable = has_detection_callback and callable(self.mission.detection_callback)
+        pose_callable = has_pose_callback and callable(self.mission.pose_callback)
         
-        if not has_detection_sub:
-            rospy.logwarn("Mission may not be subscribing to detection messages!")
-        if not has_pose_sub:
-            rospy.logwarn("Mission may not be subscribing to pose messages!")
+        rospy.loginfo(f"Detection callback is callable: {detection_callable}")
+        rospy.loginfo(f"Pose callback is callable: {pose_callable}")
         
-        return has_detection_sub and has_pose_sub
+        # Check if mission inherits from BaseMission properly
+        from mission_planner.base_mission import BaseMission
+        is_base_mission = isinstance(self.mission, BaseMission)
+        rospy.loginfo(f"Mission is instance of BaseMission: {is_base_mission}")
+        
+        all_good = (has_detection_callback and has_pose_callback and 
+                   has_current_detections and has_submarine_pose and 
+                   detection_callable and pose_callable)
+        
+        if all_good:
+            rospy.loginfo("✓ All subscriber components are properly set up!")
+        else:
+            rospy.logwarn("✗ Some subscriber components may be missing")
+        
+        return all_good
     
     def run_test(self):
         """Run the complete test sequence with controlled horizontal navigation"""

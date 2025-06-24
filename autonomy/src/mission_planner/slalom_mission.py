@@ -49,7 +49,7 @@ class SlalomMission(BaseMission):
         # Action client for navigation (optional for testing)
         self.controller_client = None
         if enable_action_client:
-            self.controller_client = actionlib.SimpleActionClient('/navigate_to_waypoint', NavigateToWaypointAction)
+            self.controller_client = actionlib.SimpleActionClient('/controller_action', NavigateToWaypointAction)
             rospy.loginfo("[Slalom Navigation] Waiting for action server to start...")
             self.controller_client.wait_for_server()
             rospy.loginfo("[Slalom Navigation] Action server started.")
