@@ -17,6 +17,22 @@ RUN apt-get update && apt-get install -y \
     libqt5core5a \
     libqt5widgets5 \
     qt5-gtk-platformtheme \
+    libxcb1 \
+    libxcb-xkb1 \
+    libxkbcommon-x11-0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-render0 \
+    libxcb-shape0 \
+    libxcb-sync1 \
+    libxcb-xfixes0 \
+    libxcb-xinerama0 \
+    libxcb-xinput0 \
+    libxcb-cursor0 \
+    x11-apps \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
