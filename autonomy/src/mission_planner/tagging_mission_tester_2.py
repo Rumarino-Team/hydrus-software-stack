@@ -130,7 +130,7 @@ class MissionObject:
 # Import mission
 from tagging_mission import TaggingMission
 
-class SimpleTaggingTester:
+class TaggingTester:
     def __init__(self):
         self.mission = TaggingMission()
         self.mission.controller_client = self.create_mock_controller()
@@ -153,7 +153,7 @@ class SimpleTaggingTester:
         self.mission.completed = False
         
     def create_mock_controller(self):
-        """Simple controller mock"""
+        """Controller mock"""
         class Controller:
             def send_goal(self, *args, **kwargs): pass
             def wait_for_result(self, timeout=None): return True
@@ -318,7 +318,7 @@ class SimpleTaggingTester:
             self.mission.fire_torpedo()
 
 if __name__ == "__main__":
-    tester = SimpleTaggingTester()
+    tester = TaggingTester()
     try:
         tester.run()
     except KeyboardInterrupt:
