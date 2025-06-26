@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+  <!--
+    ROS Node Profiler Launch File
+    Starts the profiler alongside your autonomy system
+  -->
+
+  <!-- Arguments -->
+  <arg name="export_data" default="false" />
+  <arg name="export_file" default="profiling_data.csv" />
+  <arg name="target_nodes" default="" />
+  <arg name="update_rate" default="0.5" />
+  <arg name="profile_functions" default="false" />
+
+  <!-- Start the ROS profiler -->
+  <node pkg="autonomy" type="ros_profiler.py" name="ros_profiler" output="screen">
+    <param name="export" value="$(arg export_file)" if="$(arg export_data)" />
+    <param name="update_rate" value="$(arg update_rate)" />
+    <param name="profile_functions" value="$(arg profile_functions)" />
+    <rosparam param="target_nodes" subst_value="True">$(arg target_nodes)</rosparam>
+  </node>
+
+</launch>

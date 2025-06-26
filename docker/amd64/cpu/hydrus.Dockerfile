@@ -104,5 +104,10 @@ COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
-RUN chmod +x scripts/ros-entrypoint.py
+
+# Make scripts executable and remove any old global copies
+RUN chmod +x scripts/ros-entrypoint.py && \
+    chmod +x docker/hydrus-docker/hydrus-cli && \
+    rm -f /usr/local/bin/hydrus-cli /usr/bin/hydrus-cli
+
 CMD ["python3", "scripts/ros-entrypoint.py"]
