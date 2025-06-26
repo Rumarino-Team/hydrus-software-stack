@@ -72,7 +72,7 @@ void setThruster(int id, int pwmValue) {
     int diff = PWM_NEUTRAL - pwmValue;
     pwm = PWM_NEUTRAL + diff;
   }
-  
+
   thrusterArr[id-1].motor.writeMicroseconds(pwm);
 }
 
@@ -113,7 +113,7 @@ void setCameraMotor(int angle) {
   // Map value from -60 to 60 degrees to 0 to 180 for servo
   int motorMsg = map(angle, -60, 60, 0, 180);
   thrusterArr[8].motor.write(motorMsg);  // Fixed array index to 8 (9th element)
-  
+
   Serial.print("Camera motor: angle=");
   Serial.print(angle);
   Serial.print(", mapped=");

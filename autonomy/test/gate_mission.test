@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Gate Mission Test -->
+  <test pkg="autonomy" type="gate_mission_tester.py" test-name="gate_mission_test" time-limit="300">
+    <param name="use_sim_time" value="false"/>
+  </test>
+</launch>

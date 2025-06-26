@@ -10,9 +10,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Build Camera AMD64 Docker
-        run: docker build -t camera -f ./docker/amd64/cuda/camera.Dockerfile .
-      - name: Build Hydrus AMD64 Docker
-        run: docker build -t hydrus -f ./docker/amd64/cpu/hydrus.Dockerfile .
-      - name: Run catkin_make on Hydrus AMD64 Docker
-        run: sudo docker run --rm -i -v .:/home/catkin_ws/src hydrus bash -c "source /opt/ros/noetic/setup.bash && cd /home/catkin_ws && catkin_make"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Hydrus AMD64 Docker with cache
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/amd64/cpu/hydrus.Dockerfile
+          tags: hydrus:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Run Tests using Hocker
+        run: |
+          cd docker/hydrus-docker
+          chmod +x hocker
+          ./hocker --test

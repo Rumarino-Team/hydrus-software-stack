@@ -69,20 +69,20 @@ RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/inst
     arduino-cli core install arduino:avr
 RUN  arduino-cli lib install "Servo@1.2.1" && \
     arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
-    
-    
+
+
 # Copy embedded Arduino code in the Arduino libraries folder
-    
+
 # Copy dvl embedded driver
 COPY ./DVL/Wayfinder /opt/Wayfinder
 WORKDIR /opt/Wayfinder
-    
+
 # Ultralytics with NO GPU
 RUN python3 -m pip install --extra-index-url https://download.pytorch.org/whl/cpu ultralytics
 # Copy the Python Dependencies and Install them
 COPY ./requirements.txt /requirements.txt
 RUN python3 -m pip install --ignore-installed -r /requirements.txt
-    
+
 # Install Default models for YOLO
 RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 
@@ -90,11 +90,19 @@ RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 # Install tmux, vim, git, and htop in a single RUN command
 RUN apt-get update && apt-get install -y tmux vim git htop socat
 
-
+RUN apt-get update && apt-get install -y \
+    ros-noetic-rviz \
+    ros-noetic-rqt \
+    ros-noetic-rosbag \
+    ros-noetic-image-view \
+    ros-noetic-tf \
+    ros-noetic-tf2-ros \
+    ros-noetic-image-transport \
+    ros-noetic-laser-proc
 
 COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
-    
+
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
-RUN chmod +x ros-entrypoint.sh
-CMD ["./ros-entrypoint.sh"]
+RUN chmod +x scripts/ros-entrypoint.py
+CMD ["python3", "scripts/ros-entrypoint.py"]

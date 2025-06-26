@@ -1,147 +1,139 @@
-## Getting Started:
+# Hydrus Software Stack
 
-Welcome to the Hydrus Software Stack. This is the collection of ROS packages for running RUMarino AUV.
+The Hydrus Software Stack is a comprehensive ROS-based toolkit for autonomous underwater vehicles (AUVs) and RobSub competitions. Built with maintainability, usability, and excellent software engineering practices at its core.
 
+## 📖 Documentation
 
-## How to install
+- **[Philosophy & Contributions](PHILOSOPHY.md)** - **Read this first!** Our development principles and contribution guidelines
+- **[Autonomy System](autonomy/README.md)** - Complete guide to all autonomy scripts and components
+- **[Docker Setup](docker/README.md)** - Detailed Docker configuration and deployment options
 
-### Prerequisites:
-- Docker
-#### Windows:
- - Windows Subsystem System (WSL)
- - usbipd
-## Docker Installation
+## 🚀 Quick Start
 
-To install the dependencies and running the packages with Docker you need to run the following commands.
+### Prerequisites Check
+Run our dependency doctor to check and install required dependencies:
+
 ```bash
+# Clone the repository
 git clone https://github.com/Rumarino-Team/hydrus-software-stack.git
-cd docker
-chmod +x ./run_docker.sh
-./run_docker.sh
+cd hydrus-software-stack
+
+# Check and install dependencies (Docker, Python3, Git)
+./doctor.sh
 ```
 
-### Options for running the dockers.
-the command  `./run_docker.sh` have the following options for running it lets discuss them.
+The doctor script will automatically detect your OS and offer to install missing dependencies. Required dependencies:
+- **Docker & Docker Compose**: Container platform for isolated environments
+- **Python3**: Required for Hocker and various scripts
+- **Git**: Version control (usually pre-installed)
 
-There are 3 types of docker compose that the application can run. cpu only, nvidia gpu and Jetsons. Whenever you run the command `./run_docker.sh` this will automatically detect your computer which one applies best to run for your specific case.
-
-Aditionally there are 3 arguments that you add into the application for different purposes:
-
-- `--deploy` : This argument will make the Arduino upload data. 
-- `--volume` : The volime the data and the things noel la eslpass miamae.
-- `--force-cpu`: This will run the docker compose that is cpu.
-
+### Build and Run with Hocker
+We use **Hocker** (Hydrus Docker), our intelligent deployment tool that automatically detects your platform and configures the optimal Docker environment.
 
 ```bash
-./run_docker.sh --deploy --volume --force-cpu
+# Make hocker executable
+chmod +x docker/hydrus-docker/hocker
+
+# Run with automatic platform detection
+./docker/hydrus-docker/hocker
+
+# Test the installation
+./docker/hydrus-docker/hocker --test
+
+# Quick development mode
+./docker/hydrus-docker/hocker --dev
+
+# Force CPU-only mode
+./docker/hydrus-docker/hocker --force-cpu
 ```
 
-## Roslaunch
+Hocker automatically detects your platform (CPU, NVIDIA GPU, WSL, or Jetson) and runs the appropriate Docker configuration with intelligent defaults. For detailed options and configurations, see the [Docker README](docker/README.md).
 
-There are three main nodes required to enable autonomy:
+### Launch the Autonomy System
+```bash
+# Launch the complete autonomy stack
+roslaunch autonomy simulation.launch
 
-controllers : `autonomy/src/controllers.py`
-computer_vision: `autnomy/src/cv_publishers.py`
-mission_planning: `ros_mission_planning.py`
+# Or launch individual components
+roslaunch autonomy mission_planner.launch
+roslaunch autonomy cv_publishers.launch
+roslaunch autonomy controller.launch
+```
 
-To run all the ros nodes at the same time you can use the `autonomy.launch` launch file.
+## 🎯 Key Features
+
+- **Intelligent Deployment**: Hocker automatically detects and configures your platform
+- **Mission Planning**: Hierarchical mission execution for competition tasks (Gate, Slalom, Tagging)
+- **Computer Vision**: YOLO-based object detection with configurable color filtering
+- **Motion Control**: Precise 3-phase movement control (depth → rotation → linear)
+- **Hardware Integration**: Arduino serial communication for thruster control
+- **Simulation Ready**: Multi-platform simulation support with configuration groups
+- **Web Interface**: Real-time monitoring and visualization tools
+
+## 📁 Project Structure
+
+```
+hydrus-software-stack/
+├── autonomy/           # Main autonomy system (see autonomy/README.md)
+├── docker/            # Docker configurations and deployment
+│   └── hydrus-docker/ # Hocker deployment tool
+├── embedded_arduino/   # Arduino firmware for hardware control
+├── DVL/               # Doppler Velocity Logger integration
+├── Embedded_IMU/      # IMU sensor drivers
+├── yolo_models/       # YOLO model files for object detection
+└── docs/              # Additional documentation
+```
+
+## 🧪 Testing
+
+Run the test suite to verify your installation:
 
 ```bash
-roslaunch autonomy autonomy.launch
+# Quick test with Hocker
+./docker/hydrus-docker/hocker --test
+
+# Manual testing
+./run_tests.sh
 ```
 
-## Using the Zed_ROS_WRAPPER NODE
+## 🐳 Docker Deployment Options
 
-When running the amd64 cuda version or the jetson version we run the  [Zed Ros wrapper](https://github.com/stereolabs/zed-ros-wrapper.git)  ros node. If we want
-to change the configuration of the camera we can change them in the `common_camera_params.yaml` and the `zed2i_camera_params.yaml` files. 
-
-For example if we want to activate the zed camera object detection we can change the `od_enabled` field to true in the `common_camera_params.yaml`.
-
-```yaml
-
-object_detection:
-    od_enabled:  true       
-    model: 'MULTI_CLASS_BOX_ACCURATE'
- ... 
-
-```
-
-In order to use the cuda version you need to make sure you have installed the following dependencies.
-
- - CUDA TOOLKIT : https://developer.nvidia.com/cuda-downloads
- - CUDA CONTAINER TOOLKIT:  https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
-
-
-### Run ROS Bags
-
-1. Download the ROS bag file.  **ZED2i Camera**: [Download here](https://drive.google.com/file/d/16Lr-CbW1rW6rKh8_mWClTQMIjm2u0y8X/view?usp=drive_link)
-
-2. Play the bag with:
-
-    ```bash
-    rosbag play <file_path>
-    ```
-
-3. To loop playback:
-
-    ```bash
-    rosbag play <file_path> --loop
-    ```
-
-## Working with Docker Containers and tmux Sessions
-
-### Entering the Docker Container
-
-After starting the Docker environment using `./run_docker.sh`, you can enter the running container with:
+Hocker provides several configuration groups for different use cases:
 
 ```bash
-# List all running containers
-docker ps
+# Development with live code editing
+./docker/hydrus-docker/hocker --dev
 
-# Enter the hydrus container (replace CONTAINER_ID with the actual ID)
-docker exec -it CONTAINER_ID bash
+# Testing and CI/CD
+./docker/hydrus-docker/hocker --test
 
-# Alternatively, use the container name directly
-docker exec -it hydrus bash
+# Competition deployment
+./docker/hydrus-docker/hocker --competition
+
+# Simulation with rosbag playback
+./docker/hydrus-docker/hocker --simulation
 ```
 
-### Working with tmux Sessions
+## 🤝 Contributing
 
-The Hydrus software stack uses tmux for managing multiple terminal sessions. Here's how to work with them:
+1. **Read the [Philosophy](PHILOSOPHY.md)** - Understand our development principles
+2. **Check the [Issues](../../issues)** - Find something to work on
+3. **Follow our standards** - Quality code with tests and documentation
+4. **Submit a PR** - Clear description and evidence of testing
 
-1. Start the tmux sessions (if not automatically started):
+We welcome contributions that improve usability, add features, or enhance maintainability!
 
-    ```bash
-    # Inside the Docker container
-    cd /catkin_ws/src/hydrus-software-stack
-    ./start_tmux_sessions.sh
-    ```
+## 📄 License
 
-2. List available tmux sessions:
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-    ```bash
-    tmux ls
-    ```
+## 🆘 Support
 
-3. Attach to a specific tmux session:
+- **General Questions**: Check the [autonomy README](autonomy/README.md)
+- **Docker Issues**: See the [docker README](docker/README.md)
+- **Bug Reports**: Open an issue with detailed reproduction steps
+- **Feature Requests**: Start a discussion in the repository
 
-    ```bash
-    # Attach to the serial_connection session
-    tmux attach -t serial_connection
-    ```
+---
 
-4. Basic tmux navigation commands:
-   - Switch between windows: `Ctrl+B` then window number (e.g., `Ctrl+B` then `0`)
-   - Switch between panes: `Ctrl+B` then arrow keys
-   - Detach from session (without closing it): `Ctrl+B` then `D`
-   - Create a new window: `Ctrl+B` then `C`
-   - Split pane horizontally: `Ctrl+B` then `"`
-   - Split pane vertically: `Ctrl+B` then `%`
-
-5. Exit a tmux session completely:
-    ```bash
-    # First detach with Ctrl+B then D
-    # Then kill the session if needed
-    tmux kill-session -t session_name
-    ```
-
+**Mission**: To become the definitive toolkit for underwater robotics - making autonomous underwater vehicles accessible, maintainable, and powerful for teams worldwide.

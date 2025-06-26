@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- 
+  <!--
     Mission Planner Launch File
     This launch file starts the mission_manager node for autonomous operations
   -->

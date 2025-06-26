@@ -19,12 +19,23 @@ fi
 
 # Setup serial monitor for Arduino if it's not already running
 set +e # Ignore errors for the next command, allows tmux to stil run even if the arduino is not connected
+
+# Check and create virtual Arduino if needed
+echo "Checking for Arduino device..."
+python3 ${CATKIN_WS}/src/hydrus-software-stack/virtual_arduino.py /dev/ttyACM0 &
+VIRTUAL_ARDUINO_PID=$!
+sleep 3  # Give time for virtual Arduino to start
+
 if [ ! -f "/tmp/hydrus_serial/catpid.txt" ]; then
     echo "Setting up Arduino serial monitoring..."
     bash ${CATKIN_WS}/src/hydrus-software-stack/setup_serial_monitor.sh /dev/ttyACM0
     sleep 2  # Give some time for setup
 fi
 set -e
+
+# Kill existing tmux session if it exists
+tmux kill-session -t hydrus 2>/dev/null || true
+
 # ----------------------------------------------------------------------
 # Create a new tmux session named 'hydrus' for thrusters visualization
 # ----------------------------------------------------------------------

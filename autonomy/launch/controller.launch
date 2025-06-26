@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Start controllers with simulation mode -->
+  <node pkg="autonomy" type="controllers.py" name="controller" output="screen">
+    <!-- <param name="use_simulation" value="$(arg use_sim_topics)" />
+    <param name="odom_topic" value="/sim/odom" if="$(arg use_sim_topics)" /> -->
+  </node>
+  <include file="$(find autonomy)/test/controller.test">
+  </include>
+</launch>

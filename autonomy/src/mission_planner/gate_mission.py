@@ -26,7 +26,7 @@ class GateMission(BaseMission):
     The submarine must detect a gate with a red divider, choose to pass under either
     the Reef Shark or Sawfish side, and navigate through with style for additional points.
     """
-    
+    _REQUIRED_FRAMES = 2
     def __init__(self):
         super().__init__(name="Collecting Data (Gate)")
         
@@ -72,36 +72,45 @@ class GateMission(BaseMission):
             "Mission Complete"
         ]
         self.current_phase_index = 0
+        self._gate_seen_streak = 0
         
         # Build the mission tree
         self.mission_tree_root = self.build_mission_tree()
         self.count_total_tasks()
     
     def update_phase(self):
-        """Update the current mission phase"""
-        if self.current_phase_index < len(self.phases):
-            old_phase = self.current_phase
-            self.current_phase = self.phases[self.current_phase_index]
-            
-            if old_phase != self.current_phase:
-                rospy.loginfo(f"[Gate] Phase: {self.current_phase}")
-                
-            # Advance to next phase based on mission progress
-            if self.current_phase == "Search for Gate" and self.search_mission_object("gate"):
-                self.current_phase_index += 1
-                self.gate_detected = True
-            elif self.current_phase == "Identify Images" and self.shark_side and self.sawfish_side:
-                self.current_phase_index += 1
-            elif self.current_phase == "Choose Side" and self.chosen_animal:
-                self.current_phase_index += 1
-            elif self.current_phase == "Approach Gate" and self.is_positioned_for_gate():
-                self.current_phase_index += 1
-            elif self.current_phase == "Navigate with Style" and self.gate_passed:
-                self.current_phase_index += 1
-            elif self.current_phase == "Gate Passed" and self.style_completed:
-                self.current_phase_index += 1
-                self.completed = True
-    
+        """Single, clean phase-transition block."""
+        # 1. refresh detection status first
+        detection = self.search_mission_object("gate") is not None
+
+        if detection:
+           self._gate_seen_streak += 1
+        else:
+            self._gate_seen_streak = 0
+        self.gate_detected = (self._gate_seen_streak >= self._REQUIRED_FRAMES)
+        # 2. decide what phase we’re in
+        old_phase = self.current_phase
+        self.current_phase = self.phases[self.current_phase_index]
+
+        # 3. advance when conditions are met
+        if self.current_phase == "Search for Gate" and detection:
+            self.current_phase_index += 1
+        elif self.current_phase == "Identify Images" and self.shark_side and self.sawfish_side:
+            self.current_phase_index += 1
+        elif self.current_phase == "Choose Side" and self.chosen_animal:
+            self.current_phase_index += 1
+        elif self.current_phase == "Approach Gate" and self.is_positioned_for_gate():
+            self.current_phase_index += 1
+        elif self.current_phase == "Navigate with Style" and self.gate_passed:
+            self.current_phase_index += 1
+        elif self.current_phase == "Gate Passed" and self.style_completed:
+            self.current_phase_index += 1
+            self.completed = True
+
+        # 4. log any phase change
+        if self.current_phase != old_phase:
+            rospy.loginfo(f"[Gate] Phase: {self.current_phase}")
+
     def build_mission_tree(self) -> MissionTreeNode:
         """Build the mission execution tree"""
         # Root node
@@ -185,8 +194,8 @@ class GateMission(BaseMission):
             self.current_task_name = "Choose Side"
             self.current_object_name = "gate"
             
-            # For simplicity, we'll choose the reef shark by default
-            # This could be more sophisticated, based on mission requirements
+            # For simplicity, we'll choose the reef shark by default.
+            # This could be more sophisticated, based on mission requirements.
             self.chosen_animal = "reef_shark"
             
             rospy.loginfo(f"[Gate] Chosen to pass under {self.chosen_animal} side")
@@ -195,50 +204,59 @@ class GateMission(BaseMission):
         return action
     
     def create_approach_gate_action(self):
-        """Create an action to approach the gate at the chosen side"""
+        """Generate the callable that will be run by the mission tree"""
         def action():
-            self.current_task_name = "Approach Gate"
-            self.current_object_name = "gate"
-            
-            gate_obj = self.search_mission_object("gate")
-            if not gate_obj or not self.divider_position:
-                rospy.logwarn("[Gate] Gate or divider not detected")
+            rospy.loginfo("=== APPROACH VALIDATION ===")
+    
+            # 1 ─ valid animal?
+            valid_animals = ("reef_shark", "sawfish")
+            if self.chosen_animal not in valid_animals:
+                rospy.logerr(f"[Gate] Invalid animal '{self.chosen_animal}'")
                 return False
-            
-            # Calculate approach point based on chosen animal side
-            approach_y_offset = 0.5  # Offset from center to chosen side (in meters)
-            
-            # Determine which side to approach based on chosen animal
-            if self.chosen_animal == "reef_shark":
-                if self.shark_side == "left":
-                    approach_y_offset = -approach_y_offset  # Move left
-                # else right side, keep positive offset
-            elif self.chosen_animal == "sawfish":
-                if self.sawfish_side == "left":
-                    approach_y_offset = -approach_y_offset  # Move left
-                # else right side, keep positive offset
-            
-            # Calculate approach point: 2 meters in front of gate, offset to chosen side
-            approach_point = Point()
-            approach_point.x = gate_obj.position.x - 2.0  # 2 meters in front of gate
-            approach_point.y = self.divider_position.y + approach_y_offset  # Offset to chosen side
-            approach_point.z = self.divider_position.z - 0.5  # Below the divider
-            
-            # Move to approach point
-            goal = NavigateToWaypointGoal()
-            goal.target_point = approach_point
+    
+            # 2 ─ sides found?
+            if not (self.shark_side and self.sawfish_side):
+                rospy.logerr("[Gate] Animal sides not determined")
+                return False
+    
+            # 3 ─ required objects visible?
+            for name in ("gate", "gate_divider", self.chosen_animal):
+                if not self.search_mission_object(name):
+                    rospy.logerr(f"[Gate] Missing required object: {name}")
+                    return False
+    
+            # 4 ─ pose available?
+            if not self.submarine_pose:
+                rospy.logerr("[Gate] No submarine pose available")
+                return False
+    
+            # 5 ─ correct side of divider?
+            current_y  = self.submarine_pose.pose.position.y
+            divider_y  = self.divider_position.y
+            target_side = self.shark_side if self.chosen_animal == "reef_shark" else self.sawfish_side
+            tol = 0.1
+            if (target_side == "left" and current_y > divider_y + tol) or \
+               (target_side == "right" and current_y < divider_y - tol):
+                rospy.logerr("[Gate] Wrong side of the divider")
+                return False
+    
+            # 6 ─ move to approach point (unchanged)
+            gate_obj = self.search_mission_object("gate")
+            approach_y_offset = -0.5 if (self.chosen_animal == "reef_shark" and self.shark_side == "left") \
+                               or (self.chosen_animal == "sawfish" and self.sawfish_side == "left") \
+                            else 0.5
+            approach_point = Point(
+                x=gate_obj.position.x - 2.0,
+                y=self.divider_position.y + approach_y_offset,
+                z=self.divider_position.z - 0.5
+            )
+            goal = NavigateToWaypointGoal(target_point=approach_point)
             self.controller_client.send_goal(goal, feedback_cb=self.feedback_callback)
             self.controller_client.wait_for_result()
-            result = self.controller_client.get_result()
-            
-            if result and result.success:
-                rospy.loginfo(f"[Gate] Successfully positioned at approach point")
-                return True
-            else:
-                rospy.logwarn(f"[Gate] Failed to position at approach point")
-                return False
-            
-        return action
+            return bool(self.controller_client.get_result() and
+                        self.controller_client.get_result().success)
+    
+        return action  # <- the mission tree now gets the callable
     
     def create_navigate_with_style_action(self):
         """Create an action to navigate through the gate with style (orientation changes)"""
@@ -363,6 +381,18 @@ class GateMission(BaseMission):
         
         # Check if we're about 2 meters in front of the gate
         return 1.5 <= distance <= 2.5
+    def _update_gate_detection(self):
+        """Recalculate gate_detected every tick with simple debouncing."""
+        if self.search_mission_object("gate"):
+            self._gate_seen_streak += 1
+        else:
+            self._gate_seen_streak = 0
+
+        self.gate_detected = self._gate_seen_streak >= self._REQUIRED_FRAMES
+        
+
+        # If we lost the gate, roll back to the first phase
+              
     
     def get_status(self) -> dict:
         """Return the current status of the mission"""

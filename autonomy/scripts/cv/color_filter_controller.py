@@ -7,67 +7,104 @@ in real-time through the ROS service `/detector/set_color_filter`.
 It also allows selecting different YOLO models from a Docker volume.
 """
 
-import rospy
-import sys
+import curses
 import json
 import os
-import curses
-from termcolor import colored
-from autonomy.srv import SetColorFilter, SetColorFilterRequest
-from autonomy.srv import SetYoloModel, SetYoloModelRequest
+import sys
+
 import numpy as np
+import rospy
+from termcolor import colored
+
+from autonomy.srv import (
+    SetColorFilter,
+    SetColorFilterRequest,
+    SetYoloModel,
+    SetYoloModelRequest,
+)
 
 # YOLO model directory constant
 YOLO_MODEL_DIR = "/yolo_models"
 
+
 class ColorFilterController:
     def __init__(self):
-        rospy.init_node('color_filter_controller', anonymous=True)
-        
+        rospy.init_node("color_filter_controller", anonymous=True)
+
         # Default parameters
         self.tolerance = 0.4
         self.min_confidence = 0.3
         self.min_area = 0.2
         self.rgb_range = [255, 0, 0]  # Default: Red
         self.current_yolo_model = "yolov8n.pt"  # Default YOLO model
-        
+
         # Color presets
         self.presets = {
-            'red': {'tolerance': 0.4, 'min_confidence': 0.3, 'min_area': 0.2, 'rgb_range': [255, 0, 0]},
-            'green': {'tolerance': 0.4, 'min_confidence': 0.3, 'min_area': 0.2, 'rgb_range': [0, 255, 0]},
-            'blue': {'tolerance': 0.4, 'min_confidence': 0.3, 'min_area': 0.2, 'rgb_range': [0, 0, 255]},
-            'yellow': {'tolerance': 0.4, 'min_confidence': 0.3, 'min_area': 0.2, 'rgb_range': [255, 255, 0]},
+            "red": {
+                "tolerance": 0.4,
+                "min_confidence": 0.3,
+                "min_area": 0.2,
+                "rgb_range": [255, 0, 0],
+            },
+            "green": {
+                "tolerance": 0.4,
+                "min_confidence": 0.3,
+                "min_area": 0.2,
+                "rgb_range": [0, 255, 0],
+            },
+            "blue": {
+                "tolerance": 0.4,
+                "min_confidence": 0.3,
+                "min_area": 0.2,
+                "rgb_range": [0, 0, 255],
+            },
+            "yellow": {
+                "tolerance": 0.4,
+                "min_confidence": 0.3,
+                "min_area": 0.2,
+                "rgb_range": [255, 255, 0],
+            },
         }
-        
+
         # Create presets directory if it doesn't exist
-        presets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'color_presets')
+        presets_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "color_presets"
+        )
         if not os.path.exists(presets_dir):
             os.makedirs(presets_dir)
         self.presets_dir = presets_dir
-        
+
         # Load saved presets
         self.load_saved_presets()
-        
+
         print("Waiting for color filter service...")
-        self.service_name = '/detector/set_color_filter'
+        self.service_name = "/detector/set_color_filter"
         try:
             rospy.wait_for_service(self.service_name, timeout=10)
-            self.set_color_filter = rospy.ServiceProxy(self.service_name, SetColorFilter)
+            self.set_color_filter = rospy.ServiceProxy(
+                self.service_name, SetColorFilter
+            )
             print("Color filter service connected!")
         except rospy.ROSException:
-            print(f"Service {self.service_name} not available after waiting. Starting anyway.")
+            print(
+                f"Service {self.service_name} not available after waiting. Starting anyway."
+            )
             self.set_color_filter = None
 
         print("Waiting for YOLO model service...")
-        self.yolo_service_name = '/detector/set_yolo_model'
+        self.yolo_service_name = "/detector/set_yolo_model"
         try:
             rospy.wait_for_service(self.yolo_service_name, timeout=10)
-            self.set_yolo_model = rospy.ServiceProxy(self.yolo_service_name, SetYoloModel)
+            self.set_yolo_model = rospy.ServiceProxy(
+                self.yolo_service_name, SetYoloModel
+            )
             print("YOLO model service connected!")
         except rospy.ROSException:
-            print(f"Service {self.yolo_service_name} not available after waiting. Starting anyway.")
+            print(
+                f"Service {self.yolo_service_name} not available after waiting. Starting anyway."
+            )
             self.set_yolo_model = None
-            
+
         # Get available YOLO models
         self.yolo_models = self.get_available_yolo_models()
 
@@ -76,11 +113,11 @@ class ColorFilterController:
         models = []
         if os.path.exists(YOLO_MODEL_DIR):
             for filename in os.listdir(YOLO_MODEL_DIR):
-                if filename.endswith('.pt'):
+                if filename.endswith(".pt"):
                     models.append(filename)
         else:
             print(f"Warning: YOLO model directory {YOLO_MODEL_DIR} not found.")
-        
+
         print(f"Found {len(models)} YOLO models: {', '.join(models)}")
         return models
 
@@ -90,16 +127,16 @@ class ColorFilterController:
             error_msg = "YOLO model service not available. Cannot switch models."
             print(error_msg)
             return False, error_msg
-            
+
         if model_name not in self.yolo_models:
             error_msg = f"Model '{model_name}' not found! Available models: {', '.join(self.yolo_models)}"
             print(error_msg)
             return False, error_msg
-            
+
         try:
             request = SetYoloModelRequest()
             request.model_name = model_name
-            
+
             response = self.set_yolo_model(request)
             if response.success:
                 self.current_yolo_model = model_name
@@ -120,10 +157,10 @@ class ColorFilterController:
         presets_dir = self.presets_dir
         if os.path.exists(presets_dir):
             for filename in os.listdir(presets_dir):
-                if filename.endswith('.json'):
+                if filename.endswith(".json"):
                     preset_name = filename[:-5]  # Remove .json extension
                     try:
-                        with open(os.path.join(presets_dir, filename), 'r') as f:
+                        with open(os.path.join(presets_dir, filename), "r") as f:
                             preset_data = json.load(f)
                             self.presets[preset_name] = preset_data
                     except Exception as e:
@@ -132,18 +169,18 @@ class ColorFilterController:
     def save_preset(self, name):
         """Save current parameters as a preset"""
         preset_data = {
-            'tolerance': self.tolerance,
-            'min_confidence': self.min_confidence,
-            'min_area': self.min_area,
-            'rgb_range': self.rgb_range
+            "tolerance": self.tolerance,
+            "min_confidence": self.min_confidence,
+            "min_area": self.min_area,
+            "rgb_range": self.rgb_range,
         }
-        
+
         # Save to presets dictionary
         self.presets[name] = preset_data
-        
+
         # Save to file
         try:
-            with open(os.path.join(self.presets_dir, f"{name}.json"), 'w') as f:
+            with open(os.path.join(self.presets_dir, f"{name}.json"), "w") as f:
                 json.dump(preset_data, f, indent=4)
             print(f"Preset '{name}' saved successfully!")
         except Exception as e:
@@ -153,10 +190,10 @@ class ColorFilterController:
         """Load parameters from a preset"""
         if name in self.presets:
             preset = self.presets[name]
-            self.tolerance = preset['tolerance']
-            self.min_confidence = preset['min_confidence']
-            self.min_area = preset['min_area']
-            self.rgb_range = preset['rgb_range']
+            self.tolerance = preset["tolerance"]
+            self.min_confidence = preset["min_confidence"]
+            self.min_area = preset["min_area"]
+            self.rgb_range = preset["rgb_range"]
             print(f"Loaded preset '{name}'")
             return True
         else:
@@ -168,14 +205,14 @@ class ColorFilterController:
         if self.set_color_filter is None:
             print("Service not available. Parameters not updated.")
             return False
-        
+
         try:
             request = SetColorFilterRequest()
             request.tolerance = self.tolerance
             request.min_confidence = self.min_confidence
             request.min_area = self.min_area
             request.rgb_range = self.rgb_range
-            
+
             response = self.set_color_filter(request)
             if response.success:
                 print(f"Parameters updated: {response.message}")
@@ -191,7 +228,9 @@ class ColorFilterController:
         """Print the current RGB color with actual color visualization"""
         r, g, b = self.rgb_range
         # Use terminal colors to visualize
-        print(f"RGB: [{colored(r, 'red')}, {colored(g, 'green')}, {colored(b, 'blue')}]")
+        print(
+            f"RGB: [{colored(r, 'red')}, {colored(g, 'green')}, {colored(b, 'blue')}]"
+        )
 
     def print_status(self):
         """Print the current filter parameters"""
@@ -223,13 +262,13 @@ class ColorFilterController:
     def run_interactive(self):
         """Run the controller in interactive mode"""
         self.print_help()
-        
+
         while not rospy.is_shutdown():
             try:
                 cmd = input("Filter Controller> ").strip().split()
                 if not cmd:
                     continue
-                
+
                 if cmd[0] == "exit" or cmd[0] == "quit":
                     break
                 elif cmd[0] == "help":
@@ -279,7 +318,9 @@ class ColorFilterController:
                             else:
                                 print("RGB values must be between 0 and 255")
                         except ValueError:
-                            print("Invalid RGB values. Must be integers between 0 and 255")
+                            print(
+                                "Invalid RGB values. Must be integers between 0 and 255"
+                            )
                     else:
                         print("Invalid 'set' command. Type 'help' for usage.")
                 elif cmd[0] == "save" and len(cmd) == 2:
@@ -291,8 +332,10 @@ class ColorFilterController:
                     print("\nAvailable presets:")
                     for name in sorted(self.presets.keys()):
                         preset = self.presets[name]
-                        r, g, b = preset['rgb_range']
-                        print(f"  {name}: RGB[{r},{g},{b}], Tolerance={preset['tolerance']}")
+                        r, g, b = preset["rgb_range"]
+                        print(
+                            f"  {name}: RGB[{r},{g},{b}], Tolerance={preset['tolerance']}"
+                        )
                     print()
                 elif cmd[0] == "update":
                     self.update_filter()
@@ -300,12 +343,13 @@ class ColorFilterController:
                     self.switch_yolo_model(cmd[1])
                 else:
                     print("Unknown command. Type 'help' for usage.")
-            
+
             except KeyboardInterrupt:
                 print("\nExiting...")
                 break
             except Exception as e:
                 print(f"Error: {e}")
+
 
 def run_curses_interface(stdscr, controller):
     """Run an advanced curses-based interface"""
@@ -317,75 +361,93 @@ def run_curses_interface(stdscr, controller):
     curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(5, curses.COLOR_BLUE, curses.COLOR_BLACK)
-    
+
     # Hide cursor
     curses.curs_set(0)
-    
+
     # Get screen dimensions
     height, width = stdscr.getmaxyx()
-    
+
     # Create input window
-    input_win = curses.newwin(3, width, height-3, 0)
-    
+    input_win = curses.newwin(3, width, height - 3, 0)
+
     # Create parameter window
     param_win = curses.newwin(12, 40, 1, 1)
-    
+
     # Create help window
     help_win = curses.newwin(12, 40, 1, 42)
-    
+
     # Create status window
-    status_win = curses.newwin(3, width, height-6, 0)
-    
+    status_win = curses.newwin(3, width, height - 6, 0)
+
     # Create YOLO models window
-    yolo_win = curses.newwin(8, width-2, 14, 1)
-    
+    yolo_win = curses.newwin(8, width - 2, 14, 1)
+
     # Main interface loop
     command = ""
     status_message = "Ready. Press ? for help."
     selected_param = 0  # 0:tolerance, 1:confidence, 2:area, 3:r, 4:g, 5:b
     param_names = ["Tolerance", "Min Confidence", "Min Area", "R", "G", "B"]
-    
+
     # Refresh YOLO models
     controller.yolo_models = controller.get_available_yolo_models()
-    
+
     while True:
         stdscr.clear()
-        
+
         # Draw title
-        stdscr.addstr(0, 0, "Color Filter Controller", curses.A_BOLD | curses.color_pair(2))
-        
+        stdscr.addstr(
+            0, 0, "Color Filter Controller", curses.A_BOLD | curses.color_pair(2)
+        )
+
         # Update parameter window
         param_win.clear()
         param_win.box()
         param_win.addstr(0, 2, "Parameters", curses.A_BOLD)
-        
+
         # Draw parameters with different colors for the selected one
         for i, name in enumerate(param_names):
             if i < 3:
-                value = [controller.tolerance, controller.min_confidence, controller.min_area][i]
+                value = [
+                    controller.tolerance,
+                    controller.min_confidence,
+                    controller.min_area,
+                ][i]
                 if i == selected_param:
-                    param_win.addstr(i+1, 2, f"> {name}: {value:.3f}", curses.color_pair(4) | curses.A_BOLD)
+                    param_win.addstr(
+                        i + 1,
+                        2,
+                        f"> {name}: {value:.3f}",
+                        curses.color_pair(4) | curses.A_BOLD,
+                    )
                 else:
-                    param_win.addstr(i+1, 2, f"  {name}: {value:.3f}")
+                    param_win.addstr(i + 1, 2, f"  {name}: {value:.3f}")
             else:
                 rgb_idx = i - 3
                 value = controller.rgb_range[rgb_idx]
                 rgb_color = [3, 2, 5][rgb_idx]  # Red, Green, Blue color pairs
-                
+
                 if i == selected_param:
-                    param_win.addstr(i+1, 2, f"> {name}: {value}", curses.color_pair(4) | curses.A_BOLD)
+                    param_win.addstr(
+                        i + 1,
+                        2,
+                        f"> {name}: {value}",
+                        curses.color_pair(4) | curses.A_BOLD,
+                    )
                 else:
-                    param_win.addstr(i+1, 2, f"  {name}: {value}", curses.color_pair(rgb_color))
-        
+                    param_win.addstr(
+                        i + 1, 2, f"  {name}: {value}", curses.color_pair(rgb_color)
+                    )
+
         # Current RGB color box
         r, g, b = controller.rgb_range
         color_text = f"Current Color: RGB({r},{g},{b})"
         param_win.addstr(8, 2, color_text)
-        
+
         # Current YOLO model
         param_win.addstr(10, 2, "Current YOLO model:", curses.A_BOLD)
         param_win.addstr(10, 20, controller.current_yolo_model, curses.color_pair(2))
-        
+
         # Help window
         help_win.clear()
         help_win.box()
@@ -400,47 +462,55 @@ def run_curses_interface(stdscr, controller):
         help_win.addstr(8, 2, "Q: Quit")
         help_win.addstr(10, 2, "Status:", curses.A_BOLD)
         help_win.addstr(10, 10, status_message[:36])
-        
+
         # YOLO models window
         yolo_win.clear()
         yolo_win.box()
         yolo_win.addstr(0, 2, "Available YOLO Models", curses.A_BOLD)
         if controller.yolo_models:
-            for i, model in enumerate(controller.yolo_models[:5]):  # Show up to 5 models
+            for i, model in enumerate(
+                controller.yolo_models[:5]
+            ):  # Show up to 5 models
                 if model == controller.current_yolo_model:
-                    yolo_win.addstr(i+1, 2, f"* {model}", curses.color_pair(2) | curses.A_BOLD)
+                    yolo_win.addstr(
+                        i + 1, 2, f"* {model}", curses.color_pair(2) | curses.A_BOLD
+                    )
                 else:
-                    yolo_win.addstr(i+1, 2, f"  {model}")
+                    yolo_win.addstr(i + 1, 2, f"  {model}")
             if len(controller.yolo_models) > 5:
-                yolo_win.addstr(6, 2, f"  ... and {len(controller.yolo_models) - 5} more")
+                yolo_win.addstr(
+                    6, 2, f"  ... and {len(controller.yolo_models) - 5} more"
+                )
         else:
-            yolo_win.addstr(1, 2, "No models found in /yolo_models directory", curses.color_pair(3))
-        
+            yolo_win.addstr(
+                1, 2, "No models found in /yolo_models directory", curses.color_pair(3)
+            )
+
         # Status window
         status_win.clear()
         status_win.box()
         status_win.addstr(0, 2, "Command", curses.A_BOLD)
         status_win.addstr(1, 2, f"> {command}", curses.color_pair(2))
-        
+
         # Input window
         input_win.clear()
         input_win.box()
         input_win.addstr(0, 2, "Input", curses.A_BOLD)
         input_win.addstr(1, 2, ">" + command)
         input_win.refresh()
-        
+
         # Refresh all windows
         stdscr.refresh()
         param_win.refresh()
         help_win.refresh()
         status_win.refresh()
         yolo_win.refresh()
-        
+
         # Get key
         key = stdscr.getch()
-        
+
         # Process key
-        if key == ord('q') or key == ord('Q'):
+        if key == ord("q") or key == ord("Q"):
             break
         elif key == curses.KEY_UP:
             selected_param = (selected_param - 1) % len(param_names)
@@ -450,24 +520,28 @@ def run_curses_interface(stdscr, controller):
             # Adjust values
             delta = 0.05 if selected_param < 3 else 10
             delta = delta if key == curses.KEY_RIGHT else -delta
-            
+
             if selected_param == 0:
                 controller.tolerance = max(0, min(1, controller.tolerance + delta))
             elif selected_param == 1:
-                controller.min_confidence = max(0, min(1, controller.min_confidence + delta))
+                controller.min_confidence = max(
+                    0, min(1, controller.min_confidence + delta)
+                )
             elif selected_param == 2:
                 controller.min_area = max(0, min(1, controller.min_area + delta))
             elif selected_param >= 3:  # RGB values
                 rgb_idx = selected_param - 3
                 current = controller.rgb_range[rgb_idx]
                 controller.rgb_range[rgb_idx] = max(0, min(255, int(current + delta)))
-        elif key == ord('u') or key == ord('U'):
+        elif key == ord("u") or key == ord("U"):
             result = controller.update_filter()
-            status_message = "Parameters updated!" if result else "Failed to update parameters"
-        elif key == ord('r') or key == ord('R'):
+            status_message = (
+                "Parameters updated!" if result else "Failed to update parameters"
+            )
+        elif key == ord("r") or key == ord("R"):
             controller.yolo_models = controller.get_available_yolo_models()
             status_message = f"Found {len(controller.yolo_models)} YOLO models"
-        elif key == ord('s') or key == ord('S'):
+        elif key == ord("s") or key == ord("S"):
             # Switch to input mode for saving
             command = "save "
             curses.curs_set(1)  # Show cursor
@@ -476,18 +550,18 @@ def run_curses_interface(stdscr, controller):
             input_win.addstr(0, 2, "Save Preset", curses.A_BOLD)
             input_win.addstr(1, 2, "> " + command)
             input_win.refresh()
-            
+
             # Get preset name
             curses.echo()
-            preset_name = input_win.getstr(1, len(command) + 3).decode('utf-8')
+            preset_name = input_win.getstr(1, len(command) + 3).decode("utf-8")
             curses.noecho()
             curses.curs_set(0)  # Hide cursor
-            
+
             if preset_name:
                 controller.save_preset(preset_name)
                 status_message = f"Saved preset: {preset_name}"
             command = ""
-        elif key == ord('l') or key == ord('L'):
+        elif key == ord("l") or key == ord("L"):
             # Switch to input mode for loading
             command = "load "
             curses.curs_set(1)  # Show cursor
@@ -496,13 +570,13 @@ def run_curses_interface(stdscr, controller):
             input_win.addstr(0, 2, "Load Preset", curses.A_BOLD)
             input_win.addstr(1, 2, "> " + command)
             input_win.refresh()
-            
+
             # Get preset name
             curses.echo()
-            preset_name = input_win.getstr(1, len(command) + 3).decode('utf-8')
+            preset_name = input_win.getstr(1, len(command) + 3).decode("utf-8")
             curses.noecho()
             curses.curs_set(0)  # Hide cursor
-            
+
             if preset_name:
                 if controller.load_preset(preset_name):
                     controller.update_filter()
@@ -510,7 +584,7 @@ def run_curses_interface(stdscr, controller):
                 else:
                     status_message = f"Preset not found: {preset_name}"
             command = ""
-        elif key == ord('y') or key == ord('Y'):
+        elif key == ord("y") or key == ord("Y"):
             # Switch to input mode for YOLO model
             command = "yolo "
             curses.curs_set(1)  # Show cursor
@@ -519,21 +593,22 @@ def run_curses_interface(stdscr, controller):
             input_win.addstr(0, 2, "Switch YOLO Model", curses.A_BOLD)
             input_win.addstr(1, 2, "> " + command + " ")
             input_win.refresh()
-            
+
             # Get model name
             curses.echo()
-            model_name = input_win.getstr(1, len(command) + 3).decode('utf-8')
+            model_name = input_win.getstr(1, len(command) + 3).decode("utf-8")
             curses.noecho()
             curses.curs_set(0)  # Hide cursor
-            
+
             if model_name:
                 success, message = controller.switch_yolo_model(model_name)
                 status_message = message
             command = ""
 
+
 def main():
     controller = ColorFilterController()
-    
+
     # Check for command line arguments
     if len(sys.argv) > 1:
         # Process command line arguments for non-interactive mode
@@ -558,6 +633,7 @@ def main():
     else:
         # Run interactive mode
         controller.run_interactive()
+
 
 if __name__ == "__main__":
     main()

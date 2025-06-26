@@ -1,3 +1,2 @@
 pyserial>=3.4
 numpy
-

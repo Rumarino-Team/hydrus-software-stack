@@ -25,7 +25,7 @@ services:
               capabilities: [gpu]
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
-      - DISPLAY=${DISPLAY} 
+      - DISPLAY=${DISPLAY}
       - ZED_OPTION=${ZED_OPTION}
     depends_on:
       - ros-master
@@ -35,7 +35,7 @@ services:
         hard: 524288
     volumes:
       - "../:/home/catkin_ws/src"
-      - /tmp/.X11-unix:/tmp/.X11-unix 
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
   hydrus_cuda:
     build:
@@ -53,7 +53,7 @@ services:
     tty: true
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
-      - /tmp/.X11-unix:/tmp/.X11-unix 
+      - /tmp/.X11-unix:/tmp/.X11-unix
       - "../rosbags:/rosbags"
       - "../yolo_models:/yolo_models"  # Volume for YOLO models
     ports:
@@ -66,11 +66,16 @@ services:
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
       - ARDUINO_BOARD=arduino:avr:uno
-      - DISPLAY=${DISPLAY}
-      - DEPLOY
       - VOLUME
       - ROSBAG_PLAYBACK
       - DEBUG_ARDUINO
+      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
+      - RVIZ
+      - TEST
+      - NO_BUILD
+      - TMUX_SESSIONS
+      - ARDUINO_COMPILE
+      - VIRTUAL_ARDUINO
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
     depends_on:
