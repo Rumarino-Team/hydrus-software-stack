@@ -1,0 +1,339 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Set ROS Parameters for CV Publishers (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec bash -c \"source /opt/ros/noetic/setup.bash && rosparam set /cv_publisher/rgb_image_topic '/zed2i/zed_node/rgb/image_rect_color' && rosparam set /cv_publisher/depth_image_topic '/zed2i/zed_node/depth/depth_registered' && rosparam set /cv_publisher/camera_info_topic '/zed2i/zed_node/rgb/camera_info' && rosparam set /cv_publisher/camera_pose_topic '/zed2i/zed_node/pose' && echo 'ROS parameters set for cv_publisher node'\""
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start ROS Core (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec bash -c \"source /opt/ros/noetic/setup.bash && roscore\""
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Launch CV Publishers with roslaunch (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec bash -c \"source /opt/ros/noetic/setup.bash && roslaunch autonomy cv_publishers.launch\""
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Docker Development Mode",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --dev"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Docker Test Mode",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --test"
+            ],
+            "group": "test",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Docker with Debug CV Publishers",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client autonomy/src/cv_publishers.py"
+            ],
+            "group": "build",
+            "dependsOn": "Start Docker Development Mode",
+            "dependsOrder": "sequence",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests in Docker Container",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 scripts/run_tests.py"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Enter Docker Container Shell",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec --it"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build Hydrus Workspace (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec hydrus-cli build"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Hydrus Tests (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec hydrus-cli test"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Hydrus TMUX Sessions (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec hydrus-cli tmux"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start CV Publishers (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 autonomy/src/cv_publishers.py"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Arduino Simulator (Docker)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 autonomy/arduino_simulator.py"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Set ROS Parameters for CV Publishers (Host)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source /opt/ros/noetic/setup.bash && rosparam set /cv_publisher/rgb_image_topic '/zed2i/zed_node/rgb/image_rect_color' && rosparam set /cv_publisher/depth_image_topic '/zed2i/zed_node/depth/depth_registered' && rosparam set /cv_publisher/camera_info_topic '/zed2i/zed_node/rgb/camera_info' && rosparam set /cv_publisher/camera_pose_topic '/zed2i/zed_node/pose' && echo 'ROS parameters set for cv_publisher node'"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start ROS Core (Host)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source /opt/ros/noetic/setup.bash && roscore"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Launch CV Publishers with roslaunch (Host)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && source /opt/ros/noetic/setup.bash && roslaunch autonomy cv_publishers.launch"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Docker Containers",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && docker-compose -f docker/docker-compose-amd64-cpu.yaml down"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        }
+    ]
+}

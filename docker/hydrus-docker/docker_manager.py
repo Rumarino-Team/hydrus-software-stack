@@ -163,8 +163,13 @@ class DockerManager:
             print(f"❌ Failed to destroy containers: {e}")
             sys.exit(1)
 
-    def exec_into_container(self, compose_file: str):
-        """Execute into the running container and replace current shell"""
+    def exec_into_container(
+        self,
+        compose_file: str,
+        command: Optional[list] = None,
+        interactive: bool = False,
+    ):
+        """Execute into the running container and replace current shell or run specific command"""
         try:
             print("🔍 Finding running Hydrus container...")
 
@@ -187,28 +192,49 @@ class DockerManager:
                 sys.exit(1)
 
             print(f"✅ Found running container: {container_name}")
-            print(f"🚀 Executing into container...")
 
             # Set up the environment for the container shell
             container_env = os.environ.copy()
             container_env["TERM"] = "xterm-256color"  # Better terminal support
 
-            # Use os.execvp to replace the current process with docker exec
-            exec_cmd = [
-                "docker",
-                "exec",
-                "-it",
-                "--workdir",
-                "/catkin_ws/src/hydrus-software-stack",
-                container_name,
-                "/bin/bash",
-            ]
+            if interactive or (command is None or len(command) == 0):
+                # Interactive shell mode
+                print("🚀 Executing into container (interactive shell)...")
 
-            print(f"💻 Executing: {' '.join(exec_cmd)}")
-            print("🔄 Replacing current shell with container shell...")
+                # Use os.execvp to replace the current process with docker exec
+                exec_cmd = [
+                    "docker",
+                    "exec",
+                    "-it",
+                    "--workdir",
+                    "/catkin_ws/src/hydrus-software-stack",
+                    container_name,
+                    "/bin/bash",
+                ]
 
-            # Replace current process with docker exec
-            os.execvpe("docker", exec_cmd, container_env)
+                print(f"💻 Executing: {' '.join(exec_cmd)}")
+                print("🔄 Replacing current shell with container shell...")
+
+                # Replace current process with docker exec
+                os.execvpe("docker", exec_cmd, container_env)
+            else:
+                # Execute specific command
+                print(f"🚀 Executing command in container: {' '.join(command)}")
+
+                exec_cmd = [
+                    "docker",
+                    "exec",
+                    "-it",
+                    "--workdir",
+                    "/catkin_ws/src/hydrus-software-stack",
+                    container_name,
+                ] + command
+
+                print(f"💻 Executing: {' '.join(exec_cmd)}")
+
+                # Run the command and wait for completion
+                result = subprocess.run(exec_cmd, env=container_env)
+                sys.exit(result.returncode)
 
         except Exception as e:
             print(f"❌ Error executing into container: {e}")
