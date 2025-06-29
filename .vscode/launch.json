@@ -11,6 +11,66 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": "${command:pickArgs}"
+        },
+        {
+            "name": "Debug CV Publishers",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/autonomy/src/cv_publishers.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/autonomy/src:${env:PYTHONPATH}",
+                "ROS_PACKAGE_PATH": "${workspaceFolder}/autonomy:${env:ROS_PACKAGE_PATH}"
+            },
+            "preLaunchTask": "Set ROS Parameters for CV Publishers",
+            "args": []
+        },
+        {
+            "name": "Debug CV Publishers (Manual ROS Setup)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/autonomy/src/cv_publishers.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/autonomy/src:${env:PYTHONPATH}",
+                "ROS_PACKAGE_PATH": "${workspaceFolder}/autonomy:${env:ROS_PACKAGE_PATH}"
+            },
+            "args": []
+        },
+        {
+
+            "name": "Debug CV Publishers in Docker",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Docker with Debug CV Publishers"
+        },
+        {
+            "name": "Run Tests in Docker",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5679
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Docker Test Mode"
         }
     ]
 }

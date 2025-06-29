@@ -1,3 +1,4 @@
+# Core dependencies
 opencv-python
 numpy
 matplotlib
@@ -5,14 +6,24 @@ requests
 colorama
 termcolor
 pyserial
+
+# Web framework dependencies
 uvicorn
 fastapi
-Flask
+
+# Flask with explicit version that works with system packages
+# Install with --upgrade --force-reinstall if needed
+Flask==2.3.3
+
+# Development and formatting tools
 black>=23.0.0
 isort>=5.12.0
 flake8>=6.0.0
 pre-commit>=3.0.0
 mypy>=1.0.0
+
+# Debugging support for VS Code Docker debugging
+debugpy
 
 # Note: Additional dependencies can be installed as optional extras:
 # pip install -e .[depth-estimation] # For depth estimation with Depth-Anything-ONNX

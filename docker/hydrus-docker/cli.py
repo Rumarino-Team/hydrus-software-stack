@@ -40,8 +40,12 @@ Examples:
   python3 run_docker.py --vscode --install-vscode-extensions
 
   # Execute into running container (NEW WORKFLOW)
-  python3 run_docker.py --exec
+  python3 run_docker.py --exec --it
   # Inside container, use: hydrus-cli build --test --tmux
+
+  # Execute specific command in container
+  python3 run_docker.py --exec python3 scripts/run_tests.py
+  python3 run_docker.py --exec hydrus-cli build
 
   # Destroy all containers
   python3 run_docker.py --destroy
@@ -50,7 +54,7 @@ Examples:
   python3 run_docker.py --development --force-cpu --no-debug-arduino
 
 HYDRUS-CLI WORKFLOW:
-  After using --exec to enter the container, use 'hydrus-cli' for software control:
+  After using --exec --it to enter the container, use 'hydrus-cli' for software control:
   hydrus-cli build                    # Build workspace
   hydrus-cli test                     # Run tests
   hydrus-cli tmux                     # Start monitoring sessions
@@ -59,6 +63,10 @@ HYDRUS-CLI WORKFLOW:
   hydrus-cli rosbag-download          # Download rosbags
   hydrus-cli rosbag-play              # Play rosbags
   hydrus-cli rviz                     # Start RViz
+
+  Or execute commands directly:
+  python3 run_docker.py --exec hydrus-cli build
+  python3 run_docker.py --exec hydrus-cli test
             """,
         )
 
@@ -162,7 +170,12 @@ HYDRUS-CLI WORKFLOW:
 
         # Container management
         parser.add_argument(
-            "--exec", action="store_true", help="Execute into running container"
+            "--exec",
+            nargs="*",
+            help="Execute command in container (use --it for interactive shell)",
+        )
+        parser.add_argument(
+            "--it", action="store_true", help="Interactive mode when used with --exec"
         )
         parser.add_argument(
             "--destroy", action="store_true", help="Destroy containers and cleanup"
@@ -195,5 +208,12 @@ HYDRUS-CLI WORKFLOW:
             raise ValueError(
                 f"Multiple configuration groups specified: {', '.join(active_groups)}. Please specify only one."
             )
+
+        # Validate exec arguments
+        if args.exec is not None:
+            if args.it and len(args.exec) > 0:
+                raise ValueError(
+                    "Cannot specify both --it and command arguments with --exec. Use --exec --it for interactive shell or --exec <command> to run a command."
+                )
 
         return True

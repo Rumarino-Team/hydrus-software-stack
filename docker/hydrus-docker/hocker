@@ -11,9 +11,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from cli import CLIParser
-from config import ConfigurationManager
 from docker_manager import DockerManager
 from system_detector import SystemDetector
+
+from config import ConfigurationManager
 
 
 class HockerDockerDeployment:
@@ -97,7 +98,12 @@ class HockerDockerDeployment:
         print("Container is running in detached mode.")
         print()
         print("To interact with the container:")
-        print("  hocker --exec                     # Enter container shell")
+        print(
+            "  hocker --exec --it                # Enter container shell (interactive)"
+        )
+        print(
+            "  hocker --exec <command>           # Execute specific command in container"
+        )
         print()
         print("Inside the container, use 'hydrus-cli' to control Hydrus software:")
         print("  hydrus-cli --help                 # Show all available commands")
@@ -112,7 +118,11 @@ class HockerDockerDeployment:
     def execute_action(self, args, compose_file):
         """Execute the specified Docker action"""
         if args.exec:
-            self.docker_manager.exec_into_container(compose_file)
+            # Determine if interactive mode or command execution
+            if args.it:
+                self.docker_manager.exec_into_container(compose_file, interactive=True)
+            else:
+                self.docker_manager.exec_into_container(compose_file, command=args.exec)
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)
         else:
