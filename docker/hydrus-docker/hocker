@@ -4,156 +4,94 @@ Hocker - Hydrus Docker Deployment Tool (Docker-focused only)
 Pure Docker management - delegates all Hydrus software control to hydrus-cli
 """
 
+import argparse
 import sys
-from pathlib import Path
+from dataclasses import dataclass
+from enum import Enum
 
-# Add the hydrus-docker directory to Python path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+from .docker_manager import DockerManager
+from .system_detector import SystemDetector
 
-from cli import CLIParser
-from docker_manager import DockerManager
-from system_detector import SystemDetector
 
-from config import ConfigurationManager
+class SystemType(Enum):
+    """Enumeration for different system types"""
+
+    JETSON_TX2 = "jetson_tx2"
+    WSL = "wsl"
+    NVIDIA_GPU = "nvidia_gpu"
+    CPU = "cpu"
 
 
 class HockerDockerDeployment:
     """Pure Docker orchestrator - focused only on container management"""
 
     def __init__(self):
-        self.script_dir = Path(
-            __file__
-        ).parent.parent.absolute()  # Go up to docker folder
-        self.parent_dir = self.script_dir.parent
-        self.rosbag_dir = self.parent_dir / "rosbags"
-
         # Initialize managers
-        self.docker_manager = DockerManager(
-            self.script_dir, self.parent_dir, self.rosbag_dir
+        self.docker_manager = DockerManager()
+
+    def setup_argument_parser(self):
+        """Set up argument parser for Docker deployment options"""
+        parser = argparse.ArgumentParser(
+            description="Hocker - Hydrus Docker Deployment Tool",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        self.config_manager = ConfigurationManager()
 
-    def determine_active_configuration_group(self, args):
-        """Determine which configuration group is active"""
-        active_groups = [
-            group
-            for group in ConfigurationManager.get_available_groups()
-            if getattr(
-                args, group.replace("-", "_"), False
-            )  # Convert hyphens to underscores
-        ]
-        return active_groups[0] if active_groups else None
-
-    def build_docker_configuration(self, args):
-        """Build Docker configuration from arguments and groups"""
-        # Start with base configuration from arguments
-        config = self.config_manager.create_base_config(args)
-
-        # Apply configuration group if specified
-        active_group = self.determine_active_configuration_group(args)
-        if active_group:
-            print(f"🔧 Applying configuration group: {active_group}")
-            config = self.config_manager.apply_configuration_group(active_group, config)
-            print(f"🔧 Docker configuration after applying {active_group}:")
-            # Only show Docker-related options
-            docker_options = [
-                "volume",
-                "force_cpu",
-                "force_jetson",
-                "rviz",
-                "zed_option",
-                "rosbag_playback",
-                "debug_arduino",
-                "vscode",
-                "install_vscode_extensions",
-                "no_build",
-            ]
-            for key in docker_options:
-                if config.get(key):
-                    print(f"   {key} = {config[key]}")
-        else:
-            print("🔧 No configuration group specified, using individual flags")
-
-        # Apply argument overrides (negation flags)
-        config = self.config_manager.apply_argument_overrides(config, args)
-
-        return config
-
-    def handle_rosbag_requirements(self, config, args):
-        """Handle rosbag download requirements"""
-        if config["rosbag_playback"]:
-            if not self.docker_manager.check_rosbags(args.download_rosbag):
-                if not args.download_rosbag:
-                    print("❌ Rosbag playback requested but no files found.")
-                    print(
-                        "💡 Use --download-rosbag to automatically download rosbag files."
-                    )
-                    sys.exit(1)
-
-    def show_container_info(self):
-        """Show basic container information"""
-        print("\n" + "=" * 60)
-        print("🐳 DOCKER CONTAINER STARTED")
-        print("=" * 60)
-        print("Container is running in detached mode.")
-        print()
-        print("To interact with the container:")
-        print(
-            "  hocker --exec --it                # Enter container shell (interactive)"
+        # Docker configuration options
+        parser.add_argument(
+            "--force-cpu", action="store_true", help="Force CPU-only deployment"
         )
-        print(
-            "  hocker --exec <command>           # Execute specific command in container"
+        parser.add_argument(
+            "--force-jetson", action="store_true", help="Force Jetson deployment"
         )
-        print()
-        print("Inside the container, use 'hydrus-cli' to control Hydrus software:")
-        print("  hydrus-cli --help                 # Show all available commands")
-        print("  hydrus-cli build                  # Build workspace")
-        print("  hydrus-cli test                   # Run tests")
-        print("  hydrus-cli tmux                   # Start monitoring")
-        print()
-        print("To stop the container:")
-        print("  hocker --destroy                  # Stop and remove containers")
-        print("=" * 60)
+        parser.add_argument(
+            "--vscode", action="store_true", help="Enable VS Code integration"
+        )
+        parser.add_argument(
+            "--install-vscode-extensions",
+            action="store_true",
+            help="Install VS Code extensions",
+        )
 
-    def execute_action(self, args, compose_file):
-        """Execute the specified Docker action"""
+        # Container actions
+        parser.add_argument(
+            "--exec", type=str, metavar="COMMAND", help="Execute command in container"
+        )
+        parser.add_argument(
+            "--it", action="store_true", help="Interactive mode for exec"
+        )
+        parser.add_argument("--destroy", action="store_true", help="Destroy containers")
+        parser.add_argument(
+            "--detach",
+            "-d",
+            action="store_true",
+            help="Run containers in detached mode",
+        )
+
+        return parser
+
+    def execute_action(self, args):
+        dict_args = {k: v for k, v in vars(args).items() if v is not None}
+
+        compose_file = SystemDetector.determine_compose_file()
         if args.exec:
-            # Determine if interactive mode or command execution
-            if args.it:
-                self.docker_manager.exec_into_container(compose_file, interactive=True)
-            else:
-                self.docker_manager.exec_into_container(compose_file, command=args.exec)
+            del dict_args["exec"]
+            self.docker_manager.exec_into_container(
+                compose_file, interactive=args.it, command="".join(args.exec.split())
+            )
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)
         else:
-            # Default action: deploy containers
-            config = self.build_docker_configuration(args)
-            self.handle_rosbag_requirements(config, args)
-
-            if args.force_jetson or SystemDetector.is_jetson_tx2():
-                self.docker_manager.run_jetson_deployment()
-            else:
-                # For detached mode, show helpful info
-                if args.detach:
-                    self.show_container_info()
-
-                # Pass detach flag to docker manager
-                self.docker_manager.run_docker_compose(
-                    compose_file, config, detach=args.detach
-                )
+            self.docker_manager.run_docker_compose(compose_file, dict_args)
 
     def main(self):
         """Main execution function"""
         try:
             # Parse command line arguments
-            parser = CLIParser.create_parser()
+            parser = self.setup_argument_parser()
             args = parser.parse_args()
 
-            # Validate arguments
-            CLIParser.validate_arguments(args)
-
             # Determine compose file to use
-            compose_file = SystemDetector.determine_compose_file(args)
+            compose_file = SystemDetector.determine_compose_file()
 
             # Execute the requested action
             self.execute_action(args, compose_file)

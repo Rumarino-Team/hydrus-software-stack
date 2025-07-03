@@ -8,6 +8,8 @@ import os
 import sys
 from pathlib import Path
 
+from scripts.scripts_utils import get_building_path
+
 
 class HydrusROSEntrypoint:
     """Simplified ROS entrypoint that delegates everything to hydrus-cli"""
@@ -52,26 +54,12 @@ class HydrusROSEntrypoint:
         self.arduino_compile = env_vars["ARDUINO_COMPILE"].lower() == "true"
         self.virtual_arduino = env_vars["VIRTUAL_ARDUINO"].lower() == "true"
 
-        # Determine ROS directory based on volume usage
-        if self.volume:
-            print("Using the Volume directory for building the packages.")
-            self.ros_dir = Path("/home/catkin_ws")
-        else:
-            print("Using the Copied Packages from Docker.")
-            self.ros_dir = Path("/catkin_ws")
+        self.ros_dir = get_building_path(self.volume)
 
         print(f"Using ROS workspace: {self.ros_dir}")
 
         # Always use hydrus-cli from the repo inside the ROS workspace
-        self.hydrus_cli_path = (
-            self.ros_dir / "src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
-        )
-        if self.hydrus_cli_path.exists():
-            print(f"✅ Found hydrus-cli at: {self.hydrus_cli_path}")
-        else:
-            print(
-                f"❌ hydrus-cli not found at expected location: {self.hydrus_cli_path}"
-            )
+        self.hydrus_cli_path = self.ros_dir / "src/hydrus-software-stack/hydrus-cli.py"
 
     def build_hydrus_cli_command(self):
         """Build hydrus-cli command based on environment variables"""
@@ -108,23 +96,6 @@ class HydrusROSEntrypoint:
         """Main execution function - pure delegation to hydrus-cli"""
         print("\n🚀 Starting Hydrus software via hydrus-cli...")
 
-        if not self.hydrus_cli_path:
-            print("❌ hydrus-cli not found! Cannot start Hydrus software.")
-            print("🔧 Please ensure hydrus-cli is available in the container.")
-            print("📍 Expected locations (in priority order):")
-            print(
-                "   - {workspace}/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
-            )
-            print(
-                "   - /catkin_ws/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
-            )
-            print(
-                "   - /home/catkin_ws/src/hydrus-software-stack/docker/hydrus-docker/hydrus-cli"
-            )
-            print("   - /usr/local/bin/hydrus-cli")
-            print("   - /usr/bin/hydrus-cli")
-            sys.exit(1)
-
         # Build command
         cmd = self.build_hydrus_cli_command()
 
@@ -134,8 +105,6 @@ class HydrusROSEntrypoint:
 
             # Make hydrus-cli executable
             try:
-                os.chmod(str(self.hydrus_cli_path), 0o755)
-
                 if self.test:
                     # In test mode, execute and exit when done
                     os.execv(str(self.hydrus_cli_path), cmd)

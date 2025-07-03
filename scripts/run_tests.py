@@ -13,18 +13,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from scripts.scripts_utils import get_building_path
+
 
 class HydrusTestRunner:
     def __init__(self):
         self.volume = os.environ.get("VOLUME", "false").lower() == "true"
-
-        # Determine ROS directory based on VOLUME environment variable
-        if self.volume:
-            print("Using the Volume directory for building and testing the packages.")
-            self.ros_dir = Path("/home/catkin_ws")
-        else:
-            print("Using the Copied Packages from Docker for building and testing.")
-            self.ros_dir = Path("/catkin_ws")
+        self.ros_dir = get_building_path(self.volume)
 
         print(f"Using ROS workspace: {self.ros_dir}")
 

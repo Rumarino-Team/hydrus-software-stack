@@ -1,13 +1,53 @@
 {
     "version": "2.0.0",
     "tasks": [
+        // ====== Development Profile Tasks ======
         {
-            "label": "Set ROS Parameters for CV Publishers (Docker)",
+            "label": "Start Development Container",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec bash -c \"source /opt/ros/noetic/setup.bash && rosparam set /cv_publisher/rgb_image_topic '/zed2i/zed_node/rgb/image_rect_color' && rosparam set /cv_publisher/depth_image_topic '/zed2i/zed_node/depth/depth_registered' && rosparam set /cv_publisher/camera_info_topic '/zed2i/zed_node/rgb/camera_info' && rosparam set /cv_publisher/camera_pose_topic '/zed2i/zed_node/pose' && echo 'ROS parameters set for cv_publisher node'\""
+                "cd ${workspaceFolder} && python3 .vscode/hocker-helper.py build-command development"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Debug CV Publishers (Development)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py debug-command debug-cv autonomy/src/cv_publishers.py)"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Set ROS Parameters (Debug CV)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py ros-params debug-cv)"
             ],
             "group": "build",
             "presentation": {
@@ -20,73 +60,15 @@
             },
             "problemMatcher": []
         },
+
+        // ====== Testing Profile Tasks ======
         {
-            "label": "Start ROS Core (Docker)",
+            "label": "Start Testing Container",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec bash -c \"source /opt/ros/noetic/setup.bash && roscore\""
-            ],
-            "group": "build",
-            "isBackground": true,
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Launch CV Publishers with roslaunch (Docker)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec bash -c \"source /opt/ros/noetic/setup.bash && roslaunch autonomy cv_publishers.launch\""
-            ],
-            "group": "build",
-            "isBackground": true,
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Start Docker Development Mode",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --dev"
-            ],
-            "group": "build",
-            "isBackground": true,
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Start Docker Test Mode",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --test"
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command testing)"
             ],
             "group": "test",
             "isBackground": true,
@@ -101,33 +83,12 @@
             "problemMatcher": []
         },
         {
-            "label": "Start Docker with Debug CV Publishers",
+            "label": "Run Tests (Testing Profile)",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client autonomy/src/cv_publishers.py"
-            ],
-            "group": "build",
-            "dependsOn": "Start Docker Development Mode",
-            "dependsOrder": "sequence",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Run Tests in Docker Container",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 scripts/run_tests.py"
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command testing test)"
             ],
             "group": "test",
             "presentation": {
@@ -140,70 +101,15 @@
             },
             "problemMatcher": []
         },
+
+        // ====== Competition Profile Tasks ======
         {
-            "label": "Enter Docker Container Shell",
+            "label": "Start Competition Container",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec --it"
-            ],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build Hydrus Workspace (Docker)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec hydrus-cli build"
-            ],
-            "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Run Hydrus Tests (Docker)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec hydrus-cli test"
-            ],
-            "group": "test",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Start Hydrus TMUX Sessions (Docker)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec hydrus-cli tmux"
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command competition)"
             ],
             "group": "build",
             "isBackground": true,
@@ -218,12 +124,55 @@
             "problemMatcher": []
         },
         {
-            "label": "Start CV Publishers (Docker)",
+            "label": "Launch Full Mission (Competition)",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 autonomy/src/cv_publishers.py"
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command competition simulation)"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+
+        // ====== Simulation Profile Tasks ======
+        {
+            "label": "Start Simulation Container",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command simulation)"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+
+        // ====== CPU-Only Profile Tasks ======
+        {
+            "label": "Start CPU-Only Container",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command cpu-only)"
             ],
             "group": "build",
             "isBackground": true,
@@ -238,12 +187,12 @@
             "problemMatcher": []
         },
         {
-            "label": "Run Arduino Simulator (Docker)",
+            "label": "Run CV Publishers (CPU-Only)",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --force-cpu exec python3 autonomy/arduino_simulator.py"
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command cpu-only cv_publishers)"
             ],
             "group": "build",
             "isBackground": true,
@@ -257,14 +206,60 @@
             },
             "problemMatcher": []
         },
+
+        // ====== GPU Profile Tasks ======
         {
-            "label": "Set ROS Parameters for CV Publishers (Host)",
+            "label": "Start GPU Container",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "source /opt/ros/noetic/setup.bash && rosparam set /cv_publisher/rgb_image_topic '/zed2i/zed_node/rgb/image_rect_color' && rosparam set /cv_publisher/depth_image_topic '/zed2i/zed_node/depth/depth_registered' && rosparam set /cv_publisher/camera_info_topic '/zed2i/zed_node/rgb/camera_info' && rosparam set /cv_publisher/camera_pose_topic '/zed2i/zed_node/pose' && echo 'ROS parameters set for cv_publisher node'"
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command gpu-enabled)"
             ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+
+        // ====== Jetson Profile Tasks ======
+        {
+            "label": "Start Jetson Container",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd ${workspaceFolder} && $(python3 .vscode/hocker-helper.py build-command jetson)"
+            ],
+            "group": "build",
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+
+        // ====== Utility Tasks ======
+        {
+            "label": "List Available Profiles",
+            "type": "shell",
+            "command": "python3",
+            "args": [".vscode/hocker-helper.py", "list-profiles"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "group": "build",
             "presentation": {
                 "echo": true,
@@ -277,15 +272,14 @@
             "problemMatcher": []
         },
         {
-            "label": "Start ROS Core (Host)",
+            "label": "Enter Container Shell (Development)",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "source /opt/ros/noetic/setup.bash && roscore"
+                "cd ${workspaceFolder} && chmod +x docker/hydrus-docker/hocker && ./docker/hydrus-docker/hocker --dev exec --it"
             ],
             "group": "build",
-            "isBackground": true,
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -297,27 +291,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Launch CV Publishers with roslaunch (Host)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd ${workspaceFolder} && source /opt/ros/noetic/setup.bash && roslaunch autonomy cv_publishers.launch"
-            ],
-            "group": "build",
-            "isBackground": true,
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "dedicated",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Stop Docker Containers",
+            "label": "Stop All Containers",
             "type": "shell",
             "command": "bash",
             "args": [

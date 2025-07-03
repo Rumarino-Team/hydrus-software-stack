@@ -6,107 +6,56 @@ import json
 import os
 import subprocess
 import sys
-import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from system_detector import SystemDetector
-from vscode_integration import VSCodeIntegration
+
+@dataclass
+class DockerConfig:
+    """Docker configuration data class"""
+
+    volume: bool = False
+    force_cpu: bool = False
+    force_jetson: bool = False
+    vscode: bool = False
+    install_vscode_extensions: bool = False
+
+
+@dataclass
+class ContainerInfo:
+    """Container information data class"""
+
+    name: str
+    id: str
+    status: str
+    service: str
 
 
 class DockerManager:
     """Manages Docker operations and container lifecycle"""
 
-    def __init__(self, script_dir: Path, parent_dir: Path, rosbag_dir: Path):
-        self.script_dir = script_dir
-        self.parent_dir = parent_dir
-        self.rosbag_dir = rosbag_dir
+    def __init__(self, script_dir=None):
+        self.script_dir = script_dir or Path(__file__).parent.absolute()
 
-    def check_rosbags(self, auto_download: bool = False) -> bool:
-        """Check if rosbags exist and optionally download if not"""
-        # Check if directory exists and has any .bag files
-        if not self.rosbag_dir.exists() or not list(self.rosbag_dir.glob("*.bag")):
-            print(f"No ROS bag files found in {self.rosbag_dir}")
-
-            if auto_download:
-                print("Auto-downloading rosbag files...")
-                try:
-                    result = subprocess.run(
-                        [
-                            "python3",
-                            str(self.parent_dir / "scripts/download_rosbag.py"),
-                        ],
-                        check=True,
-                    )
-                    return result.returncode == 0
-                except subprocess.CalledProcessError:
-                    print("Failed to download rosbag files")
-                    return False
-            else:
-                print(
-                    "Rosbag playback requested but no rosbag files found. Use --download-rosbag to download automatically."
-                )
-                return False
-        return True
-
-    def run_docker_compose(self, compose_file: str, config: dict, detach: bool = False):
+    def run_docker_compose(
+        self, compose_file: str, config: DockerConfig, detach: bool = False
+    ):
         """Run docker compose with given configuration"""
-        env = os.environ.copy()
-        env.update(
-            {
-                "VOLUME": str(config["volume"]).lower(),
-                "ZED_OPTION": str(config["zed_option"]).lower(),
-                "RVIZ": str(config["rviz"]).lower(),
-                "ROSBAG_PLAYBACK": str(config["rosbag_playback"]).lower(),
-                "DEBUG_ARDUINO": str(config["debug_arduino"]).lower(),
-                "TEST": str(config.get("test", False)).lower(),
-                "NO_BUILD": str(config.get("no_build", False)).lower(),
-                "TMUX_SESSIONS": str(config.get("tmux_sessions", False)).lower(),
-                "ARDUINO_COMPILE": str(config.get("arduino_compile", False)).lower(),
-                "VIRTUAL_ARDUINO": str(config.get("virtual_arduino", False)).lower(),
-            }
-        )
-
         cmd = ["docker", "compose", "-f", compose_file, "up"]
-        if config.get("test", False):
-            cmd.append("--abort-on-container-exit")
-        elif detach:
-            cmd.append("-d")  # Add detached mode flag
 
         try:
             print(f"Starting Docker containers with {compose_file}...")
-            print(
-                f"🐳 Configuration: {', '.join([f'{k}={v}' for k, v in config.items() if v])}"
-            )
+            print(f"🐳 Configuration: {config}")
 
             if detach:
                 # Detached mode: run in background like the old behavior
                 print("🔗 Running in detached mode (background)")
                 print(f"💻 Executing: {' '.join(cmd)}")
 
-                subprocess.run(cmd, env=env, check=True, cwd=self.script_dir)
+                subprocess.run(cmd, check=True, cwd=self.script_dir)
 
                 print("✅ Docker containers started successfully!")
-
-                # Setup VS Code integration if requested
-                if config.get("vscode", False):
-                    VSCodeIntegration.setup_vscode_integration(
-                        compose_file,
-                        self.script_dir,
-                        self.parent_dir,
-                        config.get("install_vscode_extensions", False),
-                    )
-
-                print("\n" + "=" * 50)
-                print("🐳 Docker Environment Ready!")
-                print("=" * 50)
-                print(f"Containers are running with configuration: {compose_file}")
-                print("\nUseful commands:")
-                print("• View running containers: docker ps")
-                print("• View logs: docker compose logs -f")
-                print("• Enter container: python3 run_docker.py --exec")
-                print("• Stop containers: python3 run_docker.py --destroy")
-                print("=" * 50)
             else:
                 # Direct mode: replace terminal process (new default behavior)
                 print(f"💻 Executing: {' '.join(cmd)}")
@@ -117,7 +66,7 @@ class DockerManager:
 
                 # Change to script directory and replace current process with docker compose
                 os.chdir(self.script_dir)
-                os.execvpe("docker", cmd, env)
+                os.execvpe("docker", cmd, env=os.environ.copy())
 
         except subprocess.CalledProcessError as e:
             print(f"❌ Docker compose failed with exit code {e.returncode}")
@@ -125,18 +74,6 @@ class DockerManager:
         except Exception as e:
             print(f"❌ Docker compose failed: {e}")
             sys.exit(1)
-
-    def run_jetson_deployment(self):
-        """Run Jetson-specific deployment"""
-        print("Running Jetson deployment...")
-        jetson_script = self.parent_dir / "scripts/jetson.py"
-        if jetson_script.exists():
-            subprocess.run([sys.executable, str(jetson_script)], check=True)
-        else:
-            # Fallback to bash script if Python version doesn't exist yet
-            jetson_script = self.parent_dir / "scripts/jetson.sh"
-            os.chmod(jetson_script, 0o755)
-            subprocess.run([str(jetson_script)], check=True)
 
     def destroy_containers(self, compose_file: str):
         """Destroy containers created by Docker Compose"""
@@ -163,6 +100,175 @@ class DockerManager:
             print(f"❌ Failed to destroy containers: {e}")
             sys.exit(1)
 
+    def get_container_info(
+        self, compose_file: str, script_dir
+    ) -> Optional[ContainerInfo]:
+        """Get information about the running container"""
+        try:
+            print("🔍 Detecting running containers...")
+
+            # Method 1: Use docker compose ps with specific format to get actual container IDs
+            result = subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    compose_file,
+                    "ps",
+                    "--format",
+                    "table {{.Name}}\t{{.ID}}\t{{.Service}}\t{{.Status}}",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=script_dir,
+            )
+
+            if result.returncode == 0:
+                print("📋 Docker compose output received, parsing containers...")
+                lines = result.stdout.strip().split("\n")
+
+                # Skip header line if present
+                data_lines = [
+                    line
+                    for line in lines
+                    if not line.startswith("NAME") and line.strip()
+                ]
+
+                for line in data_lines:
+                    if line.strip():
+                        parts = line.split("\t")
+                        if len(parts) >= 4:
+                            container_name = parts[0].strip()
+                            container_id = parts[1].strip()
+                            service_name = parts[2].strip()
+                            status = parts[3].strip()
+
+                            print(
+                                f"   Found container: {container_name} (service: {service_name}, status: {status}, id: {container_id})"
+                            )
+
+                            # Look for hydrus-related services
+                            if any(
+                                keyword in service_name.lower()
+                                for keyword in ["hydrus", "hydrus_cpu", "hydrus_cuda"]
+                            ):
+                                print(
+                                    f"✅ Found Hydrus container: {container_name} with ID: {container_id}"
+                                )
+                                return ContainerInfo(
+                                    name=container_name,
+                                    id=container_id,
+                                    status=status,
+                                    service=service_name,
+                                )
+
+            # Method 2: Fallback to JSON format and extract from container list
+            print("🔄 Fallback method 1: Using docker compose ps JSON format...")
+            result = subprocess.run(
+                ["docker", "compose", "-f", compose_file, "ps", "--format", "json"],
+                capture_output=True,
+                text=True,
+                cwd=script_dir,
+            )
+
+            if result.returncode == 0:
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        try:
+                            container = json.loads(line)
+                            service_name = container.get("Service", "")
+                            container_name = container.get("Name", "")
+
+                            # Look for hydrus-related services
+                            if any(
+                                keyword in service_name.lower()
+                                for keyword in ["hydrus", "hydrus_cpu", "hydrus_cuda"]
+                            ):
+                                # Get the actual container ID by querying docker directly with the container name
+                                id_result = subprocess.run(
+                                    [
+                                        "docker",
+                                        "inspect",
+                                        "--format",
+                                        "{{.Id}}",
+                                        container_name,
+                                    ],
+                                    capture_output=True,
+                                    text=True,
+                                )
+
+                                if id_result.returncode == 0:
+                                    actual_container_id = id_result.stdout.strip()[
+                                        :12
+                                    ]  # Use short ID
+                                    state = container.get("State", "")
+
+                                    print(
+                                        f"✅ Found Hydrus container via JSON: {container_name} with actual ID: {actual_container_id}"
+                                    )
+                                    return ContainerInfo(
+                                        name=container_name,
+                                        id=actual_container_id,
+                                        status=state,
+                                        service=service_name,
+                                    )
+                        except json.JSONDecodeError:
+                            print(f"   ⚠️  JSON decode error for line: {line[:100]}...")
+                            continue
+
+            # Method 3: Direct docker ps fallback
+            print("🔄 Fallback method 2: Using direct docker ps...")
+            result = subprocess.run(
+                [
+                    "docker",
+                    "ps",
+                    "--format",
+                    "{{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Image}}",
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0:
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        parts = line.split("\t")
+                        if len(parts) >= 4:
+                            name, container_id, status, image = (
+                                parts[0],
+                                parts[1],
+                                parts[2],
+                                parts[3],
+                            )
+                            print(
+                                f"   Found container: {name} (image: {image}, id: {container_id})"
+                            )
+
+                            # Look for hydrus in name or image
+                            if any(
+                                keyword in name.lower()
+                                for keyword in ["hydrus", "hydrus_cpu", "hydrus_cuda"]
+                            ) or any(
+                                keyword in image.lower()
+                                for keyword in ["hydrus", "docker-hydrus"]
+                            ):
+                                print(
+                                    f"✅ Found Hydrus container via direct docker ps: {name} with ID: {container_id}"
+                                )
+                                return ContainerInfo(
+                                    name=name,
+                                    id=container_id,
+                                    status=status,
+                                    service="hydrus",
+                                )
+
+            print("❌ No Hydrus containers found")
+
+        except Exception as e:
+            print(f"❌ Error getting container info: {e}")
+
+        return None
+
     def exec_into_container(
         self,
         compose_file: str,
@@ -174,19 +280,17 @@ class DockerManager:
             print("🔍 Finding running Hydrus container...")
 
             # Get container information
-            container_info = VSCodeIntegration.get_container_info(
-                compose_file, self.script_dir
-            )
+            container_info = self.get_container_info(compose_file, self.script_dir)
             if not container_info:
                 print("❌ No running Hydrus container found!")
                 print("💡 Start containers first with: python3 run_docker.py")
                 sys.exit(1)
 
-            container_name = container_info["name"]
+            container_name = container_info.name
 
-            if "running" not in container_info["status"].lower():
+            if "running" not in container_info.status.lower():
                 print(
-                    f"❌ Container {container_name} is not running (status: {container_info['status']})"
+                    f"❌ Container {container_name} is not running (status: {container_info.status})"
                 )
                 print("💡 Start containers first with: python3 run_docker.py")
                 sys.exit(1)

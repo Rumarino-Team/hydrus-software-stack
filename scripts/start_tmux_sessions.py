@@ -11,19 +11,13 @@ import time
 from pathlib import Path
 from typing import List
 
+from scripts.scripts_utils import get_building_path
+
 
 class HydrusTmuxManager:
     def __init__(self):
         self.volume = os.environ.get("VOLUME", "false").lower() == "true"
-
-        # Determine ROS directory based on volume usage
-        if self.volume:
-            print("Using Volume directory for tmux scripts: /home/catkin_ws")
-            self.catkin_ws = Path("/home/catkin_ws")
-        else:
-            print("Using Docker container directory: /catkin_ws")
-            self.catkin_ws = Path("/catkin_ws")
-
+        self.catkin_ws = get_building_path(self.volume)
         # Window configuration
         self.window_config = self._get_window_configuration()
 

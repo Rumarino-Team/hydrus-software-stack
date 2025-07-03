@@ -107,7 +107,6 @@ WORKDIR /catkin_ws/src/hydrus-software-stack
 
 # Make scripts executable and remove any old global copies
 RUN chmod +x scripts/ros-entrypoint.py && \
-    chmod +x docker/hydrus-docker/hydrus-cli && \
-    rm -f /usr/local/bin/hydrus-cli /usr/bin/hydrus-cli
+    chmod +x docker/hydrus-docker/hydrus-cli
 
 CMD ["python3", "scripts/ros-entrypoint.py"]
