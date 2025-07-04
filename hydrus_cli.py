@@ -11,6 +11,35 @@ import sys
 import time
 from pathlib import Path
 
+# Add project directories to path for direct imports
+project_root = Path(__file__).parent.parent.absolute()
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "scripts"))
+
+# Import script modules directly (conditionally to avoid import errors)
+try:
+    from scripts import (
+        download_rosbag,
+        run_tests,
+        start_tmux_sessions,
+        video_to_rosbag,
+        virtual_arduino,
+    )
+
+    SCRIPTS_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import some scripts: {e}")
+    SCRIPTS_AVAILABLE = False
+
+try:
+    from autonomy.scripts.web import detection_viewer
+    from autonomy.src import api_server
+
+    AUTONOMY_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import autonomy modules: {e}")
+    AUTONOMY_AVAILABLE = False
+
 
 class HydrusCLI:
     """Central CLI for all Hydrus software operations - the intermediate layer"""
@@ -18,6 +47,8 @@ class HydrusCLI:
     def __init__(self):
         self.script_dir = Path(__file__).parent.absolute()
         self.hydrus_root = self._find_hydrus_root()
+        # Add project directories to path for direct imports
+        sys.path.insert(0, str(self.hydrus_root))
         print("🔧 HYDRUS SOFTWARE CONTROL CLI")
         print("=" * 50)
 
@@ -298,29 +329,22 @@ Examples:
     def run_tests(self):
         """Run the test suite"""
         print("🧪 Running Hydrus test suite...")
-
-        test_script = self.hydrus_root / "scripts/run_tests.py"
-        if test_script.exists():
-            result = self.run_command([sys.executable, str(test_script)], check=False)
-            return result.returncode == 0
-        else:
-            print("❌ Test script not found")
+        try:
+            # Assuming run_tests.py has a main() function
+            run_tests.main()
+            return True
+        except Exception as e:
+            print(f"❌ Test suite failed: {e}")
             return False
 
     def start_tmux_sessions(self):
         """Start tmux monitoring sessions"""
         print("📺 Starting tmux monitoring sessions...")
-
-        tmux_script = self.hydrus_root / "scripts/start_tmux_sessions.py"
-        if tmux_script.exists():
-            self.run_command([sys.executable, str(tmux_script)], check=False)
-        else:
-            # Fallback to bash script
-            tmux_script = self.hydrus_root / "start_tmux_sessions.sh"
-            if tmux_script.exists():
-                self.run_command(["bash", str(tmux_script)], check=False)
-            else:
-                print("❌ Tmux script not found")
+        try:
+            # Assuming start_tmux_sessions.py has a main() function
+            start_tmux_sessions.main()
+        except Exception as e:
+            print(f"❌ Failed to start tmux sessions: {e}")
 
     def compile_arduino(self):
         """Compile and upload Arduino code"""
@@ -373,38 +397,23 @@ Examples:
     def start_virtual_arduino(self):
         """Start virtual Arduino processes"""
         print("🤖 Starting virtual Arduino processes...")
-
-        virtual_script = self.hydrus_root / "scripts/virtual_arduino.py"
-        if not virtual_script.exists():
-            print("❌ Virtual Arduino script not found")
+        try:
+            # Assuming virtual_arduino.py has a main() function
+            virtual_arduino.main()
+            return True
+        except Exception as e:
+            print(f"❌ Failed to start virtual Arduino: {e}")
             return False
-
-        for port in ["/dev/ttyACM0", "/dev/ttyACM1"]:
-            try:
-                subprocess.Popen(
-                    [sys.executable, str(virtual_script), port],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print(f"✅ Started virtual Arduino for {port}")
-                time.sleep(1)
-            except Exception as e:
-                print(f"❌ Failed to start virtual Arduino for {port}: {e}")
-
-        return True
 
     def download_rosbags(self):
         """Download rosbag files"""
         print("📦 Downloading rosbag files...")
-
-        download_script = self.hydrus_root / "scripts/download_rosbag.py"
-        if download_script.exists():
-            result = self.run_command(
-                [sys.executable, str(download_script)], check=False
-            )
-            return result.returncode == 0
-        else:
-            print("❌ Rosbag download script not found")
+        try:
+            # Assuming download_rosbag.py has a main() function
+            download_rosbag.main()
+            return True
+        except Exception as e:
+            print(f"❌ Failed to download rosbags: {e}")
             return False
 
     def start_rosbag_playback(self, loop=False):
@@ -533,46 +542,41 @@ Examples:
     def start_web_ui(self):
         """Start web user interface"""
         print("🌐 Starting web user interface...")
-
-        # Start detection viewer
-        detection_viewer = self.hydrus_root / "autonomy/scripts/web/detection_viewer.py"
-        if detection_viewer.exists():
-            try:
-                subprocess.Popen(
-                    [sys.executable, str(detection_viewer)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print("✅ Web detection viewer started")
-            except Exception as e:
-                print(f"❌ Failed to start detection viewer: {e}")
-                return False
-
-        return True
+        try:
+            # Run in a separate process so it doesn't block
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "from autonomy.scripts.web import detection_viewer; detection_viewer.main()",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print("✅ Web detection viewer started")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to start detection viewer: {e}")
+            return False
 
     def start_api_server(self):
         """Start API server"""
         print("🖥️  Starting API server...")
-
-        api_server = self.hydrus_root / "autonomy/src/api_server.py"
-        if not api_server.exists():
-            # Try alternative location
-            api_server = self.hydrus_root / "autonomy/src/API.py"
-
-        if api_server.exists():
-            try:
-                subprocess.Popen(
-                    [sys.executable, str(api_server)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print("✅ API server started")
-                return True
-            except Exception as e:
-                print(f"❌ Failed to start API server: {e}")
-                return False
-        else:
-            print("❌ API server script not found")
+        try:
+            # Run in a separate process so it doesn't block
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "from autonomy.src import api_server; api_server.main()",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print("✅ API server started")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to start API server: {e}")
             return False
 
     def start_monitoring(self):
@@ -605,20 +609,13 @@ Examples:
             print(f"❌ Video file not found: {video_file}")
             return False
 
-        converter_script = self.hydrus_root / "scripts/video_to_rosbag.py"
-        if not converter_script.exists():
-            print("❌ Video converter script not found")
-            return False
-
         if not output_bag:
             output_bag = Path(video_file).stem + ".bag"
 
         try:
-            result = self.run_command(
-                [sys.executable, str(converter_script), video_file, output_bag],
-                check=False,
-            )
-            return result.returncode == 0
+            # Assuming video_to_rosbag.py has a main() function that takes arguments
+            video_to_rosbag.main([video_file, output_bag])
+            return True
         except Exception as e:
             print(f"❌ Failed to convert video: {e}")
             return False

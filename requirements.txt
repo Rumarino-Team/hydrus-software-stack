@@ -11,9 +11,8 @@ pyserial
 uvicorn
 fastapi
 
-# Flask with explicit version that works with system packages
-# Install with --upgrade --force-reinstall if needed
-Flask==2.3.3
+# Flask removed temporarily due to blinker package conflict
+# Flask==2.3.3
 
 # Development and formatting tools
 black>=23.0.0

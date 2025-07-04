@@ -68,4 +68,4 @@ RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/la
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x scripts/ros-entrypoint.py
-CMD ["python3", "scripts/ros-entrypoint.py"]
+CMD ["/bin/bash", "-c", "sleep infinity"]

@@ -37,6 +37,8 @@ class DockerManager:
 
     def __init__(self, script_dir=None):
         self.script_dir = script_dir or Path(__file__).parent.absolute()
+        # Docker compose files are in the parent directory (docker/)
+        self.docker_dir = Path(__file__).parent.parent.absolute()
 
     def run_docker_compose(
         self, compose_file: str, config: DockerConfig, detach: bool = False
@@ -53,7 +55,7 @@ class DockerManager:
                 print("🔗 Running in detached mode (background)")
                 print(f"💻 Executing: {' '.join(cmd)}")
 
-                subprocess.run(cmd, check=True, cwd=self.script_dir)
+                subprocess.run(cmd, check=True, cwd=self.docker_dir)
 
                 print("✅ Docker containers started successfully!")
             else:
@@ -64,8 +66,8 @@ class DockerManager:
                 print("🛑 Press Ctrl+C to stop containers and exit")
                 print("=" * 60)
 
-                # Change to script directory and replace current process with docker compose
-                os.chdir(self.script_dir)
+                # Change to docker directory and replace current process with docker compose
+                os.chdir(self.docker_dir)
                 os.execvpe("docker", cmd, env=os.environ.copy())
 
         except subprocess.CalledProcessError as e:
@@ -92,8 +94,8 @@ class DockerManager:
             ]
             env = os.environ.copy()
 
-            # Change to script directory and replace current process
-            os.chdir(self.script_dir)
+            # Change to docker directory and replace current process
+            os.chdir(self.docker_dir)
             os.execvpe("docker", cmd, env)
 
         except Exception as e:
@@ -101,9 +103,11 @@ class DockerManager:
             sys.exit(1)
 
     def get_container_info(
-        self, compose_file: str, script_dir
+        self, compose_file: str, script_dir=None
     ) -> Optional[ContainerInfo]:
         """Get information about the running container"""
+        # Use docker_dir for compose operations
+        work_dir = script_dir if script_dir else self.docker_dir
         try:
             print("🔍 Detecting running containers...")
 
@@ -120,7 +124,7 @@ class DockerManager:
                 ],
                 capture_output=True,
                 text=True,
-                cwd=script_dir,
+                cwd=work_dir,
             )
 
             if result.returncode == 0:
@@ -168,7 +172,7 @@ class DockerManager:
                 ["docker", "compose", "-f", compose_file, "ps", "--format", "json"],
                 capture_output=True,
                 text=True,
-                cwd=script_dir,
+                cwd=work_dir,
             )
 
             if result.returncode == 0:
@@ -280,7 +284,7 @@ class DockerManager:
             print("🔍 Finding running Hydrus container...")
 
             # Get container information
-            container_info = self.get_container_info(compose_file, self.script_dir)
+            container_info = self.get_container_info(compose_file)
             if not container_info:
                 print("❌ No running Hydrus container found!")
                 print("💡 Start containers first with: python3 run_docker.py")

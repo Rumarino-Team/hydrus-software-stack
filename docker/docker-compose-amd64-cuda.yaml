@@ -78,6 +78,7 @@ services:
       - VIRTUAL_ARDUINO
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ZED_OPTION=${ZED_OPTION}
+    command: /bin/bash -c "sleep infinity"
     depends_on:
       - ros-master
       - zed-camera

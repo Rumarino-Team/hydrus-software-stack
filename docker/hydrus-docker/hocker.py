@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""
+Hocker - Hydrus Docker Deployment Tool (Docker-focused only)
+Pure Docker management - delegates all Hydrus software control to hydrus-cli
+"""
+
+import argparse
+import sys
+from dataclasses import dataclass
+from enum import Enum
+
+from docker_manager import DockerManager
+from system_detector import SystemDetector
+
+
+class SystemType(Enum):
+    """Enumeration for different system types"""
+
+    JETSON_TX2 = "jetson_tx2"
+    WSL = "wsl"
+    NVIDIA_GPU = "nvidia_gpu"
+    CPU = "cpu"
+
+
+class HockerDockerDeployment:
+    """Pure Docker orchestrator - focused only on container management"""
+
+    def __init__(self):
+        # Initialize managers
+        self.docker_manager = DockerManager()
+
+    def setup_argument_parser(self):
+        """Set up argument parser for Docker deployment options"""
+        parser = argparse.ArgumentParser(
+            description="Hocker - Hydrus Docker Deployment Tool",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+
+        # Docker configuration options
+        parser.add_argument(
+            "--force-cpu", action="store_true", help="Force CPU-only deployment"
+        )
+        parser.add_argument(
+            "--force-jetson", action="store_true", help="Force Jetson deployment"
+        )
+        parser.add_argument(
+            "--vscode", action="store_true", help="Enable VS Code integration"
+        )
+        parser.add_argument(
+            "--install-vscode-extensions",
+            action="store_true",
+            help="Install VS Code extensions",
+        )
+
+        # Container actions
+        parser.add_argument(
+            "--exec", type=str, metavar="COMMAND", help="Execute command in container"
+        )
+        parser.add_argument(
+            "--it", action="store_true", help="Interactive mode for exec"
+        )
+        parser.add_argument("--destroy", action="store_true", help="Destroy containers")
+        parser.add_argument(
+            "--detach",
+            "-d",
+            action="store_true",
+            help="Run containers in detached mode",
+        )
+
+        return parser
+
+    def execute_action(self, args):
+        dict_args = {k: v for k, v in vars(args).items() if v is not None}
+
+        compose_file = SystemDetector.determine_compose_file()
+        if args.exec:
+            del dict_args["exec"]
+            self.docker_manager.exec_into_container(
+                compose_file, interactive=args.it, command="".join(args.exec.split())
+            )
+        elif args.destroy:
+            self.docker_manager.destroy_containers(compose_file)
+        else:
+            self.docker_manager.run_docker_compose(compose_file, dict_args)
+
+    def main(self):
+        """Main execution function"""
+        try:
+            # Parse command line arguments
+            parser = self.setup_argument_parser()
+            args = parser.parse_args()
+            # Execute the requested action
+            self.execute_action(args)
+
+        except ValueError as e:
+            print(f"❌ Error: {e}")
+            sys.exit(1)
+        except KeyboardInterrupt:
+            print("\n🛑 Operation cancelled by user")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    deployment = HockerDockerDeployment()
+    deployment.main()

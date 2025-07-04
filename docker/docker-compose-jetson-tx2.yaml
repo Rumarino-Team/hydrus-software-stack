@@ -60,6 +60,7 @@ services:
       - TMUX_SESSIONS
       - ARDUINO_COMPILE
       - VIRTUAL_ARDUINO
+    command: /bin/bash -c "sleep infinity"
     depends_on:
       - ros-master
       - zed-camera
