@@ -44,6 +44,7 @@ services:
       - "/tmp/.X11-unix:/tmp/.X11-unix"
       - "../rosbags:/rosbags"
       - "../yolo_models:/yolo_models"  # Volume for YOLO models
+    command: /bin/bash -c "sleep infinity"
     depends_on:
       - ros-master
     ulimits:

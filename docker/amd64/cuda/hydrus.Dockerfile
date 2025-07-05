@@ -97,5 +97,4 @@ COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
-RUN chmod +x scripts/ros-entrypoint.py
-CMD ["python3", "scripts/ros-entrypoint.py"]
+CMD ["/bin/bash", "-c", "sleep infinity"]

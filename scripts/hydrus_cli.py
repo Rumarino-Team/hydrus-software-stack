@@ -11,6 +11,35 @@ import sys
 import time
 from pathlib import Path
 
+# Add project directories to path for direct imports
+project_root = Path(__file__).parent.parent.absolute()
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "scripts"))
+
+# Import script modules directly (conditionally to avoid import errors)
+try:
+    from scripts import (
+        download_rosbag,
+        run_tests,
+        start_tmux_sessions,
+        video_to_rosbag,
+        virtual_arduino,
+    )
+
+    SCRIPTS_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import some scripts: {e}")
+    SCRIPTS_AVAILABLE = False
+
+try:
+    from autonomy.scripts.web import detection_viewer
+    from autonomy.src import api_server
+
+    AUTONOMY_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import autonomy modules: {e}")
+    AUTONOMY_AVAILABLE = False
+
 
 class HydrusCLI:
     """Central CLI for all Hydrus software operations - the intermediate layer"""
@@ -18,6 +47,8 @@ class HydrusCLI:
     def __init__(self):
         self.script_dir = Path(__file__).parent.absolute()
         self.hydrus_root = self._find_hydrus_root()
+        # Add project directories to path for direct imports
+        sys.path.insert(0, str(self.hydrus_root))
         print("🔧 HYDRUS SOFTWARE CONTROL CLI")
         print("=" * 50)
 
@@ -43,108 +74,42 @@ class HydrusCLI:
             description="Hydrus Software Control CLI - Complete interface for all Hydrus operations",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
-Primary Commands:
+Available Commands:
   build                Build the ROS workspace
+  tmux                 Start and manage tmux monitoring sessions
   test                 Run the complete test suite
-  tmux                 Start tmux monitoring sessions
-  monitor              Start monitoring and debugging tools
 
-Hardware Control:
-  arduino-compile      Compile and upload Arduino code
-  virtual-arduino      Start virtual Arduino processes
-  serial-bridge        Start serial ROS bridge
-
-Data & Simulation:
-  rosbag-download      Download rosbag files
-  rosbag-play          Start rosbag playback
-  rosbag-convert       Convert video to rosbag
-
-Visualization & UI:
-  rviz                 Start RViz visualization
-  web-ui               Start web user interface
-  api-server           Start API server
-
-Development Tools:
-  format               Format code with project standards
-  lint                 Run code quality checks
-  profile              Start ROS node profiler
+Global Options (can be used with any command):
+  --arduino-compile     Compile and upload Arduino code
+  --virtual-arduino     Start virtual Arduino processes
+  --serial-bridge       Start serial ROS bridge
+  --rosbag-download     Download rosbag files
+  --rosbag-play         Start rosbag playback
+  --rviz                Start RViz visualization
+  --web-ui              Start web user interface
+  --api-server          Start API server
+  --monitor             Start monitoring and debugging tools
+  --format              Format code with project standards
 
 Examples:
-  # Complete development setup
-  hydrus-cli build --tmux --arduino-compile --virtual-arduino
+  # Build workspace with Arduino compilation
+  hydrus-cli build --arduino-compile
 
-  # Testing workflow
+  # Start tmux with specific windows
+  hydrus-cli tmux --windows Controls Arduino
+
+  # Start tmux with global options
+  hydrus-cli tmux --arduino-compile --virtual-arduino
+
+  # Get tmux-specific help
+  hydrus-cli tmux --help
+
+  # Run tests with rosbag download
   hydrus-cli test --rosbag-download
-
-  # Simulation setup
-  hydrus-cli rosbag-download --rosbag-play --rviz --web-ui
-
-  # Production deployment
-  hydrus-cli build --arduino-compile --tmux --monitor
-
-  # Quick development monitoring
-  hydrus-cli tmux --profile
             """,
         )
 
-        # Primary actions
-        parser.add_argument(
-            "action",
-            nargs="?",
-            choices=[
-                "build",
-                "test",
-                "tmux",
-                "monitor",
-                "arduino-compile",
-                "virtual-arduino",
-                "serial-bridge",
-                "rosbag-download",
-                "rosbag-play",
-                "rosbag-convert",
-                "rviz",
-                "web-ui",
-                "api-server",
-                "format",
-                "lint",
-                "profile",
-            ],
-            help="Primary action to perform",
-        )
-
-        # Build options
-        parser.add_argument(
-            "--no-build", action="store_true", help="Skip catkin workspace build"
-        )
-        parser.add_argument(
-            "--clean", action="store_true", help="Clean workspace before building"
-        )
-
-        # Test options
-        parser.add_argument(
-            "--test", action="store_true", help="Run tests after other actions"
-        )
-        parser.add_argument(
-            "--test-integration", action="store_true", help="Run integration tests only"
-        )
-        parser.add_argument(
-            "--test-unit", action="store_true", help="Run unit tests only"
-        )
-
-        # Monitoring & Development
-        parser.add_argument(
-            "--tmux", action="store_true", help="Start tmux monitoring sessions"
-        )
-        parser.add_argument(
-            "--monitor",
-            action="store_true",
-            help="Start monitoring and debugging tools",
-        )
-        parser.add_argument(
-            "--profile", action="store_true", help="Start ROS node profiler"
-        )
-
-        # Hardware options
+        # Global options that can be used with any command
         parser.add_argument(
             "--arduino-compile",
             action="store_true",
@@ -158,8 +123,6 @@ Examples:
         parser.add_argument(
             "--serial-bridge", action="store_true", help="Start serial ROS bridge"
         )
-
-        # Data & Simulation options
         parser.add_argument(
             "--rosbag-download",
             action="store_true",
@@ -172,11 +135,6 @@ Examples:
             "--rosbag-loop", action="store_true", help="Loop rosbag playback"
         )
         parser.add_argument(
-            "--video-file", type=str, help="Video file to convert to rosbag"
-        )
-
-        # Visualization & UI
-        parser.add_argument(
             "--rviz", action="store_true", help="Start RViz visualization"
         )
         parser.add_argument(
@@ -185,23 +143,14 @@ Examples:
         parser.add_argument(
             "--api-server", action="store_true", help="Start API server"
         )
-
-        # Development tools
+        parser.add_argument(
+            "--monitor",
+            action="store_true",
+            help="Start monitoring and debugging tools",
+        )
         parser.add_argument(
             "--format", action="store_true", help="Format code with project standards"
         )
-        parser.add_argument(
-            "--lint", action="store_true", help="Run code quality checks"
-        )
-
-        # Configuration
-        parser.add_argument(
-            "--config",
-            choices=["test", "development", "simulation", "production", "competition"],
-            help="Use predefined configuration",
-        )
-
-        # Ports and devices
         parser.add_argument(
             "--port",
             default="/dev/ttyACM0",
@@ -214,7 +163,102 @@ Examples:
             help="Baud rate for serial communication",
         )
 
+        # Create subparsers for commands
+        subparsers = parser.add_subparsers(
+            dest="command", help="Available commands", metavar="<command>"
+        )
+
+        # Build subcommand
+        build_parser = subparsers.add_parser(
+            "build",
+            help="Build the ROS workspace",
+            description="Build the catkin workspace",
+        )
+        build_parser.add_argument(
+            "--clean", action="store_true", help="Clean workspace before building"
+        )
+        build_parser.add_argument(
+            "--no-build", action="store_true", help="Skip catkin workspace build"
+        )
+        build_parser.set_defaults(func=self._handle_build_command)
+
+        # Test subcommand
+        test_parser = subparsers.add_parser(
+            "test",
+            help="Run the complete test suite",
+            description="Run Hydrus test suite",
+        )
+        test_parser.add_argument(
+            "--integration", action="store_true", help="Run integration tests only"
+        )
+        test_parser.add_argument(
+            "--unit", action="store_true", help="Run unit tests only"
+        )
+        test_parser.set_defaults(func=self._handle_test_command)
+
+        # Register tmux subcommand from start_tmux_sessions
+        if SCRIPTS_AVAILABLE:
+            try:
+                start_tmux_sessions.register_subcommand(subparsers)
+            except AttributeError:
+                print("Warning: Could not register tmux subcommand")
+
         return parser
+
+    def _handle_build_command(self, args):
+        """Handle build subcommand"""
+        workspace_dir, _ = self.determine_workspace_type()
+
+        if args.clean:
+            print("🧹 Cleaning workspace...")
+            clean_cmd = f"cd {workspace_dir} && catkin_make clean"
+            subprocess.run(["bash", "-c", clean_cmd], check=False)
+
+        if not args.no_build:
+            success = self.build_workspace(workspace_dir)
+            return success
+        return True
+
+    def _handle_test_command(self, args):
+        """Handle test subcommand"""
+        success = self.run_tests()
+        return success
+
+    def _execute_global_options(self, args):
+        """Execute global options that can be combined with any command"""
+        success = True
+
+        if args.arduino_compile:
+            success &= self.compile_arduino()
+
+        if args.virtual_arduino:
+            success &= self.start_virtual_arduino()
+
+        if args.serial_bridge:
+            success &= self.start_serial_bridge(args.port, args.baud_rate)
+
+        if args.rosbag_download:
+            success &= self.download_rosbags()
+
+        if args.rosbag_play:
+            success &= self.start_rosbag_playback(args.rosbag_loop)
+
+        if args.rviz:
+            success &= self.start_rviz()
+
+        if args.web_ui:
+            success &= self.start_web_ui()
+
+        if args.api_server:
+            success &= self.start_api_server()
+
+        if args.monitor:
+            success &= self.start_monitoring()
+
+        if args.format:
+            success &= self.format_code()
+
+        return success
 
     def determine_workspace_type(self):
         """Determine if we're in volume mount or container copy mode"""
@@ -298,29 +342,22 @@ Examples:
     def run_tests(self):
         """Run the test suite"""
         print("🧪 Running Hydrus test suite...")
-
-        test_script = self.hydrus_root / "scripts/run_tests.py"
-        if test_script.exists():
-            result = self.run_command([sys.executable, str(test_script)], check=False)
-            return result.returncode == 0
-        else:
-            print("❌ Test script not found")
+        try:
+            # Assuming run_tests.py has a main() function
+            run_tests.main()
+            return True
+        except Exception as e:
+            print(f"❌ Test suite failed: {e}")
             return False
 
     def start_tmux_sessions(self):
         """Start tmux monitoring sessions"""
         print("📺 Starting tmux monitoring sessions...")
-
-        tmux_script = self.hydrus_root / "scripts/start_tmux_sessions.py"
-        if tmux_script.exists():
-            self.run_command([sys.executable, str(tmux_script)], check=False)
-        else:
-            # Fallback to bash script
-            tmux_script = self.hydrus_root / "start_tmux_sessions.sh"
-            if tmux_script.exists():
-                self.run_command(["bash", str(tmux_script)], check=False)
-            else:
-                print("❌ Tmux script not found")
+        try:
+            # Assuming start_tmux_sessions.py has a main() function
+            start_tmux_sessions.main()
+        except Exception as e:
+            print(f"❌ Failed to start tmux sessions: {e}")
 
     def compile_arduino(self):
         """Compile and upload Arduino code"""
@@ -373,38 +410,23 @@ Examples:
     def start_virtual_arduino(self):
         """Start virtual Arduino processes"""
         print("🤖 Starting virtual Arduino processes...")
-
-        virtual_script = self.hydrus_root / "scripts/virtual_arduino.py"
-        if not virtual_script.exists():
-            print("❌ Virtual Arduino script not found")
+        try:
+            # Assuming virtual_arduino.py has a main() function
+            virtual_arduino.main()
+            return True
+        except Exception as e:
+            print(f"❌ Failed to start virtual Arduino: {e}")
             return False
-
-        for port in ["/dev/ttyACM0", "/dev/ttyACM1"]:
-            try:
-                subprocess.Popen(
-                    [sys.executable, str(virtual_script), port],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print(f"✅ Started virtual Arduino for {port}")
-                time.sleep(1)
-            except Exception as e:
-                print(f"❌ Failed to start virtual Arduino for {port}: {e}")
-
-        return True
 
     def download_rosbags(self):
         """Download rosbag files"""
         print("📦 Downloading rosbag files...")
-
-        download_script = self.hydrus_root / "scripts/download_rosbag.py"
-        if download_script.exists():
-            result = self.run_command(
-                [sys.executable, str(download_script)], check=False
-            )
-            return result.returncode == 0
-        else:
-            print("❌ Rosbag download script not found")
+        try:
+            # Assuming download_rosbag.py has a main() function
+            download_rosbag.main()
+            return True
+        except Exception as e:
+            print(f"❌ Failed to download rosbags: {e}")
             return False
 
     def start_rosbag_playback(self, loop=False):
@@ -533,46 +555,41 @@ Examples:
     def start_web_ui(self):
         """Start web user interface"""
         print("🌐 Starting web user interface...")
-
-        # Start detection viewer
-        detection_viewer = self.hydrus_root / "autonomy/scripts/web/detection_viewer.py"
-        if detection_viewer.exists():
-            try:
-                subprocess.Popen(
-                    [sys.executable, str(detection_viewer)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print("✅ Web detection viewer started")
-            except Exception as e:
-                print(f"❌ Failed to start detection viewer: {e}")
-                return False
-
-        return True
+        try:
+            # Run in a separate process so it doesn't block
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "from autonomy.scripts.web import detection_viewer; detection_viewer.main()",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print("✅ Web detection viewer started")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to start detection viewer: {e}")
+            return False
 
     def start_api_server(self):
         """Start API server"""
         print("🖥️  Starting API server...")
-
-        api_server = self.hydrus_root / "autonomy/src/api_server.py"
-        if not api_server.exists():
-            # Try alternative location
-            api_server = self.hydrus_root / "autonomy/src/API.py"
-
-        if api_server.exists():
-            try:
-                subprocess.Popen(
-                    [sys.executable, str(api_server)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print("✅ API server started")
-                return True
-            except Exception as e:
-                print(f"❌ Failed to start API server: {e}")
-                return False
-        else:
-            print("❌ API server script not found")
+        try:
+            # Run in a separate process so it doesn't block
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "from autonomy.src import api_server; api_server.main()",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print("✅ API server started")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to start API server: {e}")
             return False
 
     def start_monitoring(self):
@@ -605,20 +622,13 @@ Examples:
             print(f"❌ Video file not found: {video_file}")
             return False
 
-        converter_script = self.hydrus_root / "scripts/video_to_rosbag.py"
-        if not converter_script.exists():
-            print("❌ Video converter script not found")
-            return False
-
         if not output_bag:
             output_bag = Path(video_file).stem + ".bag"
 
         try:
-            result = self.run_command(
-                [sys.executable, str(converter_script), video_file, output_bag],
-                check=False,
-            )
-            return result.returncode == 0
+            # Assuming video_to_rosbag.py has a main() function that takes arguments
+            video_to_rosbag.main([video_file, output_bag])
+            return True
         except Exception as e:
             print(f"❌ Failed to convert video: {e}")
             return False
@@ -828,36 +838,27 @@ Examples:
         return success
 
     def main(self):
-        """Main execution function with priority-based action execution"""
+        """Main execution function with subparser-based architecture"""
         try:
             parser = self.create_parser()
             args = parser.parse_args()
 
-            # Determine workspace
-            workspace_dir, is_volume = self.determine_workspace_type()
-            print(
-                f"📁 Using workspace: {workspace_dir} ({'volume' if is_volume else 'container'})"
-            )
+            # If no command specified, show help
+            if not hasattr(args, "func"):
+                parser.print_help()
+                sys.exit(0)
 
-            # Apply configuration if specified
-            if args.config:
-                config = self.apply_config(args.config)
-                if config:
-                    print(f"🔧 Applying {args.config} configuration")
-                    # Override args with config
-                    for action in config["actions"]:
-                        setattr(args, action.replace("-", "_"), True)
-                    if "options" in config and isinstance(config["options"], dict):
-                        for option, value in config["options"].items():
-                            setattr(args, option, value)
+            # Execute global options first
+            global_success = self._execute_global_options(args)
 
-            # Execute all actions in priority order
-            success = self.execute_actions_by_priority(args, workspace_dir)
+            # Execute the specific subcommand
+            command_success = args.func(args)
+
+            # Both global options and command must succeed
+            success = global_success and command_success
 
             if success:
                 print("\n✅ All operations completed successfully")
-                print("\n💡 Hydrus software is ready!")
-                print("📖 Use 'hydrus-cli --help' for more options")
                 sys.exit(0)
             else:
                 print("\n❌ Some operations failed")
