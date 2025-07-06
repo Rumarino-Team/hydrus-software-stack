@@ -4,18 +4,6 @@ The Hydrus Autonomy System is a comprehensive ROS-based underwater vehicle contr
 
 > ⚠️ **Warning**: The mission API is currently under development. Some features may not work as expected and are subject to change.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Launch Files](#launch-files)
-- [Core Components](#core-components)
-- [Scripts Reference](#scripts-reference)
-- [Mission System Usage](#mission-system-usage)
-- [Computer Vision Configuration](#computer-vision-configuration)
-- [Hardware Integration](#hardware-integration)
-
-## Overview
 
 The autonomy system provides:
 - **Mission Planning**: Hierarchical mission execution for competition tasks
