@@ -668,10 +668,6 @@ class HydrusTestRunner:
         try:
             # Build workspace and setup environment
             self._build_workspace()
-
-            # Start roscore for ROS tests
-            # self._start_roscore(env)
-
             # Run unit tests
             self._run_unit_tests(env)
 

@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 import typer
 
-from .commands.arduino import ArduinoCommand
-from .commands.ros import HydrusRosManager
-from .commands.tmux import HydrusTmuxManager
+from .commands.arduino import arduino_command
+from .commands.tmux import tmux_command
 
 app = typer.Typer()
 
+# Add subcommands
+app.add_typer(
+    arduino_command, name="arduino", help="Arduino device management commands"
+)
+app.add_typer(tmux_command, name="tmux", help="Tmux session management commands")
 
-class HydrusClI:
-    def __init__(self):
-        self.ros_manager = HydrusRosManager()
-        self.tmux_manager = HydrusTmuxManager()
+
+@app.command()
+def hello():
+    """Say hello from Hydrus CLI."""
+    typer.echo("Hello from Hydrus Software Stack!")
+    typer.echo("Use --help to see available commands.")
 
 
 if __name__ == "__main__":

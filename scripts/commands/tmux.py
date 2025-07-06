@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
-Hydrus Tmux Session Manager
+Hydrus Tmux Session Manager - Typer Command Interface
 Replaces start_tmux_sessions.sh with improved modularity and error handling
 """
 
+import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Optional
+
+import typer
 
 from scripts.scripts_utils import get_building_path
+
+tmux_command = typer.Typer()
 
 
 class HydrusTmuxManager:
@@ -142,8 +147,8 @@ class HydrusTmuxManager:
             )
         except subprocess.CalledProcessError as e:
             if check:
-                print(f"Command failed: {' '.join(cmd)}")
-                print(f"Exit code: {e.returncode}")
+                typer.echo(f"Command failed: {' '.join(cmd)}")
+                typer.echo(f"Exit code: {e.returncode}")
             raise
 
     def _check_tmux_installed(self):
@@ -151,13 +156,13 @@ class HydrusTmuxManager:
         try:
             self._run_command(["tmux", "-V"], capture_output=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("tmux could not be found. Installing tmux...")
+            typer.echo("tmux could not be found. Installing tmux...")
             self._run_command(["apt-get", "update"])
             self._run_command(["apt-get", "install", "-y", "tmux"])
 
     def _setup_virtual_arduino(self):
         """Setup virtual Arduino if needed"""
-        print("Checking for Arduino device...")
+        typer.echo("Checking for Arduino device...")
         virtual_arduino_script = (
             self.catkin_ws / "src/hydrus-software-stack/scripts/virtual_arduino.py"
         )
@@ -170,12 +175,12 @@ class HydrusTmuxManager:
             )
             time.sleep(3)  # Give time for virtual Arduino to start
         except Exception as e:
-            print(f"Failed to start virtual Arduino: {e}")
+            typer.echo(f"Failed to start virtual Arduino: {e}")
 
     def _setup_serial_monitor(self):
         """Setup Arduino serial monitoring if not already running"""
         if not Path("/tmp/hydrus_serial/catpid.txt").exists():
-            print("Setting up Arduino serial monitoring...")
+            typer.echo("Setting up Arduino serial monitoring...")
             setup_script = (
                 self.catkin_ws
                 / "src/hydrus-software-stack/scripts/setup_serial_monitor.py"
@@ -186,7 +191,7 @@ class HydrusTmuxManager:
                         [sys.executable, str(setup_script), "/dev/ttyACM0"], check=False
                     )
                 except Exception as e:
-                    print(f"Failed to setup serial monitor: {e}")
+                    typer.echo(f"Failed to setup serial monitor: {e}")
             else:
                 # Fallback to bash script
                 setup_script = (
@@ -215,11 +220,11 @@ class HydrusTmuxManager:
         try:
             self._run_command(["tmux"] + cmd, check=False)
         except Exception as e:
-            print(f"Tmux command failed: {' '.join(cmd)}: {e}")
+            typer.echo(f"Tmux command failed: {' '.join(cmd)}: {e}")
 
     def _create_window_from_config(self, window_name: str, config: dict):
         """Create a tmux window based on configuration"""
-        print(f"Creating {window_name} window...")
+        typer.echo(f"Creating {window_name} window...")
 
         window_index = config["window_index"]
         layout = config.get("layout", "even-horizontal")
@@ -263,20 +268,28 @@ class HydrusTmuxManager:
                 ["select-layout", "-t", f"hydrus:{window_index}", layout]
             )
 
-    def _create_all_windows(self):
+    def _create_all_windows(self, window_filter: Optional[List[str]] = None):
         """Create all tmux windows from configuration"""
-        print("Creating tmux windows from configuration...")
+        typer.echo("Creating tmux windows from configuration...")
 
         # Sort windows by index to ensure proper creation order
         sorted_windows = sorted(
             self.window_config.items(), key=lambda x: x[1]["window_index"]
         )
 
+        # Filter windows if specified
+        if window_filter:
+            sorted_windows = [
+                (name, config)
+                for name, config in sorted_windows
+                if name in window_filter
+            ]
+
         for window_name, config in sorted_windows:
             try:
                 self._create_window_from_config(window_name, config)
             except Exception as e:
-                print(f"Failed to create {window_name} window: {e}")
+                typer.echo(f"Failed to create {window_name} window: {e}")
                 continue
 
     def _finalize_session(self):
@@ -284,91 +297,6 @@ class HydrusTmuxManager:
         # Return to the main control window and select teleop pane
         self._tmux_command(["select-window", "-t", "hydrus:0"])
         self._tmux_command(["select-pane", "-t", "hydrus:0.1"])
-
-    def add_window_config(self, window_name: str, config: dict):
-        """Add a new window configuration"""
-        self.window_config[window_name] = config
-
-    def remove_window_config(self, window_name: str):
-        """Remove a window configuration"""
-        if window_name in self.window_config:
-            del self.window_config[window_name]
-
-    def get_window_config(self, window_name: str) -> dict:
-        """Get configuration for a specific window"""
-        return self.window_config.get(window_name, {})
-
-    def list_windows(self) -> List[str]:
-        """List all configured window names"""
-        return list(self.window_config.keys())
-
-    def validate_window_config(self, config: dict) -> bool:
-        """Validate window configuration structure"""
-        required_keys = ["window_index", "panes"]
-
-        # Check required keys
-        for key in required_keys:
-            if key not in config:
-                print(f"Missing required key: {key}")
-                return False
-
-        # Check panes structure
-        panes = config["panes"]
-        if not isinstance(panes, list) or len(panes) == 0:
-            print("Panes must be a non-empty list")
-            return False
-
-        for i, pane in enumerate(panes):
-            if not isinstance(pane, dict):
-                print(f"Pane {i} must be a dictionary")
-                return False
-
-            if "command" not in pane:
-                print(f"Pane {i} missing required 'command' key")
-                return False
-
-            # First pane should not have split
-            if i == 0 and pane.get("split") is not None:
-                print("First pane should not have 'split' defined")
-                return False
-
-            # Other panes should have split
-            if i > 0 and "split" not in pane:
-                print(f"Pane {i} missing required 'split' key")
-                return False
-
-        return True
-
-    def load_config_from_file(self, config_file: Path):
-        """Load window configuration from JSON file"""
-        import json
-
-        try:
-            with open(config_file, "r") as f:
-                loaded_config = json.load(f)
-
-            # Validate each window config
-            for window_name, config in loaded_config.items():
-                if self.validate_window_config(config):
-                    self.window_config[window_name] = config
-                else:
-                    print(
-                        f"Invalid configuration for window '{window_name}', skipping..."
-                    )
-
-        except Exception as e:
-            print(f"Failed to load configuration from {config_file}: {e}")
-
-    def save_config_to_file(self, config_file: Path):
-        """Save current window configuration to JSON file"""
-        import json
-
-        try:
-            with open(config_file, "w") as f:
-                json.dump(self.window_config, f, indent=2)
-            print(f"Configuration saved to {config_file}")
-        except Exception as e:
-            print(f"Failed to save configuration to {config_file}: {e}")
 
     def _get_command_with_fallback(
         self, primary_script: str, fallback_script: str, description: str
@@ -391,7 +319,7 @@ class HydrusTmuxManager:
         else:
             return "/dev/ttyACM0"
 
-    def main(self):
+    def create_session(self, window_filter: Optional[List[str]] = None):
         """Main execution function"""
         try:
             # Check and install tmux if needed
@@ -404,142 +332,135 @@ class HydrusTmuxManager:
             # Kill existing tmux session
             self._kill_existing_session()
 
-            print("Creating tmux session 'hydrus'...")
+            typer.echo("Creating tmux session 'hydrus'...")
 
             # Create all windows from configuration
-            self._create_all_windows()
+            self._create_all_windows(window_filter)
 
             # Finalize session
             self._finalize_session()
 
-            print(
+            typer.echo(
                 f"Tmux session 'hydrus' created with catkin workspace at {self.catkin_ws}."
             )
-            print("You can attach to it using 'tmux attach -t hydrus'.")
+            typer.echo("You can attach to it using 'tmux attach -t hydrus'.")
 
         except Exception as e:
-            print(f"Failed to create tmux session: {e}")
-            sys.exit(1)
+            typer.echo(f"Failed to create tmux session: {e}")
+            raise typer.Exit(1)
 
 
-def main_with_args(args=None):
-    """Main function that can be called from other scripts with parsed args"""
+@tmux_command.command("start")
+def start_session(
+    windows: Optional[List[str]] = typer.Option(
+        None, "--windows", "-w", help="Only create specified windows"
+    ),
+    config_file: Optional[str] = typer.Option(
+        None, "--config", "-c", help="Load window configuration from JSON file"
+    ),
+):
+    """Start and manage tmux monitoring sessions."""
     manager = HydrusTmuxManager()
 
-    if args:
-        # Load custom configuration if specified
-        if hasattr(args, "config") and args.config:
-            config_path = Path(args.config)
-            if config_path.exists():
-                manager.load_config_from_file(config_path)
-            else:
-                print(f"Configuration file not found: {config_path}")
-                return False
+    # Load custom configuration if specified
+    if config_file:
+        config_path = Path(config_file)
+        if config_path.exists():
+            try:
+                with open(config_path, "r") as f:
+                    loaded_config = json.load(f)
+                manager.window_config.update(loaded_config)
+                typer.echo(f"Loaded configuration from {config_path}")
+            except Exception as e:
+                typer.echo(f"Failed to load configuration: {e}")
+                raise typer.Exit(1)
+        else:
+            typer.echo(f"Configuration file not found: {config_path}")
+            raise typer.Exit(1)
 
-        # Handle utility commands
-        if hasattr(args, "list_windows") and args.list_windows:
-            print("Configured windows:")
-            for window in manager.list_windows():
-                print(f"  - {window}")
-            return True
+    manager.create_session(windows)
 
-        if hasattr(args, "validate") and args.validate:
-            print("Validating configuration...")
-            all_valid = True
-            for window_name, config in manager.window_config.items():
-                if manager.validate_window_config(config):
-                    print(f"✓ {window_name}: Valid")
-                else:
-                    print(f"✗ {window_name}: Invalid")
-                    all_valid = False
 
-            if all_valid:
-                print("All configurations are valid!")
-            else:
-                print("Some configurations are invalid!")
-                return False
-            return True
+@tmux_command.command("list-windows")
+def list_windows():
+    """List all configured tmux windows."""
+    manager = HydrusTmuxManager()
+    typer.echo("Configured windows:")
+    for window in manager.window_config.keys():
+        typer.echo(f"  - {window}")
 
-        if hasattr(args, "save_config") and args.save_config:
-            manager.save_config_to_file(Path(args.save_config))
-            return True
 
-        # Filter windows if specified
-        if hasattr(args, "windows") and args.windows:
-            filtered_config = {}
-            for window_name in args.windows:
-                if window_name in manager.window_config:
-                    filtered_config[window_name] = manager.window_config[window_name]
-                else:
-                    print(f"Warning: Window '{window_name}' not found in configuration")
-
-            if filtered_config:
-                manager.window_config = filtered_config
-            else:
-                print("No valid windows specified!")
-                return False
-
-    # Run the main session creation
+@tmux_command.command("save-config")
+def save_config(
+    output_file: str = typer.Argument(..., help="Output file path for configuration")
+):
+    """Save current window configuration to JSON file."""
+    manager = HydrusTmuxManager()
     try:
-        manager.main()
-        return True
+        with open(output_file, "w") as f:
+            json.dump(manager.window_config, f, indent=2)
+        typer.echo(f"Configuration saved to {output_file}")
     except Exception as e:
-        print(f"Failed to start tmux sessions: {e}")
-        return False
+        typer.echo(f"Failed to save configuration: {e}")
+        raise typer.Exit(1)
 
 
-def register_subcommand(subparsers):
-    """Register tmux subcommand with hydrus-cli"""
-    tmux_parser = subparsers.add_parser(
-        "tmux",
-        help="Start and manage tmux monitoring sessions",
-        description="Hydrus Tmux Session Manager - Start monitoring sessions in tmux windows",
-    )
+@tmux_command.command("validate")
+def validate_config():
+    """Validate current window configuration."""
+    manager = HydrusTmuxManager()
+    typer.echo("Validating configuration...")
 
-    tmux_parser.add_argument(
-        "--config", type=str, help="Load window configuration from JSON file"
-    )
-    tmux_parser.add_argument(
-        "--save-config", type=str, help="Save current configuration to JSON file"
-    )
-    tmux_parser.add_argument(
-        "--list-windows", action="store_true", help="List all configured windows"
-    )
-    tmux_parser.add_argument(
-        "--validate", action="store_true", help="Validate current configuration"
-    )
-    tmux_parser.add_argument(
-        "--windows", type=str, nargs="*", help="Only create specified windows"
-    )
+    all_valid = True
+    for window_name, config in manager.window_config.items():
+        # Basic validation
+        required_keys = ["window_index", "panes"]
+        valid = all(key in config for key in required_keys)
 
-    # Set the function to call when this subcommand is used
-    tmux_parser.set_defaults(func=main_with_args)
+        if valid and isinstance(config["panes"], list) and len(config["panes"]) > 0:
+            typer.echo(f"✓ {window_name}: Valid")
+        else:
+            typer.echo(f"✗ {window_name}: Invalid")
+            all_valid = False
 
-    return tmux_parser
+    if all_valid:
+        typer.echo("All configurations are valid!")
+    else:
+        typer.echo("Some configurations are invalid!")
+        raise typer.Exit(1)
+
+
+@tmux_command.command("kill")
+def kill_session():
+    """Kill the hydrus tmux session."""
+    try:
+        subprocess.run(
+            ["tmux", "kill-session", "-t", "hydrus"], check=True, capture_output=True
+        )
+        typer.echo("Hydrus tmux session terminated.")
+    except subprocess.CalledProcessError:
+        typer.echo("No hydrus tmux session found.")
+    except Exception as e:
+        typer.echo(f"Failed to kill session: {e}")
+        raise typer.Exit(1)
+
+
+@tmux_command.command("attach")
+def attach_session():
+    """Attach to the hydrus tmux session."""
+    try:
+        # Check if session exists
+        result = subprocess.run(
+            ["tmux", "has-session", "-t", "hydrus"], capture_output=True
+        )
+        if result.returncode == 0:
+            os.system("tmux attach -t hydrus")
+        else:
+            typer.echo("No hydrus tmux session found. Use 'tmux start' to create one.")
+    except Exception as e:
+        typer.echo(f"Failed to attach to session: {e}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Hydrus Tmux Session Manager")
-    parser.add_argument(
-        "--config", type=str, help="Load window configuration from JSON file"
-    )
-    parser.add_argument(
-        "--save-config", type=str, help="Save current configuration to JSON file"
-    )
-    parser.add_argument(
-        "--list-windows", action="store_true", help="List all configured windows"
-    )
-    parser.add_argument(
-        "--validate", action="store_true", help="Validate current configuration"
-    )
-    parser.add_argument(
-        "--windows", type=str, nargs="*", help="Only create specified windows"
-    )
-
-    args = parser.parse_args()
-
-    # Use the new main function
-    success = main_with_args(args)
-    sys.exit(0 if success else 1)
+    tmux_command()
