@@ -616,6 +616,45 @@ class HydrusTestManager:
         exit_code = self._print_summary()
         sys.exit(exit_code)
 
+    def _find_integration_test_by_name(self, test_name: str) -> Optional[TestCase]:
+        """Find an integration test by its name"""
+        ros_builder = RosIntegrationTestBuilder(self.ros_dir)
+        director = TestDirector(ros_builder)
+        ros_tests = director.construct_tests()
+
+        for test in ros_tests:
+            if test.name.lower() == test_name.lower():
+                return test
+        return None
+
+    def _list_integration_test_names(self) -> List[str]:
+        """Get a list of all integration test names"""
+        ros_builder = RosIntegrationTestBuilder(self.ros_dir)
+        director = TestDirector(ros_builder)
+        ros_tests = director.construct_tests()
+
+        return [test.name for test in ros_tests]
+
+    def _run_specific_integration_test(self, test_name: str, env: Dict[str, str]):
+        """Run a specific integration test by name"""
+        test_case = self._find_integration_test_by_name(test_name)
+
+        if not test_case:
+            available_tests = self._list_integration_test_names()
+            print(f"❌ Integration test '{test_name}' not found.")
+            print("Available integration tests:")
+            for name in available_tests:
+                print(f"  • {name}")
+            return
+
+        print(f"\n🔗 Running specific integration test: {test_name}")
+
+        # Start roscore for ROS tests
+        self._start_roscore(env)
+
+        # Execute the specific test
+        self.execute_test_cases([test_case], env)
+
 
 # === Typer Commands ===
 
@@ -673,6 +712,30 @@ def run_integration_tests_cmd(
     try:
         test_manager._build_workspace()
         test_manager._run_ros_integration_tests(env)
+    finally:
+        test_manager._cleanup_roscore()
+
+    exit_code = test_manager._print_summary()
+    raise typer.Exit(exit_code)
+
+
+@test_app.command("integration-test")
+def run_specific_integration_test(
+    test_name: str = typer.Argument(..., help="Name of the integration test to run"),
+    volume: bool = typer.Option(
+        False, "--volume", "-v", help="Use volume directory for tests"
+    ),
+    debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug mode"),
+):
+    """Run a specific integration test by name."""
+    typer.echo(f"🔗 Running specific integration test: {test_name}")
+
+    test_manager = HydrusTestManager(volume=volume, debug_mode=debug)
+    env = os.environ.copy()
+
+    try:
+        test_manager._build_workspace()
+        test_manager._run_specific_integration_test(test_name, env)
     finally:
         test_manager._cleanup_roscore()
 
@@ -745,39 +808,50 @@ def run_custom_test(
 
 @test_app.command("list")
 def list_available_tests(
-    volume: bool = typer.Option(False, "--volume", "-v", help="Use volume directory")
+    volume: bool = typer.Option(False, "--volume", "-v", help="Use volume directory"),
+    integration_only: bool = typer.Option(
+        False, "--integration-only", "-i", help="Show only integration tests"
+    ),
 ):
     """List all available tests."""
-    typer.echo("📋 Available tests:")
+    if integration_only:
+        typer.echo("📋 Available Integration Tests:")
+    else:
+        typer.echo("📋 Available tests:")
 
     test_manager = HydrusTestManager(volume=volume)
 
-    # List unit tests
-    unit_builder = UnitTestBuilder(test_manager.ros_dir)
-    director = TestDirector(unit_builder)
-    unit_tests = director.construct_tests()
+    if not integration_only:
+        # List unit tests
+        unit_builder = UnitTestBuilder(test_manager.ros_dir)
+        director = TestDirector(unit_builder)
+        unit_tests = director.construct_tests()
 
-    typer.echo("\n🔬 Unit Tests:")
-    for test in unit_tests:
-        typer.echo(f"  • {test.name}: {test.description}")
+        typer.echo("\n🔬 Unit Tests:")
+        for test in unit_tests:
+            typer.echo(f"  • {test.name}: {test.description}")
 
     # List ROS integration tests
     ros_builder = RosIntegrationTestBuilder(test_manager.ros_dir)
     director = TestDirector(ros_builder)
     ros_tests = director.construct_tests()
 
-    typer.echo("\n🔗 ROS Integration Tests:")
+    if integration_only:
+        typer.echo("\n🔗 Integration Tests:")
+    else:
+        typer.echo("\n🔗 ROS Integration Tests:")
     for test in ros_tests:
         typer.echo(f"  • {test.name}: {test.description}")
 
-    # List script tests
-    script_builder = ScriptTestBuilder(test_manager.ros_dir)
-    director = TestDirector(script_builder)
-    script_tests = director.construct_tests()
+    if not integration_only:
+        # List script tests
+        script_builder = ScriptTestBuilder(test_manager.ros_dir)
+        director = TestDirector(script_builder)
+        script_tests = director.construct_tests()
 
-    typer.echo("\n📜 Script Tests:")
-    for test in script_tests:
-        typer.echo(f"  • {test.name}: {test.description}")
+        typer.echo("\n📜 Script Tests:")
+        for test in script_tests:
+            typer.echo(f"  • {test.name}: {test.description}")
 
 
 @test_app.command("validate")
@@ -844,7 +918,7 @@ def validate_test_environment(
 
     def _start_roscore(self, env: Dict[str, str]):
         """Start roscore in background"""
-        print("Starting roscore...")
+        print("Starting rocore...")
 
         try:
             process = subprocess.Popen(
@@ -856,7 +930,7 @@ def validate_test_environment(
             self.roscore_pid = process.pid
             time.sleep(5)
 
-            # Check if roscore is running
+            # Check if rocore is running
             if not self._is_process_running(self.roscore_pid):
                 print("Failed to start roscore")
                 sys.exit(1)
