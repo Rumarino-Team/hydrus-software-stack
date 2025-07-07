@@ -279,25 +279,38 @@ class DockerManager:
         command: Optional[list] = None,
         interactive: bool = False,
     ):
-        """Execute into the running container and replace current shell or run specific command"""
+        """Execute into the container, starting it if necessary"""
         try:
-            print("🔍 Finding running Hydrus container...")
+            print("🔍 Finding Hydrus container...")
 
             # Get container information
             container_info = self.get_container_info(compose_file)
+
             if not container_info:
-                print("❌ No running Hydrus container found!")
-                print("💡 Start containers first with: python3 run_docker.py")
-                sys.exit(1)
+                print("❌ No Hydrus container found! Starting containers...")
+                self._start_containers_and_wait(compose_file)
+
+                # Try to get container info again after starting
+                container_info = self.get_container_info(compose_file)
+                if not container_info:
+                    print("❌ Failed to start or find Hydrus container!")
+                    sys.exit(1)
 
             container_name = container_info.name
 
             if "running" not in container_info.status.lower():
                 print(
-                    f"❌ Container {container_name} is not running (status: {container_info.status})"
+                    f"⚠️  Container {container_name} is not running (status: {container_info.status})"
                 )
-                print("💡 Start containers first with: python3 run_docker.py")
-                sys.exit(1)
+                print("🚀 Starting containers...")
+                self._start_containers_and_wait(compose_file)
+
+                # Verify container is now running
+                updated_info = self.get_container_info(compose_file)
+                if not updated_info or "running" not in updated_info.status.lower():
+                    print("❌ Failed to start containers!")
+                    sys.exit(1)
+                container_name = updated_info.name
 
             print(f"✅ Found running container: {container_name}")
 
@@ -346,4 +359,33 @@ class DockerManager:
 
         except Exception as e:
             print(f"❌ Error executing into container: {e}")
+            sys.exit(1)
+
+    def _start_containers_and_wait(self, compose_file: str):
+        """Start containers and wait for them to be ready"""
+        try:
+            print("🚀 Starting Docker containers...")
+
+            # Start containers in detached mode
+            cmd = ["docker", "compose", "-f", compose_file, "up", "-d"]
+
+            subprocess.run(
+                cmd, check=True, cwd=self.docker_dir, capture_output=True, text=True
+            )
+
+            print("✅ Containers started successfully!")
+
+            # Wait a moment for containers to initialize
+            import time
+
+            print("⏳ Waiting for containers to initialize...")
+            time.sleep(5)
+
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to start containers: {e}")
+            if e.stderr:
+                print(f"Error output: {e.stderr}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ Error starting containers: {e}")
             sys.exit(1)

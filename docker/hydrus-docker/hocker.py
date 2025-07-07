@@ -74,9 +74,11 @@ class HockerDockerDeployment:
 
         compose_file = SystemDetector.determine_compose_file()
         if args.exec:
+            # Parse the command properly - split into list for exec
+            command_parts = args.exec.split()
             del dict_args["exec"]
             self.docker_manager.exec_into_container(
-                compose_file, interactive=args.it, command="".join(args.exec.split())
+                compose_file, interactive=args.it, command=command_parts
             )
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)
