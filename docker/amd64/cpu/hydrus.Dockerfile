@@ -105,8 +105,5 @@ COPY ./devices/Arduino/HydrusModule /root/Arduino/libraries/HydrusModule
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
 
-# Make scripts executable and remove any old global copies
-RUN chmod +x scripts/ros-entrypoint.py && \
-    chmod +x docker/hydrus-docker/hydrus-cli
 
 CMD ["/bin/bash", "-c", "sleep infinity"]

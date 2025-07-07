@@ -24,8 +24,13 @@ jobs:
           cache-to: type=gha,mode=max
           load: true
 
-      - name: Run Tests using Hocker
+      - name: Start Hocker Container
         run: |
           cd docker/hydrus-docker
           chmod +x hocker
-          ./hocker --test
+          ./hocker
+
+      - name: Run Tests in Container
+        run: |
+          cd docker/hydrus-docker
+          ./hocker exec python3 -m scripts.cli test all
