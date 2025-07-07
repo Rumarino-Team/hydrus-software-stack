@@ -53,7 +53,7 @@ RUN apt-get install -y ros-melodic-rosserial-arduino
 
 
 # Copy embedded Arduino code in the Arduino libraries folder
-COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
+COPY ./devices/Arduino/HydrusModule /root/Arduino/libraries/HydrusModule
 
 
 # Copy the Python Dependencies and Install them

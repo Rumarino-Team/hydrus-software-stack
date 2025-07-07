@@ -350,7 +350,7 @@ Examples:
         """Compile and upload Arduino code"""
         print("🔧 Compiling and uploading Arduino code...")
 
-        arduino_dir = Path("/root/Arduino/libraries/embedded_arduino/Hydrus")
+        arduino_dir = Path("/root/Arduino/libraries/HydrusModule")
         if not arduino_dir.exists():
             print("❌ Arduino directory not found")
             return False

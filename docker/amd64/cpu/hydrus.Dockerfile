@@ -74,7 +74,7 @@ RUN  arduino-cli lib install "Servo@1.2.1" && \
 # Copy embedded Arduino code in the Arduino libraries folder
 
 # Copy dvl embedded driver
-COPY ./DVL/Wayfinder /opt/Wayfinder
+COPY ./devices/DVL/Wayfinder /opt/Wayfinder
 WORKDIR /opt/Wayfinder
 
 # Ultralytics with NO GPU
@@ -100,7 +100,7 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-image-transport \
     ros-noetic-laser-proc
 
-COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
+COPY ./devices/Arduino/HydrusModule /root/Arduino/libraries/HydrusModule
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
