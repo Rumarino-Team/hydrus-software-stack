@@ -278,36 +278,81 @@ class DockerManager:
         compose_file: str,
         command: Optional[list] = None,
         interactive: bool = False,
+        force_type: Optional[str] = None,
     ):
-        """Execute into the container, starting it if necessary"""
+        """Execute into the container, starting it if necessary
+
+        Args:
+            compose_file: Path to compose file
+            command: Command to execute (None for interactive shell)
+            interactive: Force interactive mode
+            force_type: Force specific container type ("cpu" or "cuda")
+        """
         try:
             print("🔍 Finding Hydrus container...")
 
-            # Get container information
-            container_info = self.get_container_info(compose_file)
+            container_info = None
+
+            # If forcing a specific type, use the new method
+            if force_type:
+                container_info = self.force_container_type(force_type, compose_file)
+            else:
+                # Use the original method
+                container_info = self.get_container_info(compose_file)
+
+                if not container_info:
+                    print("❌ No Hydrus container found! Starting containers...")
+                    self._start_containers_and_wait(compose_file)
+
+                    # Try to get container info again after starting
+                    container_info = self.get_container_info(compose_file)
+                    if not container_info:
+                        print("❌ Failed to start or find Hydrus container!")
+                        sys.exit(1)
 
             if not container_info:
-                print("❌ No Hydrus container found! Starting containers...")
-                self._start_containers_and_wait(compose_file)
-
-                # Try to get container info again after starting
-                container_info = self.get_container_info(compose_file)
-                if not container_info:
-                    print("❌ Failed to start or find Hydrus container!")
-                    sys.exit(1)
+                print("❌ Failed to get container information!")
+                sys.exit(1)
 
             container_name = container_info.name
 
-            if "running" not in container_info.status.lower():
+            # Check if container is running
+            if (
+                "running" not in container_info.status.lower()
+                and "up" not in container_info.status.lower()
+            ):
                 print(
                     f"⚠️  Container {container_name} is not running (status: {container_info.status})"
                 )
-                print("🚀 Starting containers...")
-                self._start_containers_and_wait(compose_file)
+
+                if force_type:
+                    # Try to start the specific container
+                    print(f"🚀 Starting {force_type.upper()} container...")
+                    try:
+                        subprocess.run(
+                            ["docker", "start", container_name],
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                        )
+                        print(f"✅ Started {container_name}")
+                    except subprocess.CalledProcessError:
+                        print("❌ Failed to start container, creating new one...")
+                        self._start_containers_and_wait(compose_file)
+                else:
+                    print("🚀 Starting containers...")
+                    self._start_containers_and_wait(compose_file)
 
                 # Verify container is now running
-                updated_info = self.get_container_info(compose_file)
-                if not updated_info or "running" not in updated_info.status.lower():
+                if force_type:
+                    updated_info = self.get_container_info_by_type(force_type)
+                else:
+                    updated_info = self.get_container_info(compose_file)
+
+                if not updated_info or (
+                    "running" not in updated_info.status.lower()
+                    and "up" not in updated_info.status.lower()
+                ):
                     print("❌ Failed to start containers!")
                     sys.exit(1)
                 container_name = updated_info.name
@@ -389,3 +434,213 @@ class DockerManager:
         except Exception as e:
             print(f"❌ Error starting containers: {e}")
             sys.exit(1)
+
+    def get_container_info_by_type(
+        self, container_type: str = "any"
+    ) -> Optional[ContainerInfo]:
+        """
+        Get container information by type using docker ps -a (shows all containers)
+
+        Args:
+            container_type: "cpu", "cuda", or "any"
+        """
+        try:
+            print(f"🔍 Looking for {container_type} containers using docker ps -a...")
+
+            # Use docker ps -a to see ALL containers (running and stopped)
+            result = subprocess.run(
+                [
+                    "docker",
+                    "ps",
+                    "-a",  # Show all containers, not just running ones
+                    "--format",
+                    "{{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Image}}",
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                print(f"❌ Failed to run docker ps -a: {result.stderr}")
+                return None
+
+            containers_found = []
+
+            for line in result.stdout.strip().split("\n"):
+                if line.strip():
+                    parts = line.split("\t")
+                    if len(parts) >= 4:
+                        name, container_id, status, image = (
+                            parts[0],
+                            parts[1],
+                            parts[2],
+                            parts[3],
+                        )
+
+                        # Check if this is a Hydrus container
+                        is_hydrus = any(
+                            keyword in name.lower()
+                            for keyword in ["hydrus", "docker-hydrus"]
+                        ) or any(
+                            keyword in image.lower()
+                            for keyword in ["hydrus", "docker-hydrus"]
+                        )
+
+                        if is_hydrus:
+                            # Determine container type
+                            is_cpu = any(
+                                keyword in name.lower()
+                                for keyword in ["hydrus_cpu", "hydrus-cpu", "cpu"]
+                            )
+                            is_cuda = any(
+                                keyword in name.lower()
+                                for keyword in ["hydrus_cuda", "hydrus-cuda", "cuda"]
+                            )
+
+                            container_info = {
+                                "name": name,
+                                "id": container_id,
+                                "status": status,
+                                "image": image,
+                                "type": "cpu"
+                                if is_cpu
+                                else "cuda"
+                                if is_cuda
+                                else "unknown",
+                            }
+
+                            containers_found.append(container_info)
+                            print(
+                                f"   Found {container_info['type']} container: {name} (status: {status}, id: {container_id})"
+                            )
+
+            # Filter by requested type
+            if container_type != "any":
+                containers_found = [
+                    c for c in containers_found if c["type"] == container_type
+                ]
+
+            if not containers_found:
+                print(f"❌ No {container_type} Hydrus containers found")
+                return None
+
+            # Prefer running containers, then any container
+            running_containers = [
+                c for c in containers_found if "up" in c["status"].lower()
+            ]
+
+            if running_containers:
+                container = running_containers[0]
+                print(
+                    f"✅ Found running {container['type']} container: {container['name']}"
+                )
+            else:
+                container = containers_found[0]
+                print(
+                    f"✅ Found stopped {container['type']} container: {container['name']}"
+                )
+
+            # Determine service name based on container type
+            service_name = (
+                f"hydrus_{container['type']}"
+                if container["type"] in ["cpu", "cuda"]
+                else "hydrus"
+            )
+
+            return ContainerInfo(
+                name=container["name"],
+                id=container["id"],
+                status=container["status"],
+                service=service_name,
+            )
+
+        except Exception as e:
+            print(f"❌ Error getting container info by type: {e}")
+            return None
+
+    def force_container_type(
+        self, container_type: str, compose_file: str
+    ) -> Optional[ContainerInfo]:
+        """
+        Force a specific container type to be running (CPU or CUDA)
+        Stops conflicting containers and starts the requested type
+
+        Args:
+            container_type: "cpu" or "cuda"
+            compose_file: Path to the appropriate compose file
+        """
+        try:
+            print(f"🚀 Forcing {container_type.upper()} container type...")
+
+            # Step 1: Check if the desired type is already running
+            desired_container = self.get_container_info_by_type(container_type)
+
+            if desired_container and "up" in desired_container.status.lower():
+                print(
+                    f"✅ {container_type.upper()} container already running: {desired_container.name}"
+                )
+                return desired_container
+
+            # Step 2: Stop conflicting containers
+            other_type = "cuda" if container_type == "cpu" else "cpu"
+            conflicting_container = self.get_container_info_by_type(other_type)
+
+            if conflicting_container and "up" in conflicting_container.status.lower():
+                print(
+                    f"🛑 Stopping conflicting {other_type.upper()} container: {conflicting_container.name}"
+                )
+                try:
+                    subprocess.run(
+                        ["docker", "stop", conflicting_container.name],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    print(f"✅ Stopped {conflicting_container.name}")
+                except subprocess.CalledProcessError as e:
+                    print(f"⚠️  Failed to stop {conflicting_container.name}: {e}")
+
+            # Step 3: Start or create the desired container
+            if desired_container:
+                # Container exists but is stopped, start it
+                print(
+                    f"🚀 Starting existing {container_type.upper()} container: {desired_container.name}"
+                )
+                try:
+                    subprocess.run(
+                        ["docker", "start", desired_container.name],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    print(f"✅ Started {desired_container.name}")
+
+                    # Update status
+                    updated_container = self.get_container_info_by_type(container_type)
+                    return updated_container
+
+                except subprocess.CalledProcessError as e:
+                    print(
+                        f"⚠️  Failed to start existing container, will create new one: {e}"
+                    )
+
+            # Step 4: Create new containers using compose file
+            print(
+                f"🏗️  Creating new {container_type.upper()} containers using {compose_file}"
+            )
+            self._start_containers_and_wait(compose_file)
+
+            # Step 5: Get the newly created container info
+            new_container = self.get_container_info_by_type(container_type)
+            if new_container:
+                print(
+                    f"✅ Successfully created and started {container_type.upper()} container: {new_container.name}"
+                )
+                return new_container
+            else:
+                print(f"❌ Failed to create {container_type.upper()} container")
+                return None
+
+        except Exception as e:
+            print(f"❌ Error forcing {container_type} container type: {e}")
+            return None

@@ -6,20 +6,9 @@ Pure Docker management - delegates all Hydrus software control to hydrus-cli
 
 import argparse
 import sys
-from dataclasses import dataclass
-from enum import Enum
 
 from docker_manager import DockerManager
-from system_detector import SystemDetector
-
-
-class SystemType(Enum):
-    """Enumeration for different system types"""
-
-    JETSON_TX2 = "jetson_tx2"
-    WSL = "wsl"
-    NVIDIA_GPU = "nvidia_gpu"
-    CPU = "cpu"
+from system_detector import SystemDetector, SystemType
 
 
 class HockerDockerDeployment:
@@ -72,13 +61,28 @@ class HockerDockerDeployment:
     def execute_action(self, args):
         dict_args = {k: v for k, v in vars(args).items() if v is not None}
 
-        compose_file = SystemDetector.determine_compose_file()
+        # Determine system type and force type based on flags
+        system_type = None
+        force_type = None
+
+        if args.force_cpu:
+            system_type = SystemType.CPU
+            force_type = "cpu"
+        elif args.force_jetson:
+            system_type = SystemType.JETSON_TX2
+            force_type = "jetson"
+
+        compose_file = SystemDetector.determine_compose_file(system_type)
+
         if args.exec:
             # Parse the command properly - split into list for exec
             command_parts = args.exec.split()
             del dict_args["exec"]
             self.docker_manager.exec_into_container(
-                compose_file, interactive=args.it, command=command_parts
+                compose_file,
+                interactive=args.it,
+                command=command_parts,
+                force_type=force_type,
             )
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)

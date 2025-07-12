@@ -64,7 +64,11 @@ class SystemDetector:
     ) -> Optional[str]:
         """Determine which compose file to use based on arguments and system detection"""
         if system_type:
-            return compose_files.get(system_type)
+            compose_file = compose_files.get(system_type)
+            print(
+                f"Using forced system type: {system_type.value}. Compose file: {compose_file}"
+            )
+            return compose_file
         else:
             # Auto-detect
             if SystemDetector.is_wsl():

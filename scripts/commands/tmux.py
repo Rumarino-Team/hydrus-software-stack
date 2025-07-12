@@ -14,7 +14,7 @@ from typing import List, Optional
 
 import typer
 
-from scripts.scripts_utils import get_building_path
+from scripts.commands.utils import get_building_path
 
 tmux_command = typer.Typer()
 
