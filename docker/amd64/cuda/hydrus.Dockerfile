@@ -93,9 +93,8 @@ RUN echo "export MESA_GL_VERSION_OVERRIDE=3.3" >> /root/.bashrc
 RUN apt-get update && apt-get install -y tmux vim git htop socat
 
 # Copy embedded Arduino code in the Arduino libraries folder
-COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
+COPY ./devices/Arduino/HydrusModule /root/Arduino/libraries/HydrusModule
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
-RUN chmod +x scripts/ros-entrypoint.py
-CMD ["python3", "scripts/ros-entrypoint.py"]
+CMD ["/bin/bash", "-c", "sleep infinity"]
