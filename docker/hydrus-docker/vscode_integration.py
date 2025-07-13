@@ -2,10 +2,8 @@
 VS Code integration utilities for Hydrus Docker deployment
 """
 
-import json
 import subprocess
 import time
-from typing import Dict, Optional
 
 
 class VSCodeIntegration:
@@ -78,184 +76,16 @@ class VSCodeIntegration:
         return True
 
     @staticmethod
-    def get_container_info(compose_file: str, script_dir) -> Optional[dict]:
-        """Get information about the running container"""
-        try:
-            print("🔍 Detecting running containers...")
-
-            # Method 1: Use docker compose ps with specific format to get actual container IDs
-            result = subprocess.run(
-                [
-                    "docker",
-                    "compose",
-                    "-f",
-                    compose_file,
-                    "ps",
-                    "--format",
-                    "table {{.Name}}\t{{.ID}}\t{{.Service}}\t{{.Status}}",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=script_dir,
-            )
-
-            if result.returncode == 0:
-                print(f"📋 Docker compose output received, parsing containers...")
-                lines = result.stdout.strip().split("\n")
-
-                # Skip header line if present
-                data_lines = [
-                    line
-                    for line in lines
-                    if not line.startswith("NAME") and line.strip()
-                ]
-
-                for line in data_lines:
-                    if line.strip():
-                        parts = line.split("\t")
-                        if len(parts) >= 4:
-                            container_name = parts[0].strip()
-                            container_id = parts[1].strip()
-                            service_name = parts[2].strip()
-                            status = parts[3].strip()
-
-                            print(
-                                f"   Found container: {container_name} (service: {service_name}, status: {status}, id: {container_id})"
-                            )
-
-                            # Look for hydrus-related services
-                            if any(
-                                keyword in service_name.lower()
-                                for keyword in ["hydrus", "hydrus_cpu", "hydrus_cuda"]
-                            ):
-                                print(
-                                    f"✅ Found Hydrus container: {container_name} with ID: {container_id}"
-                                )
-                                return {
-                                    "name": container_name,
-                                    "id": container_id,
-                                    "status": status,
-                                    "service": service_name,
-                                }
-
-            # Method 2: Fallback to JSON format and extract from container list
-            print("🔄 Fallback method 1: Using docker compose ps JSON format...")
-            result = subprocess.run(
-                ["docker", "compose", "-f", compose_file, "ps", "--format", "json"],
-                capture_output=True,
-                text=True,
-                cwd=script_dir,
-            )
-
-            if result.returncode == 0:
-                for line in result.stdout.strip().split("\n"):
-                    if line.strip():
-                        try:
-                            container = json.loads(line)
-                            service_name = container.get("Service", "")
-                            container_name = container.get("Name", "")
-
-                            # Look for hydrus-related services
-                            if any(
-                                keyword in service_name.lower()
-                                for keyword in ["hydrus", "hydrus_cpu", "hydrus_cuda"]
-                            ):
-                                # Get the actual container ID by querying docker directly with the container name
-                                id_result = subprocess.run(
-                                    [
-                                        "docker",
-                                        "inspect",
-                                        "--format",
-                                        "{{.Id}}",
-                                        container_name,
-                                    ],
-                                    capture_output=True,
-                                    text=True,
-                                )
-
-                                if id_result.returncode == 0:
-                                    actual_container_id = id_result.stdout.strip()[
-                                        :12
-                                    ]  # Use short ID
-                                    state = container.get("State", "")
-
-                                    print(
-                                        f"✅ Found Hydrus container via JSON: {container_name} with actual ID: {actual_container_id}"
-                                    )
-                                    return {
-                                        "name": container_name,
-                                        "id": actual_container_id,
-                                        "status": state,
-                                        "service": service_name,
-                                    }
-                        except json.JSONDecodeError as e:
-                            print(f"   ⚠️  JSON decode error for line: {line[:100]}...")
-                            continue
-
-            # Method 3: Direct docker ps fallback
-            print("🔄 Fallback method 2: Using direct docker ps...")
-            result = subprocess.run(
-                [
-                    "docker",
-                    "ps",
-                    "--format",
-                    "{{.Names}}\t{{.ID}}\t{{.Status}}\t{{.Image}}",
-                ],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode == 0:
-                for line in result.stdout.strip().split("\n"):
-                    if line.strip():
-                        parts = line.split("\t")
-                        if len(parts) >= 4:
-                            name, container_id, status, image = (
-                                parts[0],
-                                parts[1],
-                                parts[2],
-                                parts[3],
-                            )
-                            print(
-                                f"   Found container: {name} (image: {image}, id: {container_id})"
-                            )
-
-                            # Look for hydrus in name or image
-                            if any(
-                                keyword in name.lower()
-                                for keyword in ["hydrus", "hydrus_cpu", "hydrus_cuda"]
-                            ) or any(
-                                keyword in image.lower()
-                                for keyword in ["hydrus", "docker-hydrus"]
-                            ):
-                                print(
-                                    f"✅ Found Hydrus container via direct docker ps: {name} with ID: {container_id}"
-                                )
-                                return {
-                                    "name": name,
-                                    "id": container_id,
-                                    "status": status,
-                                    "service": "hydrus",
-                                }
-
-            print("❌ No Hydrus containers found")
-
-        except Exception as e:
-            print(f"❌ Error getting container info: {e}")
-
-        return None
-
-    @staticmethod
-    def open_vscode_container(container_info: dict, parent_dir) -> bool:
+    def open_vscode_container(container_info, parent_dir) -> bool:
         """Open VS Code and attach to the running container"""
         try:
-            container_name = container_info["name"]
-            container_id = container_info["id"]
+            container_name = container_info.name
+            container_id = container_info.id
 
-            print(f"🚀 Opening VS Code and connecting to container:")
+            print("🚀 Opening VS Code and connecting to container:")
             print(f"   Name: {container_name}")
             print(f"   ID: {container_id}")
-            print(f"   Service: {container_info.get('service', 'unknown')}")
+            print(f"   Service: {container_info.service}")
 
             # Method 1: Try using the Dev Container extension with container ID
             print("📝 Attempting VS Code connection method 1 (Dev Container)...")
@@ -293,11 +123,11 @@ class VSCodeIntegration:
                 )
 
                 print("✅ VS Code opened with project directory")
-                print(f"💡 To connect to the container manually:")
-                print(f"   1. Press Ctrl+Shift+P")
-                print(f"   2. Type 'Dev Containers: Attach to Running Container'")
+                print("💡 To connect to the container manually:")
+                print("   1. Press Ctrl+Shift+P")
+                print("   2. Type 'Dev Containers: Attach to Running Container'")
                 print(f"   3. Select container: {container_name}")
-                print(f"   4. Open folder: /catkin_ws/src/hydrus-software-stack")
+                print("   4. Open folder: /catkin_ws/src/hydrus-software-stack")
                 return True
 
             except Exception as e:
@@ -314,6 +144,8 @@ class VSCodeIntegration:
         compose_file: str, script_dir, parent_dir, auto_install_extensions: bool = False
     ) -> bool:
         """Setup and launch VS Code integration if available"""
+        from .docker_manager import DockerManager
+
         # Check if VS Code is installed
         if not VSCodeIntegration.check_vscode_installed():
             print("VS Code not found. Skipping VS Code integration.")
@@ -351,17 +183,18 @@ class VSCodeIntegration:
         print("Waiting for container to be ready...")
         time.sleep(3)
 
-        # Get container information
-        container_info = VSCodeIntegration.get_container_info(compose_file, script_dir)
+        # Get container information using DockerManager
+        docker_manager = DockerManager(script_dir)
+        container_info = docker_manager.get_container_info(compose_file, script_dir)
         if not container_info:
             print(
                 "Could not find running Hydrus container. Skipping VS Code integration."
             )
             return False
 
-        if "running" not in container_info["status"].lower():
+        if "running" not in container_info.status.lower():
             print(
-                f"Container is not running (status: {container_info['status']}). Skipping VS Code integration."
+                f"Container is not running (status: {container_info.status}). Skipping VS Code integration."
             )
             return False
 

@@ -1,0 +1,107 @@
+{
+  "Controls": {
+    "window_index": 0,
+    "layout": "main-horizontal",
+    "panes": [
+      {
+        "name": "Serial ROS Bridge",
+        "command": "echo 'Starting Serial ROS Bridge'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/controller/serial_ros_bridge.py _port:=/dev/ttyACM0 _baud_rate:=115200",
+        "split": null
+      },
+      {
+        "name": "Controller Node",
+        "command": "echo 'Starting Controller Node'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/src/controllers.py",
+        "split": "vertical"
+      },
+      {
+        "name": "Thruster Visualizer",
+        "command": "echo 'Starting Thruster Visualizer'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/controller/thruster_visualizer.py",
+        "split": "horizontal"
+      }
+    ]
+  },
+  "Arduino": {
+    "window_index": 1,
+    "layout": "even-horizontal",
+    "panes": [
+      {
+        "name": "Serial Monitor Setup",
+        "command": "echo 'Setting up Arduino monitoring'; python3 /catkin_ws/src/hydrus-software-stack/scripts/setup_serial_monitor.py",
+        "split": null
+      },
+      {
+        "name": "Arduino Log Monitor",
+        "command": "echo 'Starting Arduino log monitor'; sleep 2; python3 /catkin_ws/src/hydrus-software-stack/scripts/monitor_arduino_logs.py",
+        "split": "horizontal"
+      }
+    ]
+  },
+  "Computer Vision": {
+    "window_index": 2,
+    "layout": "main-vertical",
+    "panes": [
+      {
+        "name": "Color Filter Controller",
+        "command": "echo 'Starting Color Filter Controller'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/cv/color_filter_controller.py ui",
+        "split": null
+      },
+      {
+        "name": "CV Publishers",
+        "command": "echo 'Starting Computer Vision Publishers'; source /catkin_ws/devel/setup.bash && roslaunch autonomy cv_publishers.launch",
+        "split": "horizontal"
+      },
+      {
+        "name": "Web Detection Viewer",
+        "command": "echo 'Starting Web Detection Viewer'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/web/detection_viewer.py",
+        "split": "vertical"
+      },
+      {
+        "name": "API Server",
+        "command": "echo 'Starting API Server'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/src/api_server.py",
+        "split": "horizontal"
+      }
+    ]
+  },
+  "Mission Planner": {
+    "window_index": 3,
+    "layout": "tiled",
+    "panes": [
+      {
+        "name": "Mission Manager",
+        "command": "echo 'Starting Mission Manager'; source /catkin_ws/devel/setup.bash && roslaunch autonomy mission_planner.launch",
+        "split": null
+      },
+      {
+        "name": "Mission Controller",
+        "command": "echo 'Starting Mission Controller'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/mission/mission_controller.py",
+        "split": "horizontal"
+      },
+      {
+        "name": "Controller Monitor",
+        "command": "echo 'Starting Controller Monitor'; source /catkin_ws/devel/setup.bash && python3 /catkin_ws/src/hydrus-software-stack/autonomy/scripts/controller/controller_monitor.py",
+        "split": "vertical"
+      }
+    ]
+  },
+  "Development": {
+    "window_index": 4,
+    "layout": "even-horizontal",
+    "panes": [
+      {
+        "name": "Code Editor",
+        "command": "echo 'Development Environment'; cd /catkin_ws/src/hydrus-software-stack && bash",
+        "split": null
+      },
+      {
+        "name": "Git Monitor",
+        "command": "echo 'Git Status Monitor'; cd /catkin_ws/src/hydrus-software-stack && watch -n 2 'git status --porcelain'",
+        "split": "horizontal"
+      },
+      {
+        "name": "System Monitor",
+        "command": "echo 'System Monitor'; htop",
+        "split": "vertical"
+      }
+    ]
+  }
+}

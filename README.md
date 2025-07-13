@@ -1,139 +1,55 @@
-# Hydrus Software Stack
+<div align="center" style="text-align: center;">
 
-The Hydrus Software Stack is a comprehensive ROS-based toolkit for autonomous underwater vehicles (AUVs) and RobSub competitions. Built with maintainability, usability, and excellent software engineering practices at its core.
+<h1>🌊 Hydrus Software Stack</h1>
 
-## 📖 Documentation
+<p>
+  <b>A comprehensive ROS-based toolkit for autonomous underwater vehicles.</b>
+  <br>
+  Built for RobSub competitions with maintainability and usability at its core.
+</p>
 
-- **[Philosophy & Contributions](PHILOSOPHY.md)** - **Read this first!** Our development principles and contribution guidelines
-- **[Autonomy System](autonomy/README.md)** - Complete guide to all autonomy scripts and components
-- **[Docker Setup](docker/README.md)** - Detailed Docker configuration and deployment options
+<h3>
+  <a href="PHILOSOPHY.md">Philosophy</a>
+  <span> · </span>
+  <a href="autonomy/README.md">Autonomy Docs</a>
+  <span> · </span>
+  <a href="../../issues">Issues</a>
+  <span> · </span>
+  <a href="docker/README.md">Docker Setup</a>
+  <span> · </span>
+  <a href="https://github.com/Rumarino-Team/hydrus-software-stack">GitHub</a>
+</h3>
 
-## 🚀 Quick Start
+Quick start: `./doctor.sh && ./docker/hydrus-docker/hocker`
 
-### Prerequisites Check
-Run our dependency doctor to check and install required dependencies:
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](./run_tests.sh)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![ROS](https://img.shields.io/badge/ROS-Melodic-blue.svg)](http://wiki.ros.org/melodic)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](docker/README.md)
 
-```bash
-# Clone the repository
-git clone https://github.com/Rumarino-Team/hydrus-software-stack.git
-cd hydrus-software-stack
+</div>
 
-# Check and install dependencies (Docker, Python3, Git)
-./doctor.sh
-```
 
-The doctor script will automatically detect your OS and offer to install missing dependencies. Required dependencies:
-- **Docker & Docker Compose**: Container platform for isolated environments
-- **Python3**: Required for Hocker and various scripts
-- **Git**: Version control (usually pre-installed)
+To start developing Hydrus
+------
 
-### Build and Run with Hocker
-We use **Hocker** (Hydrus Docker), our intelligent deployment tool that automatically detects your platform and configures the optimal Docker environment.
+Hydrus is developed by [Rumarino Team](https://github.com/Rumarino-Team). We welcome both pull requests and issues on [GitHub](https://github.com/Rumarino-Team/hydrus-software-stack).
 
-```bash
-# Make hocker executable
-chmod +x docker/hydrus-docker/hocker
+* Read our [Philosophy & Contributing Guide](PHILOSOPHY.md)
+* Check out the [autonomy system documentation](autonomy/README.md)
+* Explore the [Docker deployment options](docker/README.md)
+* Join discussions in [GitHub Issues](../../issues)
 
-# Run with automatic platform detection
-./docker/hydrus-docker/hocker
+Want to contribute? Check our [open issues](../../issues) and follow our [contribution guidelines](PHILOSOPHY.md).
 
-# Test the installation
-./docker/hydrus-docker/hocker --test
+<details>
+<summary>MIT Licensed</summary>
 
-# Quick development mode
-./docker/hydrus-docker/hocker --dev
+Hydrus is released under the MIT license. Some parts of the software are released under other licenses as specified.
 
-# Force CPU-only mode
-./docker/hydrus-docker/hocker --force-cpu
-```
+Any user of this software shall indemnify and hold harmless the Rumarino Team and its members from and against all allegations, claims, actions, suits, demands, damages, liabilities, obligations, losses, settlements, judgments, costs and expenses which arise out of, relate to or result from any use of this software by user.
 
-Hocker automatically detects your platform (CPU, NVIDIA GPU, WSL, or Jetson) and runs the appropriate Docker configuration with intelligent defaults. For detailed options and configurations, see the [Docker README](docker/README.md).
-
-### Launch the Autonomy System
-```bash
-# Launch the complete autonomy stack
-roslaunch autonomy simulation.launch
-
-# Or launch individual components
-roslaunch autonomy mission_planner.launch
-roslaunch autonomy cv_publishers.launch
-roslaunch autonomy controller.launch
-```
-
-## 🎯 Key Features
-
-- **Intelligent Deployment**: Hocker automatically detects and configures your platform
-- **Mission Planning**: Hierarchical mission execution for competition tasks (Gate, Slalom, Tagging)
-- **Computer Vision**: YOLO-based object detection with configurable color filtering
-- **Motion Control**: Precise 3-phase movement control (depth → rotation → linear)
-- **Hardware Integration**: Arduino serial communication for thruster control
-- **Simulation Ready**: Multi-platform simulation support with configuration groups
-- **Web Interface**: Real-time monitoring and visualization tools
-
-## 📁 Project Structure
-
-```
-hydrus-software-stack/
-├── autonomy/           # Main autonomy system (see autonomy/README.md)
-├── docker/            # Docker configurations and deployment
-│   └── hydrus-docker/ # Hocker deployment tool
-├── embedded_arduino/   # Arduino firmware for hardware control
-├── DVL/               # Doppler Velocity Logger integration
-├── Embedded_IMU/      # IMU sensor drivers
-├── yolo_models/       # YOLO model files for object detection
-└── docs/              # Additional documentation
-```
-
-## 🧪 Testing
-
-Run the test suite to verify your installation:
-
-```bash
-# Quick test with Hocker
-./docker/hydrus-docker/hocker --test
-
-# Manual testing
-./run_tests.sh
-```
-
-## 🐳 Docker Deployment Options
-
-Hocker provides several configuration groups for different use cases:
-
-```bash
-# Development with live code editing
-./docker/hydrus-docker/hocker --dev
-
-# Testing and CI/CD
-./docker/hydrus-docker/hocker --test
-
-# Competition deployment
-./docker/hydrus-docker/hocker --competition
-
-# Simulation with rosbag playback
-./docker/hydrus-docker/hocker --simulation
-```
-
-## 🤝 Contributing
-
-1. **Read the [Philosophy](PHILOSOPHY.md)** - Understand our development principles
-2. **Check the [Issues](../../issues)** - Find something to work on
-3. **Follow our standards** - Quality code with tests and documentation
-4. **Submit a PR** - Clear description and evidence of testing
-
-We welcome contributions that improve usability, add features, or enhance maintainability!
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **General Questions**: Check the [autonomy README](autonomy/README.md)
-- **Docker Issues**: See the [docker README](docker/README.md)
-- **Bug Reports**: Open an issue with detailed reproduction steps
-- **Feature Requests**: Start a discussion in the repository
-
----
-
-**Mission**: To become the definitive toolkit for underwater robotics - making autonomous underwater vehicles accessible, maintainable, and powerful for teams worldwide.
+**THIS IS ALPHA QUALITY SOFTWARE FOR RESEARCH AND COMPETITION PURPOSES ONLY. THIS IS NOT A PRODUCT.
+YOU ARE RESPONSIBLE FOR COMPLYING WITH LOCAL LAWS AND REGULATIONS.
+NO WARRANTY EXPRESSED OR IMPLIED.**
+</details>

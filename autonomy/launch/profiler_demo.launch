@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- ROS Profiler Demo Launch File -->
+  <!-- This launches all demo nodes in separate processes -->
+  
+  <!-- Demo Camera Node -->
+  <node name="demo_camera" pkg="autonomy" type="ros_profiler_demo.py" 
+        args="camera" output="screen" respawn="false">
+    <remap from="/camera/image_raw" to="/camera/image_raw"/>
+  </node>
+  
+  <!-- Image Processor Node -->
+  <node name="image_processor" pkg="autonomy" type="ros_profiler_demo.py" 
+        args="processor" output="screen" respawn="false">
+    <remap from="/camera/image_raw" to="/camera/image_raw"/>
+    <remap from="/processed_image" to="/processed_image"/>
+    <remap from="/detection_count" to="/detection_count"/>
+    <remap from="/processor_status" to="/processor_status"/>
+  </node>
+  
+  <!-- Data Analyzer Node -->
+  <node name="data_analyzer" pkg="autonomy" type="ros_profiler_demo.py" 
+        args="analyzer" output="screen" respawn="false">
+    <remap from="/detection_count" to="/detection_count"/>
+    <remap from="/processor_status" to="/processor_status"/>
+    <remap from="/analysis_result" to="/analysis_result"/>
+    <remap from="/cmd_vel" to="/cmd_vel"/>
+  </node>
+  
+</launch>
