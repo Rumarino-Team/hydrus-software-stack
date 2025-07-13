@@ -6,9 +6,12 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QProgressBar,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -37,6 +40,9 @@ class LeftControlPanel(QWidget):
         # SAM controls group
         sam_group = self.create_sam_group()
 
+        # SAM2 Video Tracking group
+        sam2_group = self.create_sam2_group()
+
         # Export group
         export_group = self.create_export_group()
 
@@ -44,6 +50,7 @@ class LeftControlPanel(QWidget):
         layout.addWidget(video_group)
         layout.addWidget(nav_group)
         layout.addWidget(sam_group)
+        layout.addWidget(sam2_group)
         layout.addWidget(export_group)
         layout.addStretch()
 
@@ -132,10 +139,70 @@ class LeftControlPanel(QWidget):
 
         return sam_group
 
+    def create_sam2_group(self) -> QGroupBox:
+        """Create SAM2 Video Tracking group"""
+        sam2_group = QGroupBox("SAM2 Video Tracking")
+        sam2_layout = QVBoxLayout()
+
+        # Video initialization
+        self.init_video_btn = QPushButton("Initialize Video Tracking")
+        self.init_video_btn.setEnabled(False)
+
+        # Object management
+        object_controls = QHBoxLayout()
+        self.add_object_btn = QPushButton("Add Object")
+        self.add_object_btn.setEnabled(False)
+        self.remove_object_btn = QPushButton("Remove Object")
+        self.remove_object_btn.setEnabled(False)
+
+        object_controls.addWidget(self.add_object_btn)
+        object_controls.addWidget(self.remove_object_btn)
+
+        # Tracked objects list
+        self.tracked_objects_list = QListWidget()
+        self.tracked_objects_list.setMaximumHeight(100)
+
+        # Propagation controls
+        prop_controls = QHBoxLayout()
+        self.propagate_forward_btn = QPushButton("Propagate Forward")
+        self.propagate_forward_btn.setEnabled(False)
+        self.propagate_backward_btn = QPushButton("Propagate Backward")
+        self.propagate_backward_btn.setEnabled(False)
+
+        prop_controls.addWidget(self.propagate_forward_btn)
+        prop_controls.addWidget(self.propagate_backward_btn)
+
+        # Clear tracking
+        self.clear_tracking_btn = QPushButton("Clear All Tracking")
+        self.clear_tracking_btn.setEnabled(False)
+
+        # Auto-propagation option
+        self.auto_propagate_checkbox = QCheckBox("Auto-propagate on frame change")
+
+        # Progress bar for tracking operations
+        self.tracking_progress = QProgressBar()
+        self.tracking_progress.setVisible(False)
+
+        # Status label
+        self.tracking_status_label = QLabel("Video tracking not initialized")
+        self.tracking_status_label.setWordWrap(True)
+
+        # Add all controls to layout
+        sam2_layout.addWidget(self.init_video_btn)
+        sam2_layout.addWidget(QLabel("Tracked Objects:"))
+        sam2_layout.addWidget(self.tracked_objects_list)
+        sam2_layout.addLayout(object_controls)
+        sam2_layout.addLayout(prop_controls)
+        sam2_layout.addWidget(self.clear_tracking_btn)
+        sam2_layout.addWidget(self.auto_propagate_checkbox)
+        sam2_layout.addWidget(self.tracking_progress)
+        sam2_layout.addWidget(self.tracking_status_label)
+
+        sam2_group.setLayout(sam2_layout)
+        return sam2_group
+
     def create_export_group(self) -> QGroupBox:
         """Create export group"""
-        from PySide6.QtWidgets import QProgressBar
-
         export_group = QGroupBox("Export")
         export_layout = QVBoxLayout()
 

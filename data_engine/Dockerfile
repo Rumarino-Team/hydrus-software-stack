@@ -1,7 +1,7 @@
 # SAM2 Data Engine Dockerfile
 FROM pytorch/pytorch:2.7.1-cuda12.6-cudnn9-runtime
 
-# Install system dependencies for GUI applications
+# Install system dependencies for GUI applications and git
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -33,24 +33,47 @@ RUN apt-get update && apt-get install -y \
     libxcb-xinput0 \
     libxcb-cursor0 \
     x11-apps \
+    git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
+# Clone SAM2 repository
+RUN git clone https://github.com/facebookresearch/segment-anything-2.git /app/third_party/sam2
+
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
+# Install Python dependencies including SAM2
 RUN pip install --no-cache-dir -r requirements.txt
+RUN cd /app/third_party/sam2 && pip install -e .
 
 # Create models directory and config directory
-RUN mkdir -p /app/models /app/.config
+RUN mkdir -p /app/models /app/.config /app/sam2_models
 
 # Set environment variables for Ultralytics
 ENV YOLO_CONFIG_DIR=/app/.config
+ENV YOLO_CONFIG_DIR=/app/.config
 
 # Download SAM2 models during build time
+RUN python3 -c "\
+import sys; \
+sys.path.append('/app/third_party/sam2'); \
+import os; \
+import urllib.request; \
+os.makedirs('/app/sam2_models', exist_ok=True); \
+checkpoint_urls = { \
+    'sam2_hiera_tiny.pt': 'https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_tiny.pt', \
+    'sam2_hiera_small.pt': 'https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt', \
+    'sam2_hiera_base_plus.pt': 'https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_base_plus.pt', \
+    'sam2_hiera_large.pt': 'https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt' \
+}; \
+[urllib.request.urlretrieve(url, f'/app/sam2_models/{filename}') for filename, url in checkpoint_urls.items() if not os.path.exists(f'/app/sam2_models/{filename}')]; \
+print('All SAM2 models downloaded')"
+
+# Download Ultralytics SAM models during build time
 RUN python -c "from ultralytics import SAM; model = SAM('sam2_b.pt'); print('SAM2 base model downloaded')"
 RUN python -c "from ultralytics import SAM; model = SAM('sam2_l.pt'); print('SAM2 large model downloaded')"
 RUN python -c "from ultralytics import SAM; model = SAM('sam2_s.pt'); print('SAM2 small model downloaded')"

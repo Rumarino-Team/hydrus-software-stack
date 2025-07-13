@@ -27,22 +27,11 @@ except ImportError:
     SAM = None
 
 # Import local modules
-try:
-    from config import get_config_manager
-    from sam_processor import SAM2Processor
-    from utils import create_directory_structure, export_statistics
-except ImportError as e:
-    print(f"Warning: Could not import local modules: {e}")
-    SAM2Processor = None
-    get_config_manager = None
-    create_directory_structure = None
-    export_statistics = None
-
-from .center_panel import CenterPanel
 from .frame_viewer import FrameViewer
 from .left_panel import LeftControlPanel
 from .right_panel import RightPanel
-from .workers import SAMProcessor, VideoProcessor
+from .sam2_video_worker import SAM2VideoWorker
+from .workers import VideoProcessor
 
 
 class DataEngineMainWindow(QMainWindow):
@@ -66,8 +55,16 @@ class DataEngineMainWindow(QMainWindow):
         # Thread pool for SAM processing
         self.thread_pool = QThreadPool()
 
+        # SAM2 Video Worker for advanced tracking
+        self.sam2_worker = SAM2VideoWorker()
+        self.video_tracking_enabled = False
+        self.tracked_objects = {}  # obj_id -> object_info
+        self.next_object_id = 0
+        self.propagation_results = {}  # frame_idx -> {obj_id: mask}
+
         self.setup_ui()
         self.connect_signals()
+        self.connect_sam2_signals()
         self.load_sam_model()
 
     def setup_ui(self):
@@ -107,7 +104,7 @@ class DataEngineMainWindow(QMainWindow):
         self.left_panel.prev_btn.clicked.connect(self.prev_frame)
         self.left_panel.next_btn.clicked.connect(self.next_frame)
 
-        # SAM controls
+        # SAM controls (single frame)
         self.left_panel.positive_point_btn.clicked.connect(
             lambda: self.set_point_mode(1)
         )
@@ -116,8 +113,21 @@ class DataEngineMainWindow(QMainWindow):
         )
         self.left_panel.clear_points_btn.clicked.connect(self.clear_points)
         self.left_panel.segment_btn.clicked.connect(self.segment_current_frame)
-        self.left_panel.propagate_forward_btn.clicked.connect(self.propagate_forward)
-        self.left_panel.propagate_backward_btn.clicked.connect(self.propagate_backward)
+
+        # SAM2 Video Tracking controls
+        self.left_panel.init_video_btn.clicked.connect(self.init_video_tracking)
+        self.left_panel.add_object_btn.clicked.connect(self.add_tracked_object)
+        self.left_panel.remove_object_btn.clicked.connect(self.remove_tracked_object)
+        self.left_panel.propagate_forward_btn.clicked.connect(
+            self.propagate_forward_sam2
+        )
+        self.left_panel.propagate_backward_btn.clicked.connect(
+            self.propagate_backward_sam2
+        )
+        self.left_panel.clear_tracking_btn.clicked.connect(self.clear_all_tracking)
+        self.left_panel.tracked_objects_list.itemSelectionChanged.connect(
+            self.on_object_selection_changed
+        )
 
         # Export
         self.left_panel.export_yolo_btn.clicked.connect(self.export_yolo_dataset)
@@ -128,14 +138,31 @@ class DataEngineMainWindow(QMainWindow):
         # Right panel signals
         self.right_panel.remove_annotation_btn.clicked.connect(self.remove_annotation)
 
+    def connect_sam2_signals(self):
+        """Connect SAM2 worker signals"""
+        self.sam2_worker.model_loaded.connect(self.on_sam2_model_loaded)
+        self.sam2_worker.video_initialized.connect(self.on_video_initialized)
+        self.sam2_worker.object_added.connect(self.on_object_added)
+        self.sam2_worker.propagation_progress.connect(self.on_propagation_progress)
+        self.sam2_worker.propagation_complete.connect(self.on_propagation_complete)
+        self.sam2_worker.error_occurred.connect(self.on_sam2_error)
+
     def load_sam_model(self):
-        """Load the SAM2 model"""
+        """Load both SAM2 video model and fallback SAM model"""
         try:
-            self.sam_model = SAM("sam2_b.pt")  # Use SAM2 base model
-            print("SAM2 model loaded successfully")
+            # Load SAM2 video model for tracking
+            self.sam2_worker.load_model("sam2_hiera_base_plus.pt")
+
+            # Load fallback SAM model for single-frame segmentation
+            if SAM is not None:
+                self.sam_model = SAM("sam2_b.pt")  # Use SAM2 base model
+                print("Fallback SAM model loaded successfully")
         except Exception as e:
+            print(f"Warning: Failed to load models: {e}")
             QMessageBox.warning(
-                self, "Model Loading Error", f"Failed to load SAM2 model: {e}"
+                self,
+                "Model Loading Warning",
+                f"Some models failed to load: {e}\nSome features may be limited.",
             )
 
     def load_video(self):
@@ -151,6 +178,12 @@ class DataEngineMainWindow(QMainWindow):
             self.video_path = file_path
             self.left_panel.video_path_label.setText(f"Video: {Path(file_path).name}")
             self.load_video_frames()
+
+            # Enable SAM2 video tracking controls
+            self.left_panel.init_video_btn.setEnabled(True)
+            self.left_panel.tracking_status_label.setText(
+                "Video loaded. Click 'Initialize Video Tracking' to begin."
+            )
 
     def set_output_directory(self):
         """Set the output directory for the dataset"""
@@ -224,6 +257,35 @@ class DataEngineMainWindow(QMainWindow):
         if self.current_frame_idx in self.frame_cache:
             frame = self.frame_cache[self.current_frame_idx]
             self.frame_viewer.set_frame(frame)
+
+            # Clear existing masks and load masks for this frame
+            self.frame_viewer.clear_masks()
+
+            # Show manual annotations
+            if self.current_frame_idx in self.annotations:
+                for annotation in self.annotations[self.current_frame_idx]:
+                    mask = annotation["mask"]
+                    class_id = annotation["class_id"]
+                    color = self.get_class_color(class_id)
+                    self.frame_viewer.add_mask(mask, color=color, alpha=0.4)
+
+            # Show SAM2 tracking results
+            if self.current_frame_idx in self.propagation_results:
+                for obj_id, mask in self.propagation_results[
+                    self.current_frame_idx
+                ].items():
+                    if obj_id in self.tracked_objects:
+                        class_id = self.tracked_objects[obj_id]["class_id"]
+                        color = self.get_class_color(class_id)
+                        self.frame_viewer.add_mask(mask, color=color, alpha=0.3)
+
+            # Show individual tracked object masks
+            for obj_id, obj_info in self.tracked_objects.items():
+                if self.current_frame_idx in obj_info["masks"]:
+                    mask = obj_info["masks"][self.current_frame_idx]
+                    class_id = obj_info["class_id"]
+                    color = self.get_class_color(class_id)
+                    self.frame_viewer.add_mask(mask, color=color, alpha=0.3)
         else:
             # Load frame from video if not cached
             self.load_frame_from_video(self.current_frame_idx)
@@ -245,6 +307,103 @@ class DataEngineMainWindow(QMainWindow):
         except Exception as e:
             print(f"Error loading frame {frame_idx}: {e}")
 
+    def export_yolo_dataset(self):
+        """Export annotations in YOLO format"""
+        if not self.output_dir:
+            QMessageBox.warning(self, "Error", "Please set output directory first")
+            return
+
+        if not self.annotations and not self.tracked_objects:
+            QMessageBox.warning(self, "Error", "No annotations to export")
+            return
+
+        try:
+            self.create_yolo_dataset()
+            QMessageBox.information(
+                self, "Success", "YOLO dataset exported successfully"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export dataset: {e}")
+
+    def create_yolo_dataset(self):
+        """Create YOLO format dataset"""
+        if not self.output_dir:
+            raise ValueError("Output directory not set")
+
+        dataset_dir = Path(self.output_dir) / "yolo_dataset"
+        images_dir = dataset_dir / "images"
+        labels_dir = dataset_dir / "labels"
+
+        # Create directories
+        images_dir.mkdir(parents=True, exist_ok=True)
+        labels_dir.mkdir(parents=True, exist_ok=True)
+
+        # Export frames and create YOLO annotations
+        all_frames = set(self.annotations.keys())
+        all_frames.update(
+            self.tracked_objects.get(obj_id, {}).get("masks", {}).keys()
+            for obj_id in self.tracked_objects
+        )
+
+        for frame_idx in all_frames:
+            if frame_idx in self.frame_cache:
+                frame = self.frame_cache[frame_idx]
+
+                # Save image
+                image_filename = f"frame_{frame_idx:06d}.jpg"
+                image_path = images_dir / image_filename
+                cv2.imwrite(str(image_path), frame)
+
+                # Create YOLO label file
+                label_filename = f"frame_{frame_idx:06d}.txt"
+                label_path = labels_dir / label_filename
+
+                with open(label_path, "w") as f:
+                    # Write manual annotations
+                    if frame_idx in self.annotations:
+                        for annotation in self.annotations[frame_idx]:
+                            mask = annotation["mask"]
+                            class_id = annotation["class_id"]
+                            bbox = self.mask_to_yolo_bbox(mask, frame.shape[:2])
+                            f.write(f"{class_id} {' '.join(map(str, bbox))}\n")
+
+                    # Write tracked object annotations
+                    for obj_id, obj_info in self.tracked_objects.items():
+                        if frame_idx in obj_info["masks"]:
+                            mask = obj_info["masks"][frame_idx]
+                            class_id = obj_info["class_id"]
+                            bbox = self.mask_to_yolo_bbox(mask, frame.shape[:2])
+                            f.write(f"{class_id} {' '.join(map(str, bbox))}\n")
+
+        # Create classes.txt file
+        classes_path = dataset_dir / "classes.txt"
+        with open(classes_path, "w") as f:
+            for class_id, class_name in self.right_panel.class_manager.classes.items():
+                f.write(f"{class_name}\n")
+
+        print(f"YOLO dataset exported to {dataset_dir}")
+
+    def mask_to_yolo_bbox(self, mask: np.ndarray, image_shape: tuple) -> list:
+        """Convert mask to YOLO format bounding box (normalized)"""
+        # Find bounding box of mask
+        rows = np.any(mask, axis=1)
+        cols = np.any(mask, axis=0)
+
+        if not rows.any() or not cols.any():
+            return [0.5, 0.5, 0.0, 0.0]  # Default small box in center
+
+        rmin, rmax = np.where(rows)[0][[0, -1]]
+        cmin, cmax = np.where(cols)[0][[0, -1]]
+
+        # Convert to YOLO format (center_x, center_y, width, height) - normalized
+        h, w = image_shape
+        center_x = (cmin + cmax) / 2 / w
+        center_y = (rmin + rmax) / 2 / h
+        width = (cmax - cmin) / w
+        height = (rmax - rmin) / h
+
+        return [center_x, center_y, width, height]
+
     def prev_frame(self):
         """Go to previous frame"""
         if self.current_frame_idx > 0:
@@ -257,8 +416,8 @@ class DataEngineMainWindow(QMainWindow):
             self.left_panel.frame_slider.setValue(self.current_frame_idx + 1)
 
     def set_point_mode(self, mode: int):
-        """Set point selection mode"""
-        self.frame_viewer.set_click_mode(mode)
+        """Set point mode (0=negative, 1=positive)"""
+        self.frame_viewer.point_mode = mode
 
         # Update button states
         self.left_panel.positive_point_btn.setChecked(mode == 1)
@@ -268,18 +427,16 @@ class DataEngineMainWindow(QMainWindow):
         """Clear all points on current frame"""
         self.frame_viewer.clear_points()
 
-    def on_point_clicked(self, x: int, y: int, label: int):
-        """Handle point click on frame"""
-        print(f"Point clicked: ({x}, {y}), label: {label}")
-
     def segment_current_frame(self):
-        """Segment object in current frame using SAM2"""
-        if not self.sam_model or self.current_frame_idx not in self.frame_cache:
-            QMessageBox.warning(self, "Error", "No model loaded or frame not available")
+        """Segment current frame using SAM"""
+        if not self.frame_viewer.points:
+            QMessageBox.warning(
+                self, "Error", "Please click points on the object first"
+            )
             return
 
-        if not self.frame_viewer.points:
-            QMessageBox.warning(self, "Error", "Please add at least one point")
+        if self.sam_model is None:
+            QMessageBox.warning(self, "Error", "SAM model not loaded")
             return
 
         current_class_id = self.right_panel.class_manager.get_current_class_id()
@@ -287,30 +444,44 @@ class DataEngineMainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Please select a class")
             return
 
-        # Prepare points and labels for SAM
-        points = np.array([[x, y] for x, y, _ in self.frame_viewer.points])
-        labels = np.array([label for _, _, label in self.frame_viewer.points])
-
-        frame = self.frame_cache[self.current_frame_idx]
-
-        # Run SAM segmentation
         try:
+            # Get current frame
+            frame = self.frame_cache.get(self.current_frame_idx)
+            if frame is None:
+                QMessageBox.warning(self, "Error", "Frame not loaded")
+                return
+
+            # Prepare points for SAM
+            points = np.array([[x, y] for x, y, _ in self.frame_viewer.points])
+            labels = np.array([label for _, _, label in self.frame_viewer.points])
+
+            # Run SAM segmentation
             results = self.sam_model(frame, points=points, labels=labels)
 
             if results and len(results) > 0:
-                result = results[0]
-                if hasattr(result, "masks") and result.masks is not None:
+                masks = results[0].masks
+                if masks is not None:
                     # Get the best mask
-                    mask = result.masks.data[0].cpu().numpy()
+                    mask = masks.data[0].cpu().numpy().astype(bool)
 
                     # Store annotation
                     self.store_annotation(
                         self.current_frame_idx, mask, current_class_id
                     )
+
+                    # Update display
+                    color = self.get_class_color(current_class_id)
+                    self.frame_viewer.add_mask(mask, color=color, alpha=0.4)
                     self.update_annotations_display()
 
-                    # Cache mask
-                    self.cache_mask(self.current_frame_idx, mask, current_class_id)
+                    # Clear points
+                    self.frame_viewer.clear_points()
+
+                    print(f"Segmentation completed for frame {self.current_frame_idx}")
+                else:
+                    QMessageBox.warning(self, "Error", "No mask generated")
+            else:
+                QMessageBox.warning(self, "Error", "Segmentation failed")
 
         except Exception as e:
             QMessageBox.critical(self, "Segmentation Error", f"Failed to segment: {e}")
@@ -330,29 +501,6 @@ class DataEngineMainWindow(QMainWindow):
 
         self.annotations[frame_idx].append(annotation)
 
-    def cache_mask(self, frame_idx: int, mask: np.ndarray, class_id: int):
-        """Cache mask to disk"""
-        if not self.output_dir:
-            return
-
-        cache_dir = Path(self.output_dir) / "cache" / "masks"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-        mask_path = cache_dir / f"frame_{frame_idx:06d}_class_{class_id}.pt"
-        torch.save(torch.from_numpy(mask), mask_path)
-
-    def propagate_forward(self):
-        """Propagate segmentation forward"""
-        # TODO: Implement SAM2 video tracking for forward propagation
-        QMessageBox.information(self, "Info", "Forward propagation not yet implemented")
-
-    def propagate_backward(self):
-        """Propagate segmentation backward"""
-        # TODO: Implement SAM2 video tracking for backward propagation
-        QMessageBox.information(
-            self, "Info", "Backward propagation not yet implemented"
-        )
-
     def update_annotations_display(self):
         """Update the annotations list for current frame"""
         self.right_panel.annotations_list.clear()
@@ -371,95 +519,37 @@ class DataEngineMainWindow(QMainWindow):
             if 0 <= row < len(self.annotations[self.current_frame_idx]):
                 del self.annotations[self.current_frame_idx][row]
                 self.update_annotations_display()
+                self.load_current_frame()  # Refresh display
 
-    def export_yolo_dataset(self):
-        """Export annotations in YOLO format"""
-        if not self.output_dir:
-            QMessageBox.warning(self, "Error", "Please set output directory first")
-            return
-
-        if not self.annotations:
-            QMessageBox.warning(self, "Error", "No annotations to export")
-            return
-
-        try:
-            self.create_yolo_dataset()
-            QMessageBox.information(
-                self, "Success", "YOLO dataset exported successfully"
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Failed to export dataset: {e}")
-
-    def create_yolo_dataset(self):
-        """Create YOLO format dataset"""
-        dataset_dir = Path(self.output_dir) / "yolo_dataset"
-        images_dir = dataset_dir / "images"
-        labels_dir = dataset_dir / "labels"
-
-        images_dir.mkdir(parents=True, exist_ok=True)
-        labels_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create classes.txt
-        classes_file = dataset_dir / "classes.txt"
-        with open(classes_file, "w") as f:
-            classes = self.right_panel.class_manager.get_classes()
-            for class_id in sorted(classes.keys()):
-                f.write(f"{classes[class_id]}\n")
-
-        # Export annotated frames
-        for frame_idx, annotations in self.annotations.items():
-            if frame_idx not in self.frame_cache:
-                continue
-
-            # Save image
-            frame = self.frame_cache[frame_idx]
-            image_path = images_dir / f"frame_{frame_idx:06d}.jpg"
-            cv2.imwrite(str(image_path), frame)
-
-            # Save labels
-            label_path = labels_dir / f"frame_{frame_idx:06d}.txt"
-            with open(label_path, "w") as f:
-                for annotation in annotations:
-                    # Convert mask to YOLO segmentation format
-                    mask = annotation["mask"]
-                    class_id = annotation["class_id"]
-
-                    # Find contours from mask
-                    mask_uint8 = (mask * 255).astype(np.uint8)
-                    contours, _ = cv2.findContours(
-                        mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-                    )
-
-                    if contours:
-                        # Use the largest contour
-                        largest_contour = max(contours, key=cv2.contourArea)
-
-                        # Normalize coordinates
-                        h, w = frame.shape[:2]
-                        normalized_contour = []
-
-                        for point in largest_contour:
-                            x, y = point[0]
-                            normalized_contour.extend([x / w, y / h])
-
-                        # Write YOLO segmentation line
-                        if len(normalized_contour) >= 6:  # At least 3 points
-                            line = f"{class_id} " + " ".join(
-                                [f"{coord:.6f}" for coord in normalized_contour]
-                            )
-                            f.write(line + "\n")
+    def get_class_color(self, class_id: int) -> tuple:
+        """Get color for a class ID"""
+        colors = [
+            (255, 0, 0),  # Red
+            (0, 255, 0),  # Green
+            (0, 0, 255),  # Blue
+            (255, 255, 0),  # Yellow
+            (255, 0, 255),  # Magenta
+            (0, 255, 255),  # Cyan
+            (255, 128, 0),  # Orange
+            (128, 0, 255),  # Purple
+        ]
+        return colors[class_id % len(colors)]
 
     def update_stats(self):
         """Update statistics display"""
-        total_frames = len(self.frame_cache)
+        total_frames = (
+            self.left_panel.frame_slider.maximum() + 1 if self.video_path else 0
+        )
         annotated_frames = len(self.annotations)
-        total_annotations = sum(len(anns) for anns in self.annotations.values())
+        tracked_frames = len(
+            set().union(
+                *(
+                    obj_info["masks"].keys()
+                    for obj_info in self.tracked_objects.values()
+                )
+            )
+        )
 
-        stats_text = f"""
-Total Frames: {total_frames}
-Annotated Frames: {annotated_frames}
-Total Annotations: {total_annotations}
-Current Frame: {self.current_frame_idx}
-        """
-
-        self.right_panel.stats_label.setText(stats_text.strip())
+        stats_text = f"Total: {total_frames} frames | Annotated: {annotated_frames} | Tracked: {tracked_frames}"
+        # You can display this in a status bar or label if needed
+        print(stats_text)
