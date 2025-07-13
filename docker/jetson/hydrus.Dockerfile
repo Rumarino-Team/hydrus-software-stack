@@ -53,7 +53,7 @@ RUN apt-get install -y ros-melodic-rosserial-arduino
 
 
 # Copy embedded Arduino code in the Arduino libraries folder
-COPY ./embedded_arduino /root/Arduino/libraries/embedded_arduino
+COPY ./devices/Arduino/HydrusModule /root/Arduino/libraries/HydrusModule
 
 
 # Copy the Python Dependencies and Install them
@@ -68,4 +68,4 @@ RUN curl -Lo /yolov8s-world.pt https://github.com/ultralytics/assets/releases/la
 COPY ./ /catkin_ws/src/hydrus-software-stack
 WORKDIR /catkin_ws/src/hydrus-software-stack
 RUN chmod +x scripts/ros-entrypoint.py
-CMD ["python3", "scripts/ros-entrypoint.py"]
+CMD ["/bin/bash", "-c", "sleep infinity"]
