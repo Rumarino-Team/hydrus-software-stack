@@ -20,16 +20,17 @@ services:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/.docker.xauth
+      - YOLO_CONFIG_DIR=/app/.config
 
     # Mount X11 socket and auth
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
       - ./data:/app/data:rw
       - ./cache:/app/cache:rw
       - ./projects:/app/projects:rw
       - ./exports:/app/exports:rw
       - ./videos:/app/videos:ro
+      - ../yolo_models:/app/yolo_models:rw
 
     privileged: True
     network_mode: host

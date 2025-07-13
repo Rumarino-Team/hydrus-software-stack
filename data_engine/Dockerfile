@@ -44,6 +44,22 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create models directory and config directory
+RUN mkdir -p /app/models /app/.config
+
+# Set environment variables for Ultralytics
+ENV YOLO_CONFIG_DIR=/app/.config
+
+# Download SAM2 models during build time
+RUN python -c "from ultralytics import SAM; model = SAM('sam2_b.pt'); print('SAM2 base model downloaded')"
+RUN python -c "from ultralytics import SAM; model = SAM('sam2_l.pt'); print('SAM2 large model downloaded')"
+RUN python -c "from ultralytics import SAM; model = SAM('sam2_s.pt'); print('SAM2 small model downloaded')"
+
+# Download YOLOv8 models during build time
+RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); print('YOLOv8 nano model downloaded')"
+RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8s.pt'); print('YOLOv8 small model downloaded')"
+RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8m.pt'); print('YOLOv8 medium model downloaded')"
+
 # Copy the current directory contents
 COPY . .
 
