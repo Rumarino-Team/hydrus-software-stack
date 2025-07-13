@@ -1,16 +1,24 @@
 {
-        "ros.distro": "noetic",
-        "python.linting.enabled": true,
         "python.autoComplete.extraPaths": [
+            "/home/catkin_ws/src/hydrus-software-stack/scripts",
             "/catkin_ws/devel/lib/python3/dist-packages",
             "/opt/ros/noetic/lib/python3/dist-packages"
-        ],
-        "python.linting.pylintArgs": [
-            "--init-hook"
         ],
         "python.analysis.extraPaths": [
+            "/home/catkin_ws/src/hydrus-software-stack/scripts",
             "/catkin_ws/devel/lib/python3/dist-packages",
             "/opt/ros/noetic/lib/python3/dist-packages"
         ],
-        "cmake.ignoreCMakeListsMissing": true
+        "pyrefly.trace.server": "verbose",
+        "editor.hover.enabled": true,
+        "editor.snippetSuggestions": "inline",
+        "python.testing.unittestArgs": [
+            "-v",
+            "-s",
+            "./test",
+            "-p",
+            "*_test.py"
+        ],
+        "python.testing.pytestEnabled": false,
+        "python.testing.unittestEnabled": true
 }
