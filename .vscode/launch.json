@@ -11,6 +11,164 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": "${command:pickArgs}"
+        },
+
+        // ====== CV Publishers Debug Configurations ======
+        {
+            "name": "Debug CV Publishers (Development Profile)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5684
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Set ROS Parameters (Debug CV)"
+        },
+        {
+            "name": "Debug CV Publishers (Local)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/autonomy/src/cv_publishers.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/autonomy/src:${env:PYTHONPATH}",
+                "ROS_PACKAGE_PATH": "${workspaceFolder}/autonomy:${env:ROS_PACKAGE_PATH}",
+                "ROS_MASTER_URI": "http://localhost:11311"
+            },
+            "args": []
+        },
+
+        // ====== Development Profile Debugging ======
+        {
+            "name": "Debug in Development Container",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Development Container"
+        },
+
+        // ====== Testing Profile Debugging ======
+        {
+            "name": "Debug Tests (Testing Profile)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5679
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Testing Container"
+        },
+
+        // ====== Competition Profile Debugging ======
+        {
+            "name": "Debug in Competition Mode",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5680
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Competition Container"
+        },
+
+        // ====== Simulation Profile Debugging ======
+        {
+            "name": "Debug in Simulation Mode",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5681
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Simulation Container"
+        },
+
+        // ====== CPU-Only Profile Debugging ======
+        {
+            "name": "Debug CPU-Only Mode",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5682
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start CPU-Only Container"
+        },
+
+        // ====== GPU Profile Debugging ======
+        {
+            "name": "Debug GPU Mode",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5683
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start GPU Container"
+        },
+
+        // ====== Jetson Profile Debugging ======
+        {
+            "name": "Debug Jetson Mode",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5685
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/home/catkin_ws/src/hydrus-software-stack"
+                }
+            ],
+            "preLaunchTask": "Start Jetson Container"
         }
     ]
 }
