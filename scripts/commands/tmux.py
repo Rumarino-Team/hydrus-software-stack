@@ -59,31 +59,17 @@ class HydrusTmuxManager:
                 "panes": [
                     {
                         "name": "Arduino Multiplexer",
-                        "command": self._get_command_with_fallback(
-                            "scripts/simple_arduino_multiplexer.py",
-                            "scripts/socat_arduino_multiplexer.py",
-                            "Arduino Multiplexer",
-                        ),
+                        "command": f"echo 'Starting Arduino Multiplexer'; python3 {self.catkin_ws}/src/hydrus-software-stack/devices/Arduino/arduino.py multiplexer {arduino_port}",
                         "split": None,
                     },
                     {
                         "name": "Arduino Monitor",
-                        "command": "sleep 3; "
-                        + self._get_command_with_fallback(
-                            "scripts/monitor_arduino_logs.py",
-                            "scripts/setup_serial_monitor.py",
-                            "Arduino Monitor",
-                        ),
+                        "command": f"sleep 3; echo 'Starting Arduino Monitor'; python3 {self.catkin_ws}/src/hydrus-software-stack/devices/Arduino/arduino.py monitor",
                         "split": "horizontal",
                     },
                     {
                         "name": "Debug Terminal",
-                        "command": "sleep 5; "
-                        + self._get_command_with_fallback(
-                            "scripts/arduino_debug.py",
-                            "scripts/arduino_debug_terminal.py",
-                            "Arduino Debug Terminal",
-                        ),
+                        "command": f"sleep 5; echo 'Starting Arduino Debug Terminal'; python3 {self.catkin_ws}/src/hydrus-software-stack/devices/Arduino/arduino.py debug",
                         "split": "vertical",
                     },
                 ],
