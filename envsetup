@@ -1,0 +1,357 @@
+#!/bin/bash
+# Hydrus Software Stack Environment Setup
+# This script sets up the environment to use hocker and hydrus_cli from anywhere
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HYDRUS_ROOT="$SCRIPT_DIR"
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}🚀 Setting up Hydrus Software Stack Environment...${NC}"
+echo -e "${BLUE}📁 Working directory: $(pwd)${NC}"
+echo -e "${BLUE}📁 Script directory: $SCRIPT_DIR${NC}"
+echo -e "${BLUE}📁 Hydrus root: $HYDRUS_ROOT${NC}"
+
+# Check if we're being sourced (recommended) or executed
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo -e "${YELLOW}⚠️  Warning: This script should be sourced, not executed.${NC}"
+    echo -e "${YELLOW}   Run: source ./envsetup${NC}"
+    echo -e "${YELLOW}   Or:  . ./envsetup${NC}"
+fi
+
+# Add the Hydrus root to PATH if not already present
+if [[ ":$PATH:" != *":$HYDRUS_ROOT:"* ]]; then
+    export PATH="$HYDRUS_ROOT:$PATH"
+    echo -e "${GREEN}✅ Added Hydrus root to PATH: $HYDRUS_ROOT${NC}"
+fi
+
+# Add the docker/hydrus-docker directory to PATH for hocker
+HOCKER_DIR="$HYDRUS_ROOT/docker/hydrus-docker"
+if [[ ":$PATH:" != *":$HOCKER_DIR:"* ]]; then
+    export PATH="$HOCKER_DIR:$PATH"
+    echo -e "${GREEN}✅ Added hocker directory to PATH: $HOCKER_DIR${NC}"
+fi
+
+# Set environment variables
+export HYDRUS_ROOT="$HYDRUS_ROOT"
+export PYTHONPATH="$HYDRUS_ROOT:$HYDRUS_ROOT/scripts:$PYTHONPATH"
+
+# Create symlinks for easy access (if they don't exist)
+create_symlink() {
+    local source="$1"
+    local target="$2"
+    local name="$3"
+
+    echo -e "${BLUE}🔗 Checking symlink for $name...${NC}"
+    echo -e "   Source: $source"
+    echo -e "   Target: $target"
+
+    if [[ -f "$source" ]]; then
+        # Remove existing symlink or file if it exists
+        if [[ -L "$target" ]] || [[ -f "$target" ]]; then
+            rm -f "$target"
+            echo -e "   Removed existing file/symlink"
+        fi
+
+        # Create the symlink
+        if ln -sf "$source" "$target"; then
+            echo -e "${GREEN}✅ Created symlink for $name: $target${NC}"
+            # Make sure source is executable
+            chmod +x "$source"
+            # Make sure symlink is executable
+            chmod +x "$target"
+            return 0
+        else
+            echo -e "${RED}❌ Failed to create symlink for $name${NC}"
+            return 1
+        fi
+    else
+        echo -e "${RED}❌ Source file not found: $source${NC}"
+        echo -e "   Available files in $(dirname "$source"):"
+        ls -la "$(dirname "$source")" 2>/dev/null || echo "   Directory not found"
+        return 1
+    fi
+}
+
+# Create wrapper script for CLI
+create_cli_wrapper() {
+    local wrapper_path="$1"
+    local name="$2"
+
+    echo -e "${BLUE}🔗 Creating CLI wrapper for $name...${NC}"
+    echo -e "   Wrapper: $wrapper_path"
+
+    # Remove existing wrapper if it exists
+    if [[ -f "$wrapper_path" ]]; then
+        rm -f "$wrapper_path"
+        echo -e "   Removed existing wrapper"
+    fi
+
+    # Create the wrapper script
+    cat > "$wrapper_path" << 'EOF'
+#!/bin/bash
+# Hydrus CLI Wrapper - executes python -m scripts.cli
+# This wrapper ensures proper module execution with correct Python path
+
+# Get the directory where this wrapper is located (should be project root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to the project directory to ensure proper module resolution
+cd "$SCRIPT_DIR"
+
+# Execute the CLI module with proper Python path
+exec python3 -m scripts.cli "$@"
+EOF
+
+    if [[ -f "$wrapper_path" ]]; then
+        chmod +x "$wrapper_path"
+        echo -e "${GREEN}✅ Created CLI wrapper for $name: $wrapper_path${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Failed to create CLI wrapper for $name${NC}"
+        return 1
+    fi
+}
+
+# Create convenient symlinks in the root directory
+echo -e "${BLUE}🔗 Creating symlinks...${NC}"
+
+# Create hocker symlink
+create_symlink "$HYDRUS_ROOT/docker/hydrus-docker/hocker.py" "$HYDRUS_ROOT/hocker" "hocker"
+
+# Create hydrus-cli wrapper (not a symlink, but a wrapper script)
+create_cli_wrapper "$HYDRUS_ROOT/hydrus-cli" "hydrus-cli"
+
+echo -e "${BLUE}✅ Symlink creation completed${NC}"
+
+# Setup Typer autocomplete
+echo -e "${BLUE}🔧 Setting up Typer autocomplete...${NC}"
+setup_typer_autocomplete() {
+    # Check if typer is available
+    if python3 -c "import typer" 2>/dev/null; then
+        echo -e "${GREEN}✅ Typer is available${NC}"
+
+        # Generate autocomplete for bash
+        echo -e "${BLUE}🔧 Installing autocomplete for hydrus-cli...${NC}"
+
+        # Create autocomplete script in a temporary location
+        AUTOCOMPLETE_DIR="$HOME/.hydrus_autocomplete"
+        mkdir -p "$AUTOCOMPLETE_DIR"
+
+        # Change to the project directory for proper module resolution
+        cd "$HYDRUS_ROOT"
+
+        # Generate the autocomplete script using typer - try different approaches
+        echo -e "${BLUE}   Attempting to generate autocomplete script...${NC}"
+
+        # Method 1: Try using typer's show-completion to get the actual script
+        if "$HYDRUS_ROOT/hydrus-cli" --show-completion bash > "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" 2>/dev/null && [[ -s "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" ]]; then
+            echo -e "${GREEN}✅ Generated autocomplete script using --show-completion${NC}"
+            AUTOCOMPLETE_SUCCESS=true
+        elif python3 -m scripts.cli --show-completion bash > "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" 2>/dev/null && [[ -s "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" ]]; then
+            echo -e "${GREEN}✅ Generated autocomplete script using python module --show-completion${NC}"
+            AUTOCOMPLETE_SUCCESS=true
+        # Method 2: Use typer's install-completion but then find and copy the generated script
+        elif "$HYDRUS_ROOT/hydrus-cli" --install-completion bash >/dev/null 2>&1; then
+            # Typer installs to ~/.bash_completions/ - try to find and copy it
+            TYPER_COMPLETION_FILE=$(find ~/.bash_completions/ -name "*scripts.cli*" -o -name "*hydrus-cli*" 2>/dev/null | head -1)
+            if [[ -n "$TYPER_COMPLETION_FILE" && -f "$TYPER_COMPLETION_FILE" ]]; then
+                cp "$TYPER_COMPLETION_FILE" "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash"
+                echo -e "${GREEN}✅ Found and copied typer-generated completion script${NC}"
+                AUTOCOMPLETE_SUCCESS=true
+            else
+                echo -e "${YELLOW}⚠️  Typer installed completion but couldn't locate the file${NC}"
+            fi
+        # Method 3: Create a basic autocomplete script manually
+        else
+            echo -e "${YELLOW}⚠️  Auto-generation failed, creating basic autocomplete script...${NC}"
+            cat > "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" << 'AUTOCOMPLETE_EOF'
+# Basic autocomplete for hydrus-cli
+_hydrus_cli_completion() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Basic commands
+    opts="hello arduino ros test tmux --help --version"
+
+    # Arduino subcommands
+    if [[ ${prev} == "arduino" ]]; then
+        opts="compile upload list-boards list-ports install-core multiplexer debug monitor virtual --help"
+    # Arduino compile board nametags (positional argument)
+    elif [[ ${COMP_WORDS[COMP_CWORD-1]} == "compile" ]]; then
+        opts="uno nano mega leonardo micro esp32 esp8266 teensy40 teensy41"
+    # ROS subcommands
+    elif [[ ${prev} == "ros" ]]; then
+        opts="status build launch --help"
+    # Test subcommands
+    elif [[ ${prev} == "test" ]]; then
+        opts="list run clean --help"
+    # Tmux subcommands
+    elif [[ ${prev} == "tmux" ]]; then
+        opts="status start stop attach --help"
+    fi
+
+    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+    return 0
+}
+
+# Register the completion function
+complete -F _hydrus_cli_completion hydrus-cli
+AUTOCOMPLETE_EOF
+            AUTOCOMPLETE_SUCCESS=true
+            echo -e "${GREEN}✅ Created basic autocomplete script${NC}"
+        fi
+
+        if [[ $AUTOCOMPLETE_SUCCESS == true ]]; then
+            # Add source command to bashrc if not already present
+            BASHRC="$HOME/.bashrc"
+            AUTOCOMPLETE_SOURCE="source $AUTOCOMPLETE_DIR/hydrus-cli-complete.bash"
+
+            if [[ -f "$BASHRC" ]] && ! grep -q "hydrus-cli-complete.bash" "$BASHRC"; then
+                echo "" >> "$BASHRC"
+                echo "# Hydrus CLI autocomplete" >> "$BASHRC"
+                echo "$AUTOCOMPLETE_SOURCE" >> "$BASHRC"
+                echo -e "${GREEN}✅ Added autocomplete to ~/.bashrc${NC}"
+                echo -e "${YELLOW}💡 Run 'source ~/.bashrc' or restart your shell to enable autocomplete${NC}"
+            elif [[ -f "$BASHRC" ]]; then
+                echo -e "${YELLOW}⚠️  Autocomplete already configured in ~/.bashrc${NC}"
+            else
+                echo -e "${YELLOW}⚠️  ~/.bashrc not found, autocomplete not automatically configured${NC}"
+                echo -e "${BLUE}   Manual setup: $AUTOCOMPLETE_SOURCE${NC}"
+            fi
+
+            # Source it for the current session if we're in bash
+            if [[ "$BASH_VERSION" ]]; then
+                echo -e "${BLUE}   Checking autocomplete script content...${NC}"
+                if [[ -f "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" ]]; then
+                    # Show first few lines to verify it's a real completion script
+                    echo -e "${BLUE}   First few lines of completion script:${NC}"
+                    head -3 "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" | sed 's/^/     /'
+
+                    if source "$AUTOCOMPLETE_DIR/hydrus-cli-complete.bash" 2>/dev/null; then
+                        echo -e "${GREEN}✅ Autocomplete enabled for current session${NC}"
+                        echo -e "${BLUE}💡 Try typing 'hydrus-cli ' and press TAB twice${NC}"
+                    else
+                        echo -e "${YELLOW}⚠️  Failed to source autocomplete for current session${NC}"
+                        echo -e "${BLUE}   Manual activation: source $AUTOCOMPLETE_DIR/hydrus-cli-complete.bash${NC}"
+                    fi
+                else
+                    echo -e "${RED}❌ Autocomplete file not found${NC}"
+                fi
+            fi
+        else
+            echo -e "${RED}❌ Failed to create autocomplete script${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Typer not available, skipping autocomplete setup${NC}"
+        echo -e "${BLUE}   Install typer with: pip install typer${NC}"
+        echo -e "${BLUE}   Or run: pip install -r requirements.txt${NC}"
+    fi
+}
+
+# Run autocomplete setup
+setup_typer_autocomplete
+
+# Verify setup
+echo ""
+echo -e "${BLUE}🔍 Verifying setup...${NC}"
+
+if command -v python3 &> /dev/null; then
+    echo -e "${GREEN}✅ Python3 is available${NC}"
+else
+    echo -e "${RED}❌ Python3 is not available${NC}"
+fi
+
+echo -e "${BLUE}🔍 Checking symlinks...${NC}"
+
+if [[ -f "$HYDRUS_ROOT/hocker" ]]; then
+    echo -e "${GREEN}✅ hocker symlink created and accessible${NC}"
+    echo -e "   Path: $(readlink -f "$HYDRUS_ROOT/hocker" 2>/dev/null || echo "Not a symlink")"
+else
+    echo -e "${RED}❌ hocker symlink not found${NC}"
+    echo -e "   Expected at: $HYDRUS_ROOT/hocker"
+    echo -e "   Files in root: $(ls -la "$HYDRUS_ROOT"/ | grep -E "(hocker|cli)" || echo "None found")"
+fi
+
+if [[ -f "$HYDRUS_ROOT/hydrus-cli" ]]; then
+    echo -e "${GREEN}✅ hydrus-cli wrapper created and accessible${NC}"
+    echo -e "   Wrapper: $HYDRUS_ROOT/hydrus-cli"
+else
+    echo -e "${RED}❌ hydrus-cli wrapper not found${NC}"
+    echo -e "   Expected at: $HYDRUS_ROOT/hydrus-cli"
+fi
+
+# Test if commands are accessible via PATH
+echo -e "${BLUE}🔍 Testing command accessibility...${NC}"
+if command -v hocker.py &> /dev/null; then
+    echo -e "${GREEN}✅ hocker.py is accessible via PATH${NC}"
+else
+    echo -e "${YELLOW}⚠️  hocker.py not found in PATH${NC}"
+fi
+
+if [[ -x "$HYDRUS_ROOT/hocker" ]]; then
+    echo -e "${GREEN}✅ hocker symlink is executable${NC}"
+else
+    echo -e "${RED}❌ hocker symlink is not executable or doesn't exist${NC}"
+fi
+
+if [[ -x "$HYDRUS_ROOT/hydrus-cli" ]]; then
+    echo -e "${GREEN}✅ hydrus-cli wrapper is executable${NC}"
+    # Test if autocomplete is working
+    if [[ "$BASH_VERSION" ]] && complete -p hydrus-cli &>/dev/null; then
+        echo -e "${GREEN}✅ hydrus-cli autocomplete is active${NC}"
+    else
+        echo -e "${YELLOW}⚠️  hydrus-cli autocomplete not active in current session${NC}"
+    fi
+else
+    echo -e "${RED}❌ hydrus-cli wrapper is not executable or doesn't exist${NC}"
+fi
+
+# Display usage information
+echo ""
+echo -e "${BLUE}📖 Usage:${NC}"
+echo -e "  ${GREEN}hocker --help${NC}                     - Show hocker help"
+echo -e "  ${GREEN}hydrus-cli --help${NC}                 - Show hydrus-cli help"
+echo -e ""
+echo -e "${BLUE}Arduino Commands (Simplified):${NC}"
+echo -e "  ${GREEN}hydrus-cli arduino compile${NC}         - Compile sketch for Uno (default)"
+echo -e "  ${GREEN}hydrus-cli arduino compile nano${NC}    - Compile sketch for Arduino Nano"
+echo -e "  ${GREEN}hydrus-cli arduino compile esp32${NC}   - Compile sketch for ESP32"
+echo -e "  ${GREEN}hydrus-cli arduino upload${NC}          - Auto-detect board and upload"
+echo -e "  ${GREEN}hydrus-cli arduino list-boards${NC}     - Show board nametags and connected boards"
+echo -e "  ${GREEN}hydrus-cli arduino list-ports${NC}      - Show available serial ports"
+echo -e ""
+echo -e "${BLUE}Board Nametags:${NC} uno nano mega leonardo micro esp32 esp8266 teensy40 teensy41"
+echo -e ""
+echo -e "${BLUE}Other Commands:${NC}"
+echo -e "  ${GREEN}hocker --exec bash --it${NC}            - Enter container shell (workspace root)"
+echo -e "  ${GREEN}hocker --exec bash --it --dev${NC}      - Enter container shell (development volume)"
+echo -e "  ${GREEN}hocker --destroy${NC}                  - Destroy containers"
+echo ""
+echo -e "${BLUE}💡 Tips:${NC}"
+echo -e "  • Add 'source $HYDRUS_ROOT/envsetup' to your ~/.bashrc for permanent setup"
+echo -e "  • Use 'cd \$HYDRUS_ROOT' to quickly navigate to the project root"
+echo -e "  • Tab completion is available for hydrus-cli commands and board nametags"
+echo -e "  • Arduino workflow: Just 'compile [board]' and 'upload' - no paths needed!"
+echo -e "  • Upload auto-detects board type and port for maximum convenience"
+echo -e "  • Install typer for full CLI features: pip install typer"
+echo ""
+echo -e "${GREEN}🎉 Environment setup complete!${NC}"
+
+# Define useful aliases
+alias hydrus-root='cd $HYDRUS_ROOT'
+alias hydrus-logs='cd $HYDRUS_ROOT && docker-compose logs -f'
+alias hydrus-status='cd $HYDRUS_ROOT && docker-compose ps'
+
+echo -e "${BLUE}📝 Available aliases:${NC}"
+echo -e "  ${GREEN}hydrus-root${NC}   - Navigate to Hydrus root directory"
+echo -e "  ${GREEN}hydrus-logs${NC}   - Show docker-compose logs"
+echo -e "  ${GREEN}hydrus-status${NC} - Show container status"

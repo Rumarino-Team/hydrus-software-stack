@@ -279,6 +279,7 @@ class DockerManager:
         command: Optional[list] = None,
         interactive: bool = False,
         force_type: Optional[str] = None,
+        dev_mode: bool = False,
     ):
         """Execute into the container, starting it if necessary
 
@@ -287,6 +288,7 @@ class DockerManager:
             command: Command to execute (None for interactive shell)
             interactive: Force interactive mode
             force_type: Force specific container type ("cpu" or "cuda")
+            dev_mode: Use development working directory (/catkin_ws/src/hydrus-software-stack)
         """
         try:
             print("🔍 Finding Hydrus container...")
@@ -363,9 +365,19 @@ class DockerManager:
             container_env = os.environ.copy()
             container_env["TERM"] = "xterm-256color"  # Better terminal support
 
+            # Determine working directory based on dev_mode
+            workdir = (
+                "/home/catkin_ws/src/hydrus-software-stack"
+                if dev_mode
+                else "/catkin_ws/src/hydrus-software-stack"
+            )
+            workdir_desc = "development volume" if dev_mode else "workspace root"
+
             if interactive or (command is None or len(command) == 0):
                 # Interactive shell mode
-                print("🚀 Executing into container (interactive shell)...")
+                print(
+                    f"🚀 Executing into container (interactive shell in {workdir_desc})..."
+                )
 
                 # Use os.execvp to replace the current process with docker exec
                 exec_cmd = [
@@ -373,7 +385,7 @@ class DockerManager:
                     "exec",
                     "-it",
                     "--workdir",
-                    "/catkin_ws/src/hydrus-software-stack",
+                    workdir,
                     container_name,
                     "/bin/bash",
                 ]
@@ -385,14 +397,16 @@ class DockerManager:
                 os.execvpe("docker", exec_cmd, container_env)
             else:
                 # Execute specific command
-                print(f"🚀 Executing command in container: {' '.join(command)}")
+                print(
+                    f"🚀 Executing command in container ({workdir_desc}): {' '.join(command)}"
+                )
 
                 exec_cmd = [
                     "docker",
                     "exec",
                     "-it",
                     "--workdir",
-                    "/catkin_ws/src/hydrus-software-stack",
+                    workdir,
                     container_name,
                 ] + command
 

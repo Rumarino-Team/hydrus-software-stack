@@ -48,6 +48,11 @@ class HockerDockerDeployment:
         parser.add_argument(
             "--it", action="store_true", help="Interactive mode for exec"
         )
+        parser.add_argument(
+            "--dev",
+            action="store_true",
+            help="Use development working directory (/catkin_ws/src/hydrus-software-stack)",
+        )
         parser.add_argument("--destroy", action="store_true", help="Destroy containers")
         parser.add_argument(
             "--detach",
@@ -83,6 +88,7 @@ class HockerDockerDeployment:
                 interactive=args.it,
                 command=command_parts,
                 force_type=force_type,
+                dev_mode=args.dev,
             )
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)
