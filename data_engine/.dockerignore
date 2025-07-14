@@ -1,0 +1,118 @@
+# Docker ignore file for SAM2 Data Engine
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Cache directories
+cache/
+.cache/
+*.cache
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test files
+test_output/
+test_config/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model files (large)
+*.pt
+*.pth
+*.onnx
+*.trt
+models/
+
+# Data directories
+data/
+datasets/
+videos/
+exports/
+projects/
+
+# Docker files (don't copy into container)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.webm
+*.flv
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
