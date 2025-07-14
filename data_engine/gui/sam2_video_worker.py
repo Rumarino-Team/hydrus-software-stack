@@ -195,6 +195,27 @@ class SAM2VideoWorker(QThread):
             obj_idx = obj_ids.index(data["obj_id"])
             mask = video_res_masks[obj_idx].cpu().numpy()
 
+            print(
+                f"SAM2 mask shape: {mask.shape}, dtype: {mask.dtype}, min: {mask.min()}, max: {mask.max()}"
+            )
+
+            # Ensure mask is in the correct format (2D boolean/binary)
+            if mask.ndim > 2:
+                mask = mask.squeeze()
+            if mask.ndim != 2:
+                raise ValueError(f"Mask has invalid dimensions: {mask.shape}")
+
+            # Convert to binary mask if needed
+            if mask.dtype == np.bool_:
+                # Already boolean, convert to uint8 for consistency
+                mask = mask.astype(np.uint8) * 255
+            elif mask.max() <= 1.0:
+                # Floating point mask, threshold and convert
+                mask = (mask > 0.5).astype(np.uint8) * 255
+            else:
+                # Already in uint8 range
+                mask = mask.astype(np.uint8)
+
             object_info = {
                 "obj_id": data["obj_id"],
                 "frame_idx": frame_idx,
@@ -235,6 +256,27 @@ class SAM2VideoWorker(QThread):
                 frame_results = {}
                 for i, obj_id in enumerate(obj_ids):
                     mask = video_res_masks[i].cpu().numpy()
+
+                    # Ensure mask is in the correct format (2D boolean/binary)
+                    if mask.ndim > 2:
+                        mask = mask.squeeze()
+                    if mask.ndim != 2:
+                        print(
+                            f"Warning: Mask for obj {obj_id} has invalid dimensions: {mask.shape}"
+                        )
+                        continue
+
+                    # Convert to binary mask if needed
+                    if mask.dtype == np.bool_:
+                        # Already boolean, convert to uint8 for consistency
+                        mask = mask.astype(np.uint8) * 255
+                    elif mask.max() <= 1.0:
+                        # Floating point mask, threshold and convert
+                        mask = (mask > 0.5).astype(np.uint8) * 255
+                    else:
+                        # Already in uint8 range
+                        mask = mask.astype(np.uint8)
+
                     frame_results[obj_id] = mask
 
                 all_results[frame_idx] = frame_results

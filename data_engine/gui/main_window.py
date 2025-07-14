@@ -553,3 +553,268 @@ class DataEngineMainWindow(QMainWindow):
         stats_text = f"Total: {total_frames} frames | Annotated: {annotated_frames} | Tracked: {tracked_frames}"
         # You can display this in a status bar or label if needed
         print(stats_text)
+
+    def init_video_tracking(self):
+        """Initialize video for SAM2 tracking"""
+        if not self.video_path:
+            QMessageBox.warning(self, "Error", "Please load a video first")
+            return
+
+        self.left_panel.tracking_status_label.setText("Initializing video tracking...")
+        self.left_panel.tracking_progress.setVisible(True)
+        self.sam2_worker.init_video(self.video_path)
+
+    def add_tracked_object(self):
+        """Add a new object to track using current points"""
+        if not self.video_tracking_enabled:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "Video tracking not initialized. Click 'Initialize Video Tracking' first.",
+            )
+            return
+
+        if not self.frame_viewer.points:
+            QMessageBox.warning(
+                self, "Error", "Please click points on the object to track"
+            )
+            return
+
+        current_class_id = self.right_panel.class_manager.get_current_class_id()
+        if current_class_id is None:
+            QMessageBox.warning(self, "Error", "Please select a class")
+            return
+
+        # Prepare points for SAM2
+        points = [[x, y] for x, y, _ in self.frame_viewer.points]
+        labels = [label for _, _, label in self.frame_viewer.points]
+
+        # Create new object ID
+        obj_id = self.next_object_id
+        self.next_object_id += 1
+
+        # Store object info
+        self.tracked_objects[obj_id] = {
+            "class_id": current_class_id,
+            "class_name": self.right_panel.class_manager.classes.get(
+                current_class_id, "unknown"
+            ),
+            "masks": {},
+        }
+
+        # Add object to SAM2 tracking
+        self.sam2_worker.add_object(
+            frame_idx=self.current_frame_idx,
+            points=points,
+            labels=labels,
+            obj_id=obj_id,
+        )
+
+    def remove_tracked_object(self):
+        """Remove selected object from tracking"""
+        if not hasattr(self.left_panel, "tracked_objects_list"):
+            return
+
+        current_item = self.left_panel.tracked_objects_list.currentItem()
+        if current_item:
+            # Extract object ID from item text
+            item_text = current_item.text()
+            try:
+                obj_id = int(item_text.split(":")[0].split()[-1])
+
+                # Remove from SAM2
+                self.sam2_worker.clear_object(obj_id)
+
+                # Remove from local storage
+                if obj_id in self.tracked_objects:
+                    del self.tracked_objects[obj_id]
+
+                # Remove from propagation results
+                for frame_results in self.propagation_results.values():
+                    if obj_id in frame_results:
+                        del frame_results[obj_id]
+
+                # Remove from list
+                row = self.left_panel.tracked_objects_list.row(current_item)
+                self.left_panel.tracked_objects_list.takeItem(row)
+
+                # Refresh display
+                self.load_current_frame()
+
+                QMessageBox.information(self, "Success", f"Object {obj_id} removed")
+
+            except (ValueError, IndexError):
+                QMessageBox.warning(self, "Error", "Could not parse object ID")
+
+    def propagate_forward_sam2(self):
+        """Propagate tracking forward using SAM2"""
+        if not self.video_tracking_enabled or not self.tracked_objects:
+            QMessageBox.warning(
+                self, "Error", "No tracking initialized or objects to track"
+            )
+            return
+
+        self.left_panel.tracking_progress.setVisible(True)
+        self.sam2_worker.propagate_video(
+            start_frame=self.current_frame_idx, reverse=False
+        )
+
+    def propagate_backward_sam2(self):
+        """Propagate tracking backward using SAM2"""
+        if not self.video_tracking_enabled or not self.tracked_objects:
+            QMessageBox.warning(
+                self, "Error", "No tracking initialized or objects to track"
+            )
+            return
+
+        self.left_panel.tracking_progress.setVisible(True)
+        self.sam2_worker.propagate_video(
+            start_frame=self.current_frame_idx, reverse=True
+        )
+
+    def clear_all_tracking(self):
+        """Clear all SAM2 tracking"""
+        if self.video_tracking_enabled:
+            self.sam2_worker.reset_tracking()
+            self.tracked_objects.clear()
+            self.propagation_results.clear()
+            self.next_object_id = 0
+
+            # Clear tracked objects list
+            if hasattr(self.left_panel, "tracked_objects_list"):
+                self.left_panel.tracked_objects_list.clear()
+
+            # Refresh display
+            self.load_current_frame()
+
+            self.left_panel.tracking_status_label.setText("All tracking cleared")
+            QMessageBox.information(self, "Success", "All tracking cleared")
+
+    def on_object_selection_changed(self):
+        """Handle tracked object selection change"""
+        # Enable/disable remove button based on selection
+        has_selection = self.left_panel.tracked_objects_list.currentItem() is not None
+        self.left_panel.remove_object_btn.setEnabled(has_selection)
+
+    def on_point_clicked(self, x: int, y: int, label: int):
+        """Handle point clicked in frame viewer"""
+        # Add point to frame viewer
+        self.frame_viewer.add_point(x, y, label)
+
+    def on_sam2_model_loaded(self, success: bool, message: str):
+        """Handle SAM2 model loading completion"""
+        if success:
+            self.left_panel.tracking_status_label.setText(
+                "SAM2 model loaded successfully"
+            )
+            print("SAM2 model loaded successfully")
+        else:
+            self.left_panel.tracking_status_label.setText(
+                f"SAM2 model loading failed: {message}"
+            )
+            QMessageBox.critical(
+                self, "Model Loading Error", f"Failed to load SAM2 model: {message}"
+            )
+
+    def on_video_initialized(self, success: bool, message: str):
+        """Handle video initialization completion"""
+        self.left_panel.tracking_progress.setVisible(False)
+
+        if success:
+            self.video_tracking_enabled = True
+            self.left_panel.tracking_status_label.setText("Video tracking initialized")
+
+            # Enable tracking controls
+            self.left_panel.add_object_btn.setEnabled(True)
+            self.left_panel.clear_tracking_btn.setEnabled(True)
+
+            print("Video tracking initialized successfully")
+        else:
+            self.left_panel.tracking_status_label.setText(
+                f"Video initialization failed: {message}"
+            )
+            QMessageBox.critical(
+                self,
+                "Video Initialization Error",
+                f"Failed to initialize video: {message}",
+            )
+
+    def on_object_added(self, obj_id: int, object_info: dict):
+        """Handle object addition completion"""
+        try:
+            frame_idx = object_info["frame_idx"]
+            mask = object_info["mask"]
+
+            # Store the mask for this object
+            if obj_id in self.tracked_objects:
+                self.tracked_objects[obj_id]["masks"][frame_idx] = mask
+
+                # Add to tracked objects list
+                class_name = self.tracked_objects[obj_id]["class_name"]
+                item_text = f"Object {obj_id}: {class_name}"
+                self.left_panel.tracked_objects_list.addItem(item_text)
+
+                # Enable propagation controls
+                self.left_panel.propagate_forward_btn.setEnabled(True)
+                self.left_panel.propagate_backward_btn.setEnabled(True)
+
+                # Clear points and refresh display
+                self.frame_viewer.clear_points()
+                self.load_current_frame()
+
+                self.left_panel.tracking_status_label.setText(
+                    f"Object {obj_id} added successfully"
+                )
+                print(f"Object {obj_id} added successfully to frame {frame_idx}")
+            else:
+                print(f"Warning: Object {obj_id} is missing from tracked_objects")
+
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to process added object: {e}")
+            print(f"Error in on_object_added: {e}")
+
+    def on_propagation_progress(self, frame_idx: int, progress: int):
+        """Handle propagation progress updates"""
+        self.left_panel.tracking_progress.setValue(progress)
+        self.left_panel.tracking_status_label.setText(
+            f"Propagating... Frame {frame_idx} ({progress}%)"
+        )
+
+    def on_propagation_complete(self, results):
+        """Handle propagation completion"""
+        self.left_panel.tracking_progress.setVisible(False)
+
+        # Store propagation results
+        self.propagation_results.update(results)
+
+        # Also store in tracked objects
+        for frame_idx, frame_results in results.items():
+            for obj_id, mask in frame_results.items():
+                if obj_id in self.tracked_objects:
+                    self.tracked_objects[obj_id]["masks"][frame_idx] = mask
+
+        # Refresh current frame display
+        self.load_current_frame()
+
+        num_frames = len(results)
+        num_objects = len(
+            set(
+                obj_id
+                for frame_results in results.values()
+                for obj_id in frame_results.keys()
+            )
+        )
+
+        self.left_panel.tracking_status_label.setText(
+            f"Propagation complete: {num_frames} frames, {num_objects} objects"
+        )
+        print(f"Propagation complete: {num_frames} frames processed")
+
+    def on_sam2_error(self, error_message: str):
+        """Handle SAM2 worker errors"""
+        self.left_panel.tracking_progress.setVisible(False)
+        self.left_panel.tracking_status_label.setText(f"Error: {error_message}")
+        QMessageBox.critical(
+            self, "SAM2 Error", f"SAM2 operation failed: {error_message}"
+        )
+        print(f"SAM2 Error: {error_message}")

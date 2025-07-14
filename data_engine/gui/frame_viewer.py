@@ -72,31 +72,104 @@ class FrameViewer(QLabel):
             color = mask_info["color"]
             alpha = mask_info["alpha"]
 
-            # Ensure mask is the same size as frame
-            if mask.shape[:2] != display_frame.shape[:2]:
-                mask = cv2.resize(
-                    mask.astype(np.uint8),
-                    (display_frame.shape[1], display_frame.shape[0]),
-                )
+            # Validate mask
+            try:
+                if mask is None:
+                    print("Warning: None mask, skipping")
+                    continue
+
+                # Convert to numpy array if needed
+                if not isinstance(mask, np.ndarray):
+                    mask = np.array(mask)
+
+                if mask.size == 0:
+                    print("Warning: Empty mask, skipping")
+                    continue
+
+                # Ensure mask is 2D
+                if mask.ndim > 2:
+                    mask = mask.squeeze()
+                if mask.ndim != 2:
+                    print(
+                        f"Warning: Mask has invalid dimensions {mask.shape}, skipping"
+                    )
+                    continue
+
+                # Ensure mask has valid dimensions
+                if mask.shape[0] == 0 or mask.shape[1] == 0:
+                    print(f"Warning: Mask has zero dimensions {mask.shape}, skipping")
+                    continue
+
+                # Ensure we have valid frame dimensions
+                if display_frame.shape[0] <= 0 or display_frame.shape[1] <= 0:
+                    continue
+
+                # Resize mask to match frame if needed
+                if mask.shape[:2] != display_frame.shape[:2]:
+                    # Ensure mask is uint8 for resize
+                    if mask.dtype == np.bool_:
+                        mask_for_resize = mask.astype(np.uint8) * 255
+                    elif mask.dtype in [np.float32, np.float64]:
+                        mask_for_resize = (mask * 255).astype(np.uint8)
+                    else:
+                        mask_for_resize = mask.astype(np.uint8)
+
+                    # Check target dimensions are valid
+                    target_height, target_width = display_frame.shape[:2]
+                    if target_height <= 0 or target_width <= 0:
+                        print(
+                            f"Warning: Invalid target dimensions {target_height}x{target_width}, skipping"
+                        )
+                        continue
+
+                    mask = cv2.resize(
+                        mask_for_resize,
+                        (target_width, target_height),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
+
+                # Ensure final mask is binary
+                if mask.max() > 1:
+                    mask_bool = mask > 127
+                else:
+                    mask_bool = mask > 0.5
+
+            except Exception as e:
+                print(f"Warning: Error processing mask: {e}")
+                continue
 
             # Create colored overlay
             overlay = display_frame.copy()
-            mask_bool = mask > 0
-            overlay[mask_bool] = color
+            try:
+                overlay[mask_bool] = color
+            except Exception as e:
+                print(f"Warning: Failed to apply mask overlay: {e}")
+                continue
 
             # Blend with original frame
-            display_frame = cv2.addWeighted(display_frame, 1 - alpha, overlay, alpha, 0)
+            try:
+                display_frame = cv2.addWeighted(
+                    display_frame, 1 - alpha, overlay, alpha, 0
+                )
+            except Exception as e:
+                print(f"Warning: Failed to blend overlay: {e}")
+                continue
 
             # Add mask contours
-            if mask.dtype != np.uint8:
-                mask_uint8 = (mask * 255).astype(np.uint8)
-            else:
-                mask_uint8 = mask
+            try:
+                # Convert mask to uint8 for contour detection
+                if mask.max() > 1:
+                    mask_uint8 = mask.astype(np.uint8)
+                else:
+                    mask_uint8 = (mask_bool * 255).astype(np.uint8)
 
-            contours, _ = cv2.findContours(
-                mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-            cv2.drawContours(display_frame, contours, -1, color, 2)
+                contours, _ = cv2.findContours(
+                    mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
+                cv2.drawContours(display_frame, contours, -1, color, 2)
+            except Exception as e:
+                print(f"Warning: Failed to draw contours: {e}")
+                continue
 
         # Draw points
         for x, y, label in self.points:
