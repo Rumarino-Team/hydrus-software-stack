@@ -36,28 +36,6 @@ def find_arduino_sketch_dir():
         if ino_files:
             return default_sketch
 
-    # Fallback locations
-    sketch_locations = [
-        project_root / "devices" / "Arduino",
-        project_root / "arduino",
-        project_root / "sketches",
-    ]
-
-    for location in sketch_locations:
-        if location.exists():
-            # Look for .ino files
-            ino_files = list(location.glob("*.ino"))
-            if ino_files:
-                return location
-            # Look for subdirectories with .ino files
-            for subdir in location.iterdir():
-                if subdir.is_dir():
-                    ino_files = list(subdir.glob("*.ino"))
-                    if ino_files:
-                        return subdir
-
-    return None
-
 
 # Default sketch path
 DEFAULT_SKETCH_PATH = Path("devices/Arduino/HydrusModule")
@@ -77,12 +55,13 @@ def auto_detect_board() -> str:
             text=True,
             check=True,
         )
-        boards = json.loads(result.stdout)
+        boards_data = json.loads(result.stdout)
 
-        for board in boards:
-            if board.get("matching_boards"):
-                # Return the first matching board's FQBN
-                return board["matching_boards"][0]["fqbn"]
+        # Check if there are detected ports with matching boards
+        if "detected_ports" in boards_data:
+            for port_info in boards_data["detected_ports"]:
+                if port_info.get("matching_boards"):
+                    return port_info["matching_boards"][0]["fqbn"]
 
         typer.echo(
             "No Arduino board detected. Please connect your board and try again."
@@ -176,7 +155,14 @@ def compile(
 
 
 @arduino_command.command()
-def upload():
+def upload(
+    board: str = typer.Option(
+        None, "--board", "-b", help="Override board detection (e.g., uno, nano, esp32)"
+    ),
+    port: str = typer.Option(
+        None, "--port", "-p", help="Override port detection (e.g., /dev/ttyACM0)"
+    ),
+):
     """Upload Arduino sketch to connected board (auto-detects board type and port)."""
 
     # Check if arduino-cli is available
@@ -207,38 +193,62 @@ def upload():
 
     typer.echo(f"⬆️  Uploading: {sketch_file.name}")
 
-    # Auto-detect board and port
-    typer.echo("🔍 Auto-detecting board and port...")
-    try:
-        detect_result = subprocess.run(
-            ["arduino-cli", "board", "list", "--format", "json"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+    # Auto-detect board and port (or use manual overrides)
+    detected_board = None
+    detected_port = None
 
-        boards = json.loads(detect_result.stdout)
-        detected_board = None
-        detected_port = None
-
-        for board_info in boards:
-            if board_info.get("matching_boards"):
-                detected_board = board_info["matching_boards"][0]["fqbn"]
-                detected_port = board_info["port"]["address"]
-                break
-
-        if not detected_board or not detected_port:
-            typer.echo(
-                "❌ No Arduino board detected. Please connect your board and try again."
+    if board and port:
+        # Use manual overrides
+        detected_board = get_board_fqbn(board)
+        detected_port = port
+        typer.echo(f"📋 Using manual board: {board} ({detected_board})")
+        typer.echo(f"📡 Using manual port: {detected_port}")
+    else:
+        # Auto-detect
+        typer.echo("🔍 Auto-detecting board and port...")
+        try:
+            detect_result = subprocess.run(
+                ["arduino-cli", "board", "list", "--format", "json"],
+                capture_output=True,
+                text=True,
+                check=True,
             )
+
+            boards_data = json.loads(detect_result.stdout)
+
+            # Check if there are detected ports with matching boards
+            if "detected_ports" in boards_data:
+                for port_info in boards_data["detected_ports"]:
+                    if port_info.get("matching_boards"):
+                        detected_board = port_info["matching_boards"][0]["fqbn"]
+                        detected_port = port_info["port"]["address"]
+                        break
+
+            if not detected_board or not detected_port:
+                # No Arduino board detected - provide helpful error message
+                if "detected_ports" in boards_data and boards_data["detected_ports"]:
+                    available_ports = [
+                        p["port"]["address"] for p in boards_data["detected_ports"]
+                    ]
+                    typer.echo("❌ No Arduino board detected on available ports.")
+                    typer.echo(f"   Available ports: {', '.join(available_ports)}")
+                    typer.echo(
+                        "   Try using manual override: --board uno --port /dev/ttyACM0"
+                    )
+                else:
+                    typer.echo(
+                        "❌ No serial ports detected. Please connect your Arduino board."
+                    )
+                raise typer.Exit(1)
+
+            typer.echo(f"✅ Detected board: {detected_board}")
+            typer.echo(f"📡 Using port: {detected_port}")
+
+        except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as e:
+            typer.echo("❌ Board detection failed. Please check your board connection.")
+            typer.echo(f"   Error: {e}")
+            typer.echo("   Try using manual override: --board uno --port /dev/ttyACM0")
             raise typer.Exit(1)
-
-        typer.echo(f"✅ Detected board: {detected_board}")
-        typer.echo(f"📡 Using port: {detected_port}")
-
-    except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError):
-        typer.echo("❌ Board detection failed. Please check your board connection.")
-        raise typer.Exit(1)
 
     # Compile first
     typer.echo("🔨 Compiling...")

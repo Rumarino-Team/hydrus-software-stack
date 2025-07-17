@@ -21,7 +21,7 @@ tmux_command = typer.Typer()
 
 class HydrusTmuxManager:
     def __init__(self):
-        self.volume = os.environ.get("VOLUME", "false").lower() == "true"
+        self.volume = True  # os.environ.get("VOLUME", "false").lower() == "true"
         self.catkin_ws = get_building_path(self.volume)
         # Window configuration
         self.window_config = self._get_window_configuration()
