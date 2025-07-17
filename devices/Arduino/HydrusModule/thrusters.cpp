@@ -49,7 +49,7 @@ void initializeThrustersArduino(void)
         Serial.print(thrusterArr[i].pin);
         Serial.println(") to neutral position");
     }
-    delay(5000)
+    delay(5000);
     Serial.println("All thrusters initialized successfully");
 }
 
