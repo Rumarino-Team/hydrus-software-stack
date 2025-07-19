@@ -1,0 +1,2 @@
+[console_scripts]
+hydrus-depth-estimator = autonomy.src.computer_vision.depth_estimation:main
