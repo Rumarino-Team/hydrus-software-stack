@@ -46,6 +46,9 @@ class DockerManager:
         """Run docker compose with given configuration"""
         cmd = ["docker", "compose", "-f", compose_file, "up"]
 
+        if detach:
+            cmd.append("-d")
+
         try:
             print(f"Starting Docker containers with {compose_file}...")
             print(f"🐳 Configuration: {config}")
@@ -58,6 +61,8 @@ class DockerManager:
                 subprocess.run(cmd, check=True, cwd=self.docker_dir)
 
                 print("✅ Docker containers started successfully!")
+                print("🔍 Use 'docker ps' to see running containers")
+                print("🔍 Use 'hocker --destroy' to stop containers")
             else:
                 # Direct mode: replace terminal process (new default behavior)
                 print(f"💻 Executing: {' '.join(cmd)}")

@@ -7,7 +7,7 @@ Pure Docker management - delegates all Hydrus software control to hydrus-cli
 import argparse
 import sys
 
-from docker_manager import DockerManager
+from docker_manager import DockerConfig, DockerManager
 from system_detector import SystemDetector, SystemType
 
 
@@ -93,7 +93,18 @@ class HockerDockerDeployment:
         elif args.destroy:
             self.docker_manager.destroy_containers(compose_file)
         else:
-            self.docker_manager.run_docker_compose(compose_file, dict_args)
+            # Create DockerConfig from args
+            config = DockerConfig(
+                volume=args.dev,
+                force_cpu=args.force_cpu,
+                force_jetson=args.force_jetson,
+                vscode=args.vscode,
+                install_vscode_extensions=args.install_vscode_extensions,
+            )
+            # Pass detach parameter separately
+            self.docker_manager.run_docker_compose(
+                compose_file, config, detach=args.detach
+            )
 
     def main(self):
         """Main execution function"""
