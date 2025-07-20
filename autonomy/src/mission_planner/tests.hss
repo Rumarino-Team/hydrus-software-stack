@@ -1,0 +1,36 @@
+# Mission Planner Tests Configuration
+# Tests for mission planning and execution
+name: "Mission Planner Tests"
+description: "Tests for mission planning and execution modules"
+strategy: "integration"
+
+tests:
+  - name: "Slalom Mission Test"
+    path: "test_slalom_integration.py"
+    args: []
+    timeout: 300
+    infinite_loop: false
+    description: "Integration test for slalom mission"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"
+
+  - name: "Gate Mission Test"
+    path: "test_gate_mission.py"
+    args: []
+    timeout: 300
+    infinite_loop: false
+    description: "Integration test for gate mission"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"
+
+  - name: "Mission Controller Test"
+    path: "test_mission_controller.py"
+    args: []
+    timeout: 180
+    infinite_loop: false
+    description: "Unit test for mission controller"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"

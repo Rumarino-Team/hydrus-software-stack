@@ -1,0 +1,26 @@
+# DVL Driver Tests Configuration
+# Tests for DVL (Doppler Velocity Log) driver functionality
+name: "DVL Driver Tests"
+description: "Tests for DVL driver and communication"
+strategy: "unit"
+
+tests:
+  - name: "DVL Driver Basic Test"
+    path: "driver_test.py"
+    args: []
+    timeout: 60
+    infinite_loop: false
+    description: "Basic functionality test for DVL driver"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"
+
+  - name: "DVL Communication Test"
+    path: "communication_test.py"
+    args: []
+    timeout: 120
+    infinite_loop: false
+    description: "Test DVL communication protocols"
+    strategy: "UnitTestStrategy"
+    enabled: false  # Disabled by default (requires hardware)
+    test_type: "python"
