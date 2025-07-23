@@ -30,7 +30,7 @@ class TestConfig:
 
     def to_test_case(self, ros_dir: Path, strategy_class):
         """Convert TestConfig to TestCase object."""
-        from .test import TestCase
+        from .test_cases import TestCase
 
         # Handle absolute vs relative paths
         if self.path.startswith("/"):
@@ -283,7 +283,7 @@ class TestConfigLoader(DistributedTestConfigLoader):
 
 def get_strategy_class(strategy_name: str):
     """Get the strategy class based on the strategy name."""
-    from .test import RosTestStrategy, ScriptTestStrategy, UnitTestStrategy
+    from .test_cases import RosTestStrategy, ScriptTestStrategy, UnitTestStrategy
 
     strategy_map = {
         "UnitTestStrategy": UnitTestStrategy,
