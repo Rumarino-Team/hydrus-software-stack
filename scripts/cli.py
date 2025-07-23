@@ -2,6 +2,7 @@
 import typer
 
 from .commands.arduino import arduino_command
+from .commands.autonomy import autonomy_app
 from .commands.ros import ros_app
 from .commands.test import test_app
 from .commands.tmux import tmux_command
@@ -11,6 +12,9 @@ app = typer.Typer()
 # Add subcommands
 app.add_typer(
     arduino_command, name="arduino", help="Arduino device management commands"
+)
+app.add_typer(
+    autonomy_app, name="autonomy", help="Autonomy system and CV pipeline management"
 )
 app.add_typer(ros_app, name="ros", help="ROS workspace and utilities management")
 app.add_typer(test_app, name="test", help="Test suite management and execution")

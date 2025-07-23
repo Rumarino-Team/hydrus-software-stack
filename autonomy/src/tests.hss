@@ -1,0 +1,36 @@
+# Computer Vision Tests Configuration
+# Tests for the computer vision module
+name: "Computer Vision Tests"
+description: "Tests for CV publishers and detection systems"
+strategy: "unit"
+
+tests:
+  - name: "CV Publishers Unit Test"
+    path: "test_cv_publishers.py"
+    args: []
+    timeout: 120
+    infinite_loop: false
+    description: "Unit tests for CV publishers module"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"
+
+  - name: "Detection Core Test"
+    path: "../computer_vision/test_detection_core.py"
+    args: []
+    timeout: 60
+    infinite_loop: false
+    description: "Unit tests for detection core functionality"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"
+
+  - name: "CV Integration Test"
+    path: "test_cv_integration.py"
+    args: []
+    timeout: 180
+    infinite_loop: false
+    description: "Integration tests for computer vision pipeline"
+    strategy: "UnitTestStrategy"
+    enabled: true
+    test_type: "python"
