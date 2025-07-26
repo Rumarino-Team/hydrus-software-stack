@@ -5,3 +5,13 @@ best.pt
 .venv-formatters
 autonomy/src/autonomy.egg-info
 hydrus_software_stack.egg-info
+
+# Model files and exports (Ultralytics optimization)
+yolo11n.*
+*.pt
+*.onnx
+*.engine
+*.torchscript
+exported_models/
+demo_exports/
+runs/

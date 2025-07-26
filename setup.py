@@ -43,6 +43,20 @@ OPTIONAL_REQUIREMENTS = {
         "tqdm",
         "typer",
     ],
+    "ultralytics-acceleration": [
+        "ultralytics",
+        "onnx>=1.15.0",
+        "onnxruntime>=1.16.0",
+        "onnxruntime-gpu>=1.16.0",
+        "torch>=1.8.0",
+        "torchvision>=0.9.0",
+    ],
+    "tensorrt": [
+        "tensorrt>=8.4.0",
+        "pycuda>=2022.1",
+        "nvidia-tensorrt",
+        "nvidia-cudnn-cu12",
+    ],
 }
 
 # Add 'all' extra that includes everything

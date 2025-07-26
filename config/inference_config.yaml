@@ -1,0 +1,51 @@
+# Ultralytics Inference Engine Configuration
+# This file configures which inference backend to use for YOLO models
+
+# Available backends: 'pytorch', 'onnx', 'tensorrt', 'torchscript'
+default_backend: 'pytorch'
+
+# Backend-specific configurations
+backends:
+  pytorch:
+    device: 'auto'  # 'auto', 'cpu', 'cuda', 'cuda:0', etc.
+    half: false     # Use FP16 precision (only for CUDA)
+    
+  onnx:
+    providers: ['CUDAExecutionProvider', 'CPUExecutionProvider']
+    device: 'auto'
+    half: false
+    export_settings:
+      opset: 11
+      simplify: true
+      dynamic: false
+      
+  tensorrt:
+    device: 'cuda:0'
+    half: true      # FP16 precision for better performance
+    workspace_size: 4  # GB
+    max_batch_size: 1
+    export_settings:
+      verbose: false
+      
+  torchscript:
+    device: 'auto'
+    half: false
+    optimize: true
+    export_settings:
+      optimize_for_mobile: false
+
+# Model export settings
+export:
+  auto_export: false  # Automatically export models to target format if not found
+  export_dir: './exported_models'
+  keep_original: true
+
+# Performance optimization settings
+optimization:
+  warmup_runs: 3      # Number of warmup inference runs
+  benchmark_mode: false  # Enable for performance benchmarking
+  
+# Logging
+logging:
+  level: 'INFO'  # 'DEBUG', 'INFO', 'WARNING', 'ERROR'
+  log_inference_times: false
