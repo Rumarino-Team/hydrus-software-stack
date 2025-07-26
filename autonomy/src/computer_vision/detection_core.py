@@ -229,13 +229,15 @@ def color_filter_detection(
 ############################
 # 3D calculations and transformations
 ############################
-def calculate_point_3d(
+def calculate_3d_bounding_boxes(
     detections: List[custom_types.Detection],
     depth_image: np.ndarray,
     camera_intrinsic: tuple,
 ):
     """
-    Calculate 3D points for detections using depth information.
+    Calculate 3D bounding boxes for detections using depth information.
+    This extends the existing point calculation to provide full 3D bounding boxes.
+
     :param detections: List of Detection objects to update
     :param depth_image: Depth image as numpy array
     :param camera_intrinsic: Camera intrinsic parameters (fx, fy, cx, cy)
@@ -247,6 +249,7 @@ def calculate_point_3d(
             detection.x2,
             detection.y2,
         )
+
         if depth_image is not None:
             x_min_int = int(x_min)
             x_max_int = int(x_max)
@@ -255,25 +258,104 @@ def calculate_point_3d(
 
             # Extract the depth values within the bounding box
             bbox_depth = depth_image[y_min_int:y_max_int, x_min_int:x_max_int]
+
             if bbox_depth.size > 0:
-                mean_depth = float(np.nanmean(bbox_depth))  # type: ignore
-                if not np.isnan(mean_depth):
+                # Filter out invalid depth values (NaN and zeros)
+                valid_depths = bbox_depth[~np.isnan(bbox_depth) & (bbox_depth > 0)]
+
+                if len(valid_depths) > 0:
                     fx, fy, cx, cy = camera_intrinsic
-                    z = mean_depth
-                    detection.depth = z
+
+                    # Calculate center point in 3D (same as before for backward compatibility)
+                    mean_depth = float(np.mean(valid_depths))
+                    detection.depth = mean_depth
 
                     x_center = (x_min + x_max) / 2.0
                     y_center = (y_min + y_max) / 2.0
-                    x = (x_center - cx) * z / fx
-                    y = (y_center - cy) * z / fy
+                    x_3d = (x_center - cx) * mean_depth / fx
+                    y_3d = (y_center - cy) * mean_depth / fy
+                    z_3d = mean_depth
 
-                    detection.point = custom_types.Point3D(x=x, y=y, z=z)
+                    detection.point = custom_types.Point3D(x=x_3d, y=y_3d, z=z_3d)
+
+                    # Calculate 3D bounding box dimensions
+                    # Project 2D bounding box corners to 3D space using depth information
+
+                    # Sample depth at different points in the bounding box for better estimation
+                    depth_samples = []
+                    sample_points = [
+                        (x_min_int, y_min_int),  # top-left
+                        (x_max_int, y_min_int),  # top-right
+                        (x_min_int, y_max_int),  # bottom-left
+                        (x_max_int, y_max_int),  # bottom-right
+                        (int(x_center), int(y_center)),  # center
+                    ]
+
+                    for px, py in sample_points:
+                        # Ensure we don't go out of bounds
+                        px = max(0, min(px, depth_image.shape[1] - 1))
+                        py = max(0, min(py, depth_image.shape[0] - 1))
+                        depth_val = depth_image[py, px]
+                        if not np.isnan(depth_val) and depth_val > 0:
+                            depth_samples.append(depth_val)
+
+                    # Use range of depths to estimate 3D box depth, or use mean if not enough samples
+                    if len(depth_samples) >= 2:
+                        min_depth = float(np.min(depth_samples))
+                        max_depth = float(np.max(depth_samples))
+                        depth_3d = max_depth - min_depth
+                        # Use a minimum depth to avoid unrealistically thin objects
+                        depth_3d = max(depth_3d, 0.1)
+                    else:
+                        # Fallback: estimate depth as a fraction of the mean depth
+                        depth_3d = (
+                            mean_depth * 0.1
+                        )  # Assume object is 10% of its distance in depth
+
+                    # Calculate 3D width and height by projecting 2D box corners
+                    # Project corners to 3D space
+                    x1_3d = (x_min - cx) * mean_depth / fx
+                    y1_3d = (y_min - cy) * mean_depth / fy
+                    x2_3d = (x_max - cx) * mean_depth / fx
+                    y2_3d = (y_max - cy) * mean_depth / fy
+
+                    width_3d = abs(x2_3d - x1_3d)
+                    height_3d = abs(y2_3d - y1_3d)
+
+                    # Create the 3D bounding box
+                    center_3d = custom_types.Point3D(x=x_3d, y=y_3d, z=z_3d)
+                    detection.bbox_3d = custom_types.BoundingBox3D(
+                        center=center_3d,
+                        width=width_3d,
+                        height=height_3d,
+                        depth=depth_3d,
+                    )
                 else:
+                    # No valid depth data
                     detection.point = custom_types.Point3D(x=0, y=0, z=0)
                     detection.depth = 0
+                    detection.bbox_3d = None
             else:
+                # Empty bounding box region
                 detection.point = custom_types.Point3D(x=0, y=0, z=0)
                 detection.depth = 0
+                detection.bbox_3d = None
+
+
+def calculate_point_3d(
+    detections: List[custom_types.Detection],
+    depth_image: np.ndarray,
+    camera_intrinsic: tuple,
+):
+    """
+    Calculate 3D points for detections using depth information.
+    This function is kept for backward compatibility and now also calculates 3D bounding boxes.
+    :param detections: List of Detection objects to update
+    :param depth_image: Depth image as numpy array
+    :param camera_intrinsic: Camera intrinsic parameters (fx, fy, cx, cy)
+    """
+    # Call the new 3D bounding box function which also calculates the point
+    calculate_3d_bounding_boxes(detections, depth_image, camera_intrinsic)
 
 
 def quaternion_to_transform_matrix(rotation: custom_types.Rotation3D) -> np.ndarray:
@@ -314,7 +396,7 @@ def transform_to_global(
     imu_rotation: custom_types.Rotation3D,
 ):
     """
-    Transform detection points from camera frame to global frame.
+    Transform detection points and 3D bounding boxes from camera frame to global frame.
     :param detections: List of Detection objects to transform
     :param imu_point: IMU position in global frame
     :param imu_rotation: IMU orientation as quaternion
@@ -323,6 +405,7 @@ def transform_to_global(
     transform_matrix[0:3, 3] = [imu_point.x, imu_point.y, imu_point.z]
 
     for detection in detections:
+        # Transform the centroid point
         if detection.point is not None:
             point_homogeneous = np.array(
                 [detection.point.x, detection.point.y, detection.point.z, 1.0]
@@ -330,6 +413,30 @@ def transform_to_global(
             point_global = np.dot(transform_matrix, point_homogeneous)
             detection.point = custom_types.Point3D(
                 x=point_global[0], y=point_global[1], z=point_global[2]
+            )
+
+        # Transform the 3D bounding box center
+        if detection.bbox_3d is not None:
+            center_homogeneous = np.array(
+                [
+                    detection.bbox_3d.center.x,
+                    detection.bbox_3d.center.y,
+                    detection.bbox_3d.center.z,
+                    1.0,
+                ]
+            )
+            center_global = np.dot(transform_matrix, center_homogeneous)
+
+            # Create new 3D bounding box with transformed center
+            # Note: dimensions remain the same, only center is transformed
+            # In a more advanced implementation, we might also transform the orientation
+            detection.bbox_3d = custom_types.BoundingBox3D(
+                center=custom_types.Point3D(
+                    x=center_global[0], y=center_global[1], z=center_global[2]
+                ),
+                width=detection.bbox_3d.width,
+                height=detection.bbox_3d.height,
+                depth=detection.bbox_3d.depth,
             )
 
 
@@ -387,9 +494,9 @@ class DetectionPipelineManager:
 
         # Process all detections for 3D calculations and transformations
         for detector_name, detections in pipelines_results:
-            # Calculate 3D points if depth and camera info available
+            # Calculate 3D points and bounding boxes if depth and camera info available
             if camera_intrinsics is not None and depth_image is not None:
-                calculate_point_3d(detections, depth_image, camera_intrinsics)
+                calculate_3d_bounding_boxes(detections, depth_image, camera_intrinsics)
 
             # Transform to global frame if IMU data available
             if imu_point is not None and imu_rotation is not None:
