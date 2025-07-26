@@ -5,3 +5,4 @@ best.pt
 .venv-formatters
 autonomy/src/autonomy.egg-info
 hydrus_software_stack.egg-info
+simulation/build/
