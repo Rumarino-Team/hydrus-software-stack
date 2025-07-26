@@ -41,6 +41,7 @@ void initializeThrustersArduino(void)
     Serial.println("Initializing thrusters...");
     init_motors = true;
     for (uint8_t i = 0; i < MOTOR_NUM; i++){
+        thrusterArr[i].motor.attach(thrusterArr[i].pin);
         thrusterArr[i].motor.writeMicroseconds(PWM_NEUTRAL);  // This sets the thrusters output force to 0 lbf
         Serial.print("Initialized thruster ");
         Serial.print(i+1);
@@ -48,6 +49,7 @@ void initializeThrustersArduino(void)
         Serial.print(thrusterArr[i].pin);
         Serial.println(") to neutral position");
     }
+    delay(5000)
     Serial.println("All thrusters initialized successfully");
 }
 

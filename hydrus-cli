@@ -1,0 +1,15 @@
+#!/bin/bash
+# Hydrus CLI Wrapper - executes python -m scripts.cli
+# This wrapper ensures proper module execution with correct Python path
+
+# Get the directory where this wrapper is located (should be project root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Set HYDRUS_ROOT environment variable to ensure test system works correctly
+export HYDRUS_ROOT="$SCRIPT_DIR"
+
+# Change to the project directory to ensure proper module resolution
+cd "$SCRIPT_DIR"
+
+# Execute the CLI module with proper Python path
+exec python3 -m scripts.cli "$@"

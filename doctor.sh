@@ -328,21 +328,21 @@ test_installation() {
 
     print_info "Testing Hocker deployment tool..."
 
-    if [ -f "docker/hydrus-docker/hocker" ]; then
-        if chmod +x docker/hydrus-docker/hocker; then
+    if [ -f "docker/hydrus-docker/hocker.py" ]; then
+        if chmod +x docker/hydrus-docker/hocker.py; then
             print_success "Hocker is executable"
 
             # Test help command
-            if ./docker/hydrus-docker/hocker --help &> /dev/null; then
+            if ./docker/hydrus-docker/hocker.py --help &> /dev/null; then
                 print_success "Hocker help command works"
             else
-                print_warning "Hocker help command failed"
+                print_warning "Hocker help command failed - this may be due to missing dependencies"
             fi
         else
             print_error "Failed to make Hocker executable"
         fi
     else
-        print_error "Hocker not found at docker/hydrus-docker/hocker"
+        print_error "Hocker not found at docker/hydrus-docker/hocker.py"
         print_info "Make sure you're in the hydrus-software-stack directory"
     fi
 }
@@ -353,19 +353,32 @@ print_final_instructions() {
     echo -e "${GREEN}${ROCKET} Setup Complete!${NC}"
     echo -e "${GREEN}=================================${NC}"
     echo ""
+    echo -e "${CYAN}Environment Setup (Recommended):${NC}"
+    echo ""
+    echo -e "${YELLOW}# Set up environment for global access to hocker and hydrus-cli${NC}"
+    echo -e "${WHITE}source ./envsetup${NC}"
+    echo ""
     echo -e "${CYAN}Quick Start Commands:${NC}"
     echo ""
     echo -e "${YELLOW}# Make hocker executable (if not already)${NC}"
-    echo -e "${WHITE}chmod +x docker/hydrus-docker/hocker${NC}"
+    echo -e "${WHITE}chmod +x docker/hydrus-docker/hocker.py${NC}"
     echo ""
-    echo -e "${YELLOW}# Test your installation${NC}"
-    echo -e "${WHITE}./docker/hydrus-docker/hocker --test${NC}"
+    echo -e "${YELLOW}# Enter container shell (workspace root)${NC}"
+    echo -e "${WHITE}./docker/hydrus-docker/hocker.py --exec bash --it${NC}"
     echo ""
-    echo -e "${YELLOW}# Start development environment${NC}"
-    echo -e "${WHITE}./docker/hydrus-docker/hocker --dev${NC}"
+    echo -e "${YELLOW}# Enter container shell (development volume)${NC}"
+    echo -e "${WHITE}./docker/hydrus-docker/hocker.py --exec bash --it --dev${NC}"
+    echo ""
+    echo -e "${YELLOW}# Start development environment (detached)${NC}"
+    echo -e "${WHITE}./docker/hydrus-docker/hocker.py --detach${NC}"
     echo ""
     echo -e "${YELLOW}# View all options${NC}"
-    echo -e "${WHITE}./docker/hydrus-docker/hocker --help${NC}"
+    echo -e "${WHITE}./docker/hydrus-docker/hocker.py --help${NC}"
+    echo ""
+    echo -e "${CYAN}After running 'source ./envsetup':${NC}"
+    echo -e "${WHITE}hocker --exec bash --it --dev    # Enter dev container${NC}"
+    echo -e "${WHITE}hydrus-cli --help                # Show CLI help${NC}"
+    echo -e "${WHITE}hydrus-root                      # Navigate to project root${NC}"
     echo ""
     echo -e "${CYAN}Documentation:${NC}"
     echo -e "${WHITE}• Main README: README.md${NC}"
