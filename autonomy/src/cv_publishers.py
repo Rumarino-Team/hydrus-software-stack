@@ -1,26 +1,18 @@
 #!/usr/bin/env python3
 """
-cv_publishers_custom_bridge.py
+cv_publishers.py
 
-An example script replacing cv_bridge with custom functions for
-converting ROS sensor_msgs/Image to/from OpenCV numpy arrays.
-Works for Python 3 with ROS Melodic.
+ROS node for computer vision detection publishing.
+Refactored to separate ROS-specific code from core detection functionality.
 """
 
-import os
-from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
-# Custom user modules
 import custom_types
-import cv2
 import numpy as np
-
-# ROS dependencies
 import rospy
 from geometry_msgs.msg import Point, PoseStamped
 from sensor_msgs.msg import CameraInfo, Image, RegionOfInterest
-from ultralytics import YOLO
 from visualization_msgs.msg import Marker, MarkerArray
 
 from autonomy.msg import Detection, Detections
@@ -31,140 +23,21 @@ from autonomy.srv import (
     SetYoloModelResponse,
 )
 
-############################
-# Constants
-############################
-# YOLO model directory constant
-YOLO_MODEL_DIR = "/yolo_models"
-
-############################
-# Custom cv_bridge replacements
-############################
-
-
-# Convert ROS Image to OpenCV (numpy array)
-def ros_img_to_cv2(msg: Image, encoding="bgr8") -> np.ndarray:
-    """
-    Convert a ROS sensor_msgs/Image message to an OpenCV numpy array.
-    :param msg: ROS Image message
-    :param encoding: Desired encoding ("bgr8", "mono8", "mono16", "32FC1")
-    :return: OpenCV numpy array
-    """
-    if encoding not in ["bgr8", "mono8", "mono16", "32FC1"]:
-        raise ValueError(f"Unsupported encoding: {encoding}")
-
-    dtype_map = {
-        "bgr8": np.uint8,
-        "mono8": np.uint8,
-        "mono16": np.uint16,
-        "32FC1": np.float32,
-    }
-
-    dtype = dtype_map[encoding]
-
-    # Calculate expected array size based on encoding and dimensions
-    channels = 3 if encoding == "bgr8" else 1
-    expected_size = msg.height * msg.width * channels
-    actual_size = len(msg.data)
-
-    # Debug information about the image dimensions
-    rospy.logdebug(f"Image dimensions: {msg.height}x{msg.width}, channels: {channels}")
-    rospy.logdebug(
-        f"Expected data size: {expected_size}, actual data size: {actual_size}"
-    )
-
-    if actual_size != expected_size:
-        rospy.logwarn(
-            f"Data size mismatch! Expected {expected_size}, got {actual_size}. Attempting to fix..."
-        )
-        # Try to infer correct dimensions based on actual data size
-        if encoding == "bgr8" and actual_size % 3 == 0:
-            total_pixels = actual_size // 3
-            # Try to determine if width is correct but height is wrong
-            if total_pixels % msg.width == 0:
-                corrected_height = total_pixels // msg.width
-                rospy.logwarn(
-                    f"Correcting height from {msg.height} to {corrected_height}"
-                )
-                img_array = np.frombuffer(msg.data, dtype=dtype).reshape(
-                    (corrected_height, msg.width, 3)
-                )
-                return img_array
-
-    # Convert the byte data to a NumPy array
-    img_array = np.frombuffer(msg.data, dtype=dtype)
-
-    try:
-        # Reshape based on image dimensions and encoding
-        if encoding == "bgr8":
-            # Use step value if available for proper alignment
-            if msg.step > 0 and msg.step >= msg.width * 3:
-                img_array = img_array.reshape((msg.height, msg.width, 3))
-            else:
-                img_array = np.reshape(img_array, (msg.height, msg.width, 3))
-        else:
-            # Single-channel
-            img_array = np.reshape(img_array, (msg.height, msg.width))
-
-        return img_array
-
-    except Exception as e:
-        # More detailed error information
-        rospy.logerr(f"Reshape failed: {e}")
-        rospy.logerr(
-            f"Image info: height={msg.height}, width={msg.width}, step={msg.step}, encoding={msg.encoding}"
-        )
-        rospy.logerr(
-            f"Data length: {len(msg.data)}, array shape before reshape: {img_array.shape}"
-        )
-        raise
-
-
-# Optionally, if you need to convert back to ROS Images:
-def cv2_to_ros_img(cv_image: np.ndarray, encoding="bgr8") -> Image:
-    """
-    Convert an OpenCV numpy array to a ROS sensor_msgs/Image message.
-    :param cv_image: OpenCV image (numpy array)
-    :param encoding: Desired encoding ("bgr8", "mono8", "mono16", "32FC1")
-    :return: ROS Image message
-    """
-    ros_msg = Image()
-    ros_msg.height, ros_msg.width = cv_image.shape[:2]
-    ros_msg.encoding = encoding
-    ros_msg.step = cv_image.strides[0]
-    ros_msg.data = cv_image.tobytes()
-    return ros_msg
-
-
-############################
-# YOLO model
-############################
-model = YOLO("yolo11n.pt")
-
-
-############################
-# Data classes
-############################
-@dataclass
-class ColorFilterConfig:
-    tolerance: float
-    min_confidence: float
-    min_area: float
-    rgb_range: Tuple[int, int, int]
-
+# Import our custom detection core module
+from computer_vision.detection_core import ColorFilterConfig, DetectionPipelineManager
 
 ############################
 # Global variables
 ############################
-rgb_image: np.ndarray = None
-depth_image: np.ndarray = None
-imu_point: custom_types.Point3D = None
-imu_rotation: custom_types.Rotation3D = None
-camera_intrinsics: tuple = None
+rgb_image: Optional[np.ndarray] = None
+depth_image: Optional[np.ndarray] = None
+imu_point: Optional[custom_types.Point3D] = None
+imu_rotation: Optional[custom_types.Rotation3D] = None
+camera_intrinsics: Optional[tuple] = None
 camera_info = None
-color_filter_config: ColorFilterConfig = ColorFilterConfig(
-    tolerance=0.4, min_confidence=0.3, min_area=0.2, rgb_range=(255, 0, 0)
-)
+
+# Detection pipeline manager
+pipeline_manager = DetectionPipelineManager()
 
 # Camera topic parameters with defaults (will be overridden by ROS params)
 rgb_image_topic = "/zed2i/zed_node/rgb/image_rect_color"
@@ -174,181 +47,8 @@ camera_pose_topic = "/zed2i/zed_node/pose"
 
 
 ############################
-# Color filter detection
-############################
-def color_filter(
-    image: np.ndarray,
-    config: ColorFilterConfig = ColorFilterConfig(
-        tolerance=0.4, min_confidence=0.3, min_area=0.2, rgb_range=(255, 0, 0)
-    ),
-) -> List[custom_types.Detection]:
-    assert 0 < config.min_confidence < 1.0, "min_confidence must be between 0 and 1"
-
-    result = []
-    rospy.loginfo(f"Color Filter: image shape = {image.shape}")
-
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    hsv = cv2.GaussianBlur(hsv, (5, 5), 0)
-
-    # Convert the RGB color to HSV for filtering
-    target_hsv = cv2.cvtColor(np.uint8([[config.rgb_range]]), cv2.COLOR_RGB2HSV)[0][0]
-
-    lower_bound = np.array(
-        [max(0, target_hsv[0] - config.tolerance * 180), 100, 100], dtype=np.uint8
-    )
-    upper_bound = np.array(
-        [min(180, target_hsv[0] + config.tolerance * 180), 255, 255], dtype=np.uint8
-    )
-
-    mask = cv2.inRange(hsv, lower_bound, upper_bound)
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area > config.min_area:
-            x, y, w, h = cv2.boundingRect(contour)
-            contour_mask = np.zeros(mask.shape, np.uint8)
-            cv2.drawContours(contour_mask, [contour], -1, 255, thickness=cv2.FILLED)
-
-            # Calculate the confidence based on color presence within the contour
-            red_pixels_in_contour = cv2.bitwise_and(mask, mask, mask=contour_mask)
-            red_pixel_count = np.sum(red_pixels_in_contour == 255)
-            total_pixels_in_contour = w * h
-
-            if total_pixels_in_contour > 0:
-                confidence = red_pixel_count / total_pixels_in_contour
-                if confidence > config.min_confidence:
-                    # (x1, y1, x2, y2, cls, conf)
-                    result.append(
-                        custom_types.Detection(
-                            x1=x, y1=y, x2=x + w, y2=y + h, cls=0, conf=confidence
-                        )
-                    )
-
-    return result
-
-
-############################
-# YOLO detection
-############################
-def yolo_object_detection(image: np.ndarray) -> List[custom_types.Detection]:
-    result_list = []
-    results = model(image)
-
-    for result in results:
-        if hasattr(result, "boxes"):
-            for box in result.boxes:
-                x1, y1, x2, y2 = box.xyxy.cpu().numpy()[0]
-                conf = float(box.conf.cpu().numpy()[0])
-                cls_w = int(box.cls.cpu().numpy()[0])
-                # (x1, y1, x2, y2, cls, conf)
-                result_list.append(
-                    custom_types.Detection(x1, y1, x2, y2, cls_w, conf, 0, None)
-                )
-
-    return result_list
-
-
-############################
-# Depth + 3D calculations
-############################
-def calculate_point_3d(
-    detections: List[custom_types.Detection],
-    depth_image: np.ndarray,
-    camera_intrinsic: tuple,
-):
-    # camera_intrinsic = (fx, fy, cx, cy)
-    for detection in detections:
-        x_min, y_min, x_max, y_max = (
-            detection.x1,
-            detection.y1,
-            detection.x2,
-            detection.y2,
-        )
-        if depth_image is not None:
-            x_min_int = int(x_min)
-            x_max_int = int(x_max)
-            y_min_int = int(y_min)
-            y_max_int = int(y_max)
-
-            # Extract the depth values within the bounding box
-            bbox_depth = depth_image[y_min_int:y_max_int, x_min_int:x_max_int]
-            if bbox_depth.size > 0:
-                mean_depth = np.nanmean(bbox_depth)
-                if not np.isnan(mean_depth):
-                    fx, fy, cx, cy = camera_intrinsic
-                    z = mean_depth
-                    detection.depth = z
-
-                    x_center = (x_min + x_max) / 2.0
-                    y_center = (y_min + y_max) / 2.0
-                    x = (x_center - cx) * z / fx
-                    y = (y_center - cy) * z / fy
-
-                    detection.point = custom_types.Point3D(x=x, y=y, z=z)
-                    rospy.loginfo(f"Detection 3D point added: ({x}, {y}, {z})")
-                else:
-                    detection.point = custom_types.Point3D(x=0, y=0, z=0)
-                    detection.depth = 0
-            else:
-                detection.point = custom_types.Point3D(x=0, y=0, z=0)
-                detection.depth = 0
-
-
-def transform_to_global(
-    detections: List[custom_types.Detection],
-    imu_point: custom_types.Point3D,
-    imu_rotation: custom_types.Rotation3D,
-):
-    def quaternion_to_matrix(rotation: custom_types.Rotation3D):
-        # w, x, y, z
-        w, x, y, z = rotation.w, rotation.x, rotation.y, rotation.z
-        rotation_matrix = np.array(
-            [
-                [
-                    1 - 2 * y**2 - 2 * z**2,
-                    2 * x * y - 2 * z * w,
-                    2 * x * z + 2 * y * w,
-                ],
-                [
-                    2 * x * y + 2 * z * w,
-                    1 - 2 * x**2 - 2 * z**2,
-                    2 * y * z - 2 * x * w,
-                ],
-                [
-                    2 * x * z - 2 * y * w,
-                    2 * y * z + 2 * x * w,
-                    1 - 2 * x**2 - 2 * y**2,
-                ],
-            ]
-        )
-
-        transform_matrix = np.eye(4)
-        transform_matrix[:3, :3] = rotation_matrix
-        return transform_matrix
-
-    transform_matrix = quaternion_to_matrix(imu_rotation)
-    transform_matrix[0:3, 3] = [imu_point.x, imu_point.y, imu_point.z]
-
-    for detection in detections:
-        point_homogeneous = np.array(
-            [detection.point.x, detection.point.y, detection.point.z, 1.0]
-        )
-        point_global = np.dot(transform_matrix, point_homogeneous)
-        detection.point = custom_types.Point3D(
-            x=point_global[0], y=point_global[1], z=point_global[2]
-        )
-
-
-############################
 # ROS callbacks
 ############################
-
-
 def depth_image_callback(msg):
     global depth_image
     try:
@@ -452,7 +152,11 @@ def create_detector_message(
             height=int(detection.y2 - detection.y1),
             width=int(detection.x2 - detection.x1),
         )
-        point = Point(x=detection.point.x, y=detection.point.y, z=detection.point.z)
+        # Handle case where point might be None
+        if detection.point is not None:
+            point = Point(x=detection.point.x, y=detection.point.y, z=detection.point.z)
+        else:
+            point = Point(x=0.0, y=0.0, z=0.0)
 
         detector_msg.cls = detection.cls
         detector_msg.confidence = detection.conf
@@ -463,40 +167,24 @@ def create_detector_message(
 
 
 def run_detection_pipelines() -> List[Tuple[str, List[Detection]]]:
-    global rgb_image, depth_image, camera_intrinsics, imu_point, imu_rotation, color_filter_config
+    global rgb_image, depth_image, camera_intrinsics, imu_point, imu_rotation, pipeline_manager
+
+    if rgb_image is None:
+        rospy.logwarn("RGB image is None. Skipping detection for this iteration.")
+        return []
+
+    # Use the pipeline manager to run detections
+    pipelines_results = pipeline_manager.run_detections(
+        image=rgb_image,
+        depth_image=depth_image,
+        camera_intrinsics=camera_intrinsics,
+        imu_point=imu_point,
+        imu_rotation=imu_rotation,
+    )
+
+    # Convert to ROS messages
     detectors_output = []
-    pipelines = [color_filter, yolo_object_detection]
-    detectors_names = ["color_detector", "yolo_detector"]
-
-    for i, detector_name in enumerate(detectors_names):
-        if rgb_image is None:
-            rospy.logwarn("RGB image is None. Skipping detection for this iteration.")
-            return []
-
-        if detector_name == "color_detector":
-            detection_results = pipelines[i](rgb_image, color_filter_config)
-        else:
-            detection_results = pipelines[i](rgb_image)
-
-        # Calculate 3D points
-        if camera_intrinsics is not None and depth_image is not None:
-            calculate_point_3d(detection_results, depth_image, camera_intrinsics)
-        else:
-            rospy.logwarn(
-                "Camera intrinsics or depth_image is None. Skipping 3D calculations."
-            )
-
-        # Transform to global if IMU data is available
-        if imu_point is None or imu_rotation is None:
-            rospy.logwarn("IMU data is missing. Skipping global transformation.")
-        else:
-            transform_to_global(
-                detections=detection_results,
-                imu_point=imu_point,
-                imu_rotation=imu_rotation,
-            )
-
-        # Create the message list
+    for detector_name, detection_results in pipelines_results:
         detector_msg_list = create_detector_message(detection_results)
         detectors_output.append((detector_name, detector_msg_list))
 
@@ -634,8 +322,11 @@ def publish_vision_detections():
         rate.sleep()
 
 
+############################
+# Service handlers
+############################
 def handle_set_color_filter(req):
-    global color_filter_config
+    global pipeline_manager
 
     try:
         # Parse RGB values from the integer array
@@ -661,6 +352,8 @@ def handle_set_color_filter(req):
             rgb_range=rgb_tuple,
         )
 
+        pipeline_manager.update_color_filter_config(color_filter_config)
+
         rospy.loginfo(
             f"Color filter updated: tolerance={req.tolerance}, min_confidence={req.min_confidence}, "
             f"min_area={req.min_area}, rgb_range={rgb_tuple}"
@@ -677,7 +370,7 @@ def handle_set_color_filter(req):
 
 
 def handle_set_yolo_model(req):
-    global model
+    global pipeline_manager
 
     try:
         # Validate the model name
@@ -686,21 +379,18 @@ def handle_set_yolo_model(req):
                 success=False, message="Model name must end with .pt"
             )
 
-        model_path = os.path.join(YOLO_MODEL_DIR, req.model_name)
+        # Use pipeline manager to load the model
+        success = pipeline_manager.load_yolo_model(req.model_name)
 
-        # Check if the model file exists
-        if not os.path.isfile(model_path):
+        if success:
+            rospy.loginfo(f"YOLO model switched to: {req.model_name}")
             return SetYoloModelResponse(
-                success=False, message=f"Model file not found: {model_path}"
+                success=True, message=f"YOLO model switched to: {req.model_name}"
             )
-
-        # Load the new model
-        model = YOLO(model_path)
-
-        rospy.loginfo(f"YOLO model switched to: {req.model_name}")
-        return SetYoloModelResponse(
-            success=True, message=f"YOLO model switched to: {req.model_name}"
-        )
+        else:
+            return SetYoloModelResponse(
+                success=False, message=f"Failed to load model: {req.model_name}"
+            )
 
     except Exception as e:
         error_msg = f"Failed to switch YOLO model: {str(e)}"
@@ -708,6 +398,9 @@ def handle_set_yolo_model(req):
         return SetYoloModelResponse(success=False, message=error_msg)
 
 
+############################
+# Initialization functions
+############################
 def initialize_service_servers():
     rospy.loginfo("Initializing service servers...")
     rospy.Service("/detector/set_color_filter", SetColorFilter, handle_set_color_filter)
