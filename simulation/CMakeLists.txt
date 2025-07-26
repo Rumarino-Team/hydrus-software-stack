@@ -11,9 +11,9 @@ include_directories(
 )
 
 add_executable(HydrusSim 
-   main.cpp
-   HydrusSimManager.cpp
-   HydrusSimManager.h
+   src/main.cpp
+   src/HydrusSimManager.cpp
+   include/HydrusSimManager.h
 )
 
 # Link with Stonefish library
