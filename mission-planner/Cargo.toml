@@ -1,0 +1,10 @@
+[package]
+name = "mission_planner"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "mission_planner"
+
+[dependencies]
+dashmap = "6.1.0"
