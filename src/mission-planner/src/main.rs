@@ -11,22 +11,18 @@ use std::time::Duration;
 
 
 use crate::{
-    mission::Mission,
-    cmission::CMission,
-    mission_scheduler::{MissionScheduler, MissionBox},
-    mission_example::ExampleMission,
-    concurrent_mission_example::ConcExampleMission,
+    mission::{CommonMission, Mission}, mission_scheduler::{MissionBox, MissionScheduler}
 };
 
 fn main() {
     let cmission_example: Box<dyn Mission + Send>;
     unsafe {
         let cmission_ptr = cmission_example_create();
-        cmission_example = Box::from_raw(cmission_ptr as *mut CMission);
+        cmission_example = Box::from_raw(cmission_ptr as *mut CommonMission);
     }
 
-    let foo: MissionBox = Box::new(ExampleMission::new());
-    let bar: MissionBox = Box::new(ConcExampleMission::new());
+    let foo: MissionBox = Box::new(mission_example::new());
+    let bar: MissionBox = Box::new(concurrent_mission_example::new());
 
     let mission_list = VecDeque::from(vec![
         cmission_example,

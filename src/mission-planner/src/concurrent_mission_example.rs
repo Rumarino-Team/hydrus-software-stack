@@ -1,8 +1,4 @@
-use crate::mission::{CommonMission, MissionResult, Mission, MissionHashMap, Task};
-
-pub struct ConcExampleMission {
-    common: CommonMission,
-}
+use crate::mission::{CommonMission, MissionResult, Mission, MissionHashMap, RustTask, Task};
 
 fn conc_example(data: &MissionHashMap) -> MissionResult {
     if data.contains_key("flag_request") {
@@ -12,25 +8,12 @@ fn conc_example(data: &MissionHashMap) -> MissionResult {
     Ok(())
 }
 
-impl ConcExampleMission {
-    pub fn new() -> Self {
-        let name = "example-mission";
-        let task = Task::new("conc-example-task".to_string(), Some(conc_example), None);
-        let mut task_list: Vec<Task> = Vec::new();
-        task_list.push(task);
-        let mut repair_task_list: Vec<Task> = Vec::new();
-        Self {
-            common: CommonMission::new(name.to_string(), &mut task_list, &mut repair_task_list)
-        }
-    }
+pub fn new() -> CommonMission {
+    let name = "concurrent-mission-example".to_string();
+    let task = RustTask::new("conc-example-task".to_string(), Some(conc_example), None);
+    let task_list: Vec<Box<dyn Task>> =  vec![
+        Box::new(task)
+    ];
+    CommonMission { name, task_list }
 }
 
-impl Mission for ConcExampleMission {
-    fn run(&self, data: &MissionHashMap) -> MissionResult {
-        self.common.run(data)
-    }
-
-    fn name(&self) -> &String {
-        &self.common.name
-    }
-}

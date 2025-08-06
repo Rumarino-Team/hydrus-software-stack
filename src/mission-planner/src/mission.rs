@@ -3,7 +3,13 @@ use dashmap::DashMap;
 pub type MissionHashMap = DashMap<String, String>;
 pub type MissionResult = Result<(), bool>;
 
-pub struct Task {
+pub trait Task : Send + Sync {
+    fn run(&self, data: &MissionHashMap) -> MissionResult;
+    fn repair_run(&self, data: &MissionHashMap) -> MissionResult;
+    fn name(&self) -> &String;
+}
+
+pub struct RustTask {
     pub name: String,
     func: Option<fn(&MissionHashMap) -> MissionResult>,
     repair_func: Option<fn(&MissionHashMap) -> MissionResult>
@@ -16,10 +22,10 @@ fn run_with(func: Option<fn(&MissionHashMap) -> MissionResult>, data: &MissionHa
     func(data)
 }
 
-impl Task {
+impl RustTask {
     pub fn new(name: String, func: Option< fn(&MissionHashMap) -> MissionResult>,
-    repair_func: Option<fn(&MissionHashMap)-> MissionResult>) -> Task {
-        Task {
+    repair_func: Option<fn(&MissionHashMap)-> MissionResult>) -> RustTask {
+        RustTask {
             name,
             func,
             repair_func,
@@ -27,39 +33,44 @@ impl Task {
     }
 }
 
-pub struct CommonMission {
-    pub name: String,
-    task_list: Vec<Task>,
-    safety_task_list: Vec<Task>,
+impl Task for RustTask {
+    fn run(&self, data: &MissionHashMap) -> MissionResult {
+        run_with(self.func, data)
+    }
+    fn repair_run(&self, data: &MissionHashMap) -> MissionResult {
+        run_with(self.repair_func, data)
+    }
+    fn name(&self) -> &String {
+        &self.name
+    }
 }
 
-impl CommonMission {
-    pub fn new(name: String, task_list: &mut Vec<Task>, repair_task_list: &mut Vec<Task>) -> Self {
-        let mut common = CommonMission {
-            name,
-            task_list: Vec::new(),
-            safety_task_list: Vec::new(),
-        };
-        common.task_list.append(task_list);
-        common.safety_task_list.append(repair_task_list);
-        common
-    }
+pub trait Mission : Send + Sync {
+    fn run(&self, data: &DashMap<String, String>) -> MissionResult;
+    fn name(&self) -> &String;
+}
 
-    pub fn run(&self, data: &DashMap<String, String>) -> MissionResult {
+pub struct CommonMission {
+    pub name: String,
+    pub task_list: Vec<Box<dyn Task>>,
+}
+
+impl Mission for CommonMission {
+    fn run(&self, data: &DashMap<String, String>) -> MissionResult {
         if self.task_list.is_empty() {
             return Ok(())
         }
 
         let mut res = Ok(());
         for task in &self.task_list {
-            let task_res = run_with(task.func, data);
+            let task_res = task.run(data);
             res = match task_res {
                 Ok(_) => task_res,
                 Err(skip) => {
                     if skip {
                         task_res
                     } else {
-                        run_with(task.repair_func, data)
+                        task.repair_run(data)
                     }
                 },
 
@@ -72,9 +83,8 @@ impl CommonMission {
         }
         res
     }
-}
 
-pub trait Mission : Send + Sync {
-    fn run(&self, data: &DashMap<String, String>) -> MissionResult;
-    fn name(&self) -> &String;
+    fn name(&self) -> &String {
+        &self.name
+    }
 }
