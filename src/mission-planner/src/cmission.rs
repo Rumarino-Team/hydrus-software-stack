@@ -1,7 +1,8 @@
-use crate::mission::{CommonMission, Mission, MissionHashMap, MissionResult, Task};
+use crate::mission::{CommonMission, MissionHashMap, MissionResult, Task};
 use std::ffi::{c_char, CStr};
 
 #[repr(C)]
+#[allow(unused)]
 pub enum CMissionResult {
     Ok,
     Err,
@@ -9,6 +10,7 @@ pub enum CMissionResult {
 }
 
 #[repr(C)]
+#[allow(unused)]
 pub enum OptionFunction<T> {
     Some(T),
     None
