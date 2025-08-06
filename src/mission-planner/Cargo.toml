@@ -3,8 +3,10 @@ name = "mission_planner"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "mission_planner"
-
 [dependencies]
 dashmap = "6.1.0"
+
+[build-dependencies]
+bindgen = "0.72.0"
+cbindgen = "0.29.0"
+cc = "1.2.31"

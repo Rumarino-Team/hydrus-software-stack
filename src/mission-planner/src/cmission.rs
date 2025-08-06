@@ -1,4 +1,4 @@
-use mission_planner::mission::{Mission, MissionResult, MissionHashMap};
+use crate::mission::{Mission, MissionResult, MissionHashMap};
 use std::ffi::{c_char, CStr};
 
 #[repr(C)]
