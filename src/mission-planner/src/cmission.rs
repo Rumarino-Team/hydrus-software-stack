@@ -76,7 +76,8 @@ pub extern "C" fn ctask_create(name_ptr: *const c_char, task_func: OptionFunctio
 pub struct CMissionPtr;
 
 #[unsafe(no_mangle)]
-//TODO: Change to array
+/* It is also possible to create the Mission in Rust using CTasks, but this was made for ease of use, especially
+   if there are a lot of CTasks */
 pub extern "C" fn cmission_create(name_ptr: *const c_char, task_array: *mut CTask, size: isize) -> *mut CMissionPtr {
     let mut task_list: Vec<Box<dyn Task>> = Vec::new();
     for i in 0..size {

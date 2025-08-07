@@ -6,6 +6,10 @@ edition = "2024"
 [dependencies]
 dashmap = "6.1.0"
 
+[dependencies.pyo3]
+version = "0.25.1"
+features = ["auto-initialize"]
+
 [build-dependencies]
 bindgen = "0.72.0"
 cbindgen = "0.29.0"
