@@ -103,8 +103,8 @@ class LeftControlPanel(QWidget):
         return nav_group
 
     def create_sam_group(self) -> QGroupBox:
-        """Create SAM controls group"""
-        sam_group = QGroupBox("SAM2 Controls")
+        """Create SAM2 point controls group"""
+        sam_group = QGroupBox("SAM2 Point Controls")
         sam_layout = QVBoxLayout()
 
         # Point selection mode
@@ -123,18 +123,9 @@ class LeftControlPanel(QWidget):
         self.clear_points_btn = QPushButton("Clear Points")
         self.segment_btn = QPushButton("Segment Object")
 
-        # Propagation controls
-        prop_layout = QHBoxLayout()
-        self.propagate_forward_btn = QPushButton("Propagate Forward")
-        self.propagate_backward_btn = QPushButton("Propagate Backward")
-
-        prop_layout.addWidget(self.propagate_forward_btn)
-        prop_layout.addWidget(self.propagate_backward_btn)
-
         sam_layout.addLayout(point_mode_layout)
         sam_layout.addWidget(self.clear_points_btn)
         sam_layout.addWidget(self.segment_btn)
-        sam_layout.addLayout(prop_layout)
         sam_group.setLayout(sam_layout)
 
         return sam_group

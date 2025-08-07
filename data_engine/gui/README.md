@@ -62,7 +62,7 @@ sys.exit(app.exec())
 - OpenCV (cv2) for image processing
 - NumPy for array operations
 - PyTorch for tensor operations
-- Ultralytics SAM for segmentation
+- Native SAM2 for segmentation
 - pathlib for path handling
 
 ## Architecture

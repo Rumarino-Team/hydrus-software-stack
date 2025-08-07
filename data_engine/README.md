@@ -5,7 +5,7 @@ An automatic data engine GUI application that uses visual prompts to interact wi
 ## Features
 
 - **Interactive GUI**: Built with PySide6 for modern and intuitive user experience
-- **SAM2 Integration**: Uses Ultralytics SAM2 for automatic segmentation
+- **SAM2 Integration**: Uses native SAM2 for automatic segmentation
 - **Video Navigation**: Move back and forth through video frames
 - **Point-based Prompting**: Add positive/negative points for precise segmentation
 - **Automatic Propagation**: Forward and backward mask propagation across frames
@@ -21,7 +21,6 @@ An automatic data engine GUI application that uses visual prompts to interact wi
 - OpenCV
 - NumPy
 - PyTorch
-- Ultralytics (for SAM2)
 - Pillow
 
 ## Installation
@@ -152,10 +151,11 @@ Where coordinates are normalized (0-1) polygon points.
 
 ## SAM2 Models
 
-The application supports different SAM2 model sizes:
-- `sam2_s.pt` - Small (fastest)
-- `sam2_b.pt` - Base (balanced)
-- `sam2_l.pt` - Large (most accurate)
+The application uses native SAM2 model sizes:
+- `sam2_hiera_tiny.pt` - Tiny (fastest)
+- `sam2_hiera_small.pt` - Small (fast)
+- `sam2_hiera_base_plus.pt` - Base Plus (balanced, default)
+- `sam2_hiera_large.pt` - Large (most accurate)
 
 Models are automatically downloaded on first use.
 
@@ -176,7 +176,7 @@ Models are automatically downloaded on first use.
    - Try different model sizes
 
 2. **Memory Issues**:
-   - Use smaller SAM2 model (sam2_s.pt)
+   - Use smaller SAM2 model (sam2_hiera_tiny.pt)
    - Reduce video resolution
    - Clear cache regularly
 
@@ -223,7 +223,6 @@ See the main Hydrus Software Stack license for details.
 
 ## References
 
-- [Ultralytics SAM2 Documentation](https://docs.ultralytics.com/models/sam-2/)
 - [Segment Anything Model 2](https://github.com/facebookresearch/segment-anything-2)
 - [YOLO Format Specification](https://docs.ultralytics.com/datasets/segment/)
 

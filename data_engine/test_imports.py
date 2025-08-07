@@ -22,9 +22,13 @@ except ImportError as e:
     print(f"✗ OpenCV: {e}")
 
 try:
-    from ultralytics import SAM
+    import importlib.util
 
-    print("✓ Ultralytics SAM")
+    ultralytics_spec = importlib.util.find_spec("ultralytics")
+    if ultralytics_spec is not None:
+        print("✓ Ultralytics (for YOLO only)")
+    else:
+        print("✗ Ultralytics: not found")
 except ImportError as e:
     print(f"✗ Ultralytics: {e}")
 

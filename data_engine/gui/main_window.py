@@ -20,12 +20,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-try:
-    from ultralytics import SAM
-except ImportError:
-    print("Warning: ultralytics not installed. Limited functionality.")
-    SAM = None
-
 # Import local modules
 from .frame_viewer import FrameViewer
 from .left_panel import LeftControlPanel
@@ -47,7 +41,6 @@ class DataEngineMainWindow(QMainWindow):
         self.output_dir = None
         self.frames = []
         self.current_frame_idx = 0
-        self.sam_model = None
         self.frame_cache = {}
         self.masks_cache = {}
         self.annotations = {}  # frame_idx: [annotations]
@@ -65,7 +58,6 @@ class DataEngineMainWindow(QMainWindow):
         self.setup_ui()
         self.connect_signals()
         self.connect_sam2_signals()
-        self.load_sam_model()
 
     def setup_ui(self):
         """Setup the user interface"""
@@ -148,21 +140,18 @@ class DataEngineMainWindow(QMainWindow):
         self.sam2_worker.error_occurred.connect(self.on_sam2_error)
 
     def load_sam_model(self):
-        """Load both SAM2 video model and fallback SAM model"""
+        """Load SAM2 video model"""
         try:
             # Load SAM2 video model for tracking
+            # TODO: Make this be loadable by the user. Let the user select the model it wants to use.
             self.sam2_worker.load_model("sam2_hiera_base_plus.pt")
-
-            # Load fallback SAM model for single-frame segmentation
-            if SAM is not None:
-                self.sam_model = SAM("sam2_b.pt")  # Use SAM2 base model
-                print("Fallback SAM model loaded successfully")
+            print("SAM2 video model loaded successfully")
         except Exception as e:
-            print(f"Warning: Failed to load models: {e}")
+            print(f"Warning: Failed to load SAM2 model: {e}")
             QMessageBox.warning(
                 self,
                 "Model Loading Warning",
-                f"Some models failed to load: {e}\nSome features may be limited.",
+                f"SAM2 model failed to load: {e}\nSome features may be limited.",
             )
 
     def load_video(self):
@@ -187,6 +176,7 @@ class DataEngineMainWindow(QMainWindow):
 
     def set_output_directory(self):
         """Set the output directory for the dataset"""
+        # TODO: This should have a default path, like the current working directory.
         dir_path = QFileDialog.getExistingDirectory(self, "Select Output Directory")
 
         if dir_path:
@@ -428,15 +418,15 @@ class DataEngineMainWindow(QMainWindow):
         self.frame_viewer.clear_points()
 
     def segment_current_frame(self):
-        """Segment current frame using SAM"""
+        """Segment current frame using SAM2"""
         if not self.frame_viewer.points:
             QMessageBox.warning(
                 self, "Error", "Please click points on the object first"
             )
             return
 
-        if self.sam_model is None:
-            QMessageBox.warning(self, "Error", "SAM model not loaded")
+        if self.sam2_worker.predictor is None:
+            QMessageBox.warning(self, "Error", "SAM2 model not loaded")
             return
 
         current_class_id = self.right_panel.class_manager.get_current_class_id()
@@ -445,46 +435,22 @@ class DataEngineMainWindow(QMainWindow):
             return
 
         try:
-            # Get current frame
-            frame = self.frame_cache.get(self.current_frame_idx)
-            if frame is None:
-                QMessageBox.warning(self, "Error", "Frame not loaded")
-                return
-
-            # Prepare points for SAM
+            # Prepare points for SAM2
             points = np.array([[x, y] for x, y, _ in self.frame_viewer.points])
             labels = np.array([label for _, _, label in self.frame_viewer.points])
 
-            # Run SAM segmentation
-            results = self.sam_model(frame, points=points, labels=labels)
+            # Use SAM2 video worker for single frame segmentation
+            # Create a unique object ID for this segmentation
+            obj_id = len(self.annotations.get(self.current_frame_idx, [])) + 1
 
-            if results and len(results) > 0:
-                masks = results[0].masks
-                if masks is not None:
-                    # Get the best mask
-                    mask = masks.data[0].cpu().numpy().astype(bool)
+            # Add object to SAM2 for tracking
+            self.sam2_worker.add_object(self.current_frame_idx, points, labels, obj_id)
 
-                    # Store annotation
-                    self.store_annotation(
-                        self.current_frame_idx, mask, current_class_id
-                    )
-
-                    # Update display
-                    color = self.get_class_color(current_class_id)
-                    self.frame_viewer.add_mask(mask, color=color, alpha=0.4)
-                    self.update_annotations_display()
-
-                    # Clear points
-                    self.frame_viewer.clear_points()
-
-                    print(f"Segmentation completed for frame {self.current_frame_idx}")
-                else:
-                    QMessageBox.warning(self, "Error", "No mask generated")
-            else:
-                QMessageBox.warning(self, "Error", "Segmentation failed")
+            # Note: The actual mask will be received via the object_added signal
+            # and processed in the corresponding slot method
 
         except Exception as e:
-            QMessageBox.critical(self, "Segmentation Error", f"Failed to segment: {e}")
+            QMessageBox.critical(self, "Error", f"Segmentation failed: {e}")
 
     def store_annotation(self, frame_idx: int, mask: np.ndarray, class_id: int):
         """Store annotation for a frame"""

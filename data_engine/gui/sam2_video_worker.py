@@ -82,7 +82,7 @@ class SAM2VideoWorker(QThread):
         """Stop the current running task"""
         self.is_running = False
 
-    def run(self):
+    def run(self) -> None:
         """Execute the current task"""
         self.is_running = True
         try:

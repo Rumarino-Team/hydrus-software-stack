@@ -73,12 +73,7 @@ checkpoint_urls = { \
 [urllib.request.urlretrieve(url, f'/app/sam2_models/{filename}') for filename, url in checkpoint_urls.items() if not os.path.exists(f'/app/sam2_models/{filename}')]; \
 print('All SAM2 models downloaded')"
 
-# Download Ultralytics SAM models during build time
-RUN python -c "from ultralytics import SAM; model = SAM('sam2_b.pt'); print('SAM2 base model downloaded')"
-RUN python -c "from ultralytics import SAM; model = SAM('sam2_l.pt'); print('SAM2 large model downloaded')"
-RUN python -c "from ultralytics import SAM; model = SAM('sam2_s.pt'); print('SAM2 small model downloaded')"
-
-# Download YOLOv8 models during build time
+# Download YOLOv8 models during build time (keeping YOLO for dataset export)
 RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); print('YOLOv8 nano model downloaded')"
 RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8s.pt'); print('YOLOv8 small model downloaded')"
 RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8m.pt'); print('YOLOv8 medium model downloaded')"
