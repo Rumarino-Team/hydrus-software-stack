@@ -1,5 +1,5 @@
 use std::thread::sleep;
-use crate::mission::{CommonMission, Task, MissionResult, MissionHashMap, RustTask};
+use crate::mission::{Mission, Task, MissionResult, MissionHashMap, RustTask};
 
 fn example(_data: &MissionHashMap) -> MissionResult {
     println!("Hello world!");
@@ -18,12 +18,12 @@ fn repair_example(data: &MissionHashMap) -> MissionResult {
     Ok(())
 }
 
-pub fn new() -> CommonMission {
+pub fn new() -> Mission {
     let name = "example-mission".to_string();
     let task = RustTask::new("example-task".to_string(), Some(example), Some(repair_example));
     let task_list: Vec<Box<dyn Task>> = vec![
         Box::new(task)
     ];
 
-    CommonMission { name, task_list }
+    Mission { name, task_list }
 }

@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use crate::mission::{CommonMission, Task, MissionHashMap, MissionResult};
+use crate::mission::{Mission, Task, MissionHashMap, MissionResult};
 
 use pyo3::{ffi::c_str, prelude::*, types::IntoPyDict, PyResult, Python};
 
@@ -61,7 +61,7 @@ impl Task for PyTask {
 
 }
 
-pub fn get_mission_from(file: &CStr, file_name: &CStr) -> CommonMission {
+pub fn get_mission_from(file: &CStr, file_name: &CStr) -> Mission {
     let pytask = c_str!(include_str!("pymission.py"));
 
     let res = Python::with_gil(|py| -> PyResult<(String, Vec<PyObject>)> {
@@ -88,7 +88,7 @@ pub fn get_mission_from(file: &CStr, file_name: &CStr) -> CommonMission {
         task_list.push(Box::new(task));
     }
 
-    CommonMission {
+    Mission {
         name,
         task_list
     }

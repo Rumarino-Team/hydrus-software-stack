@@ -5,8 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, sleep};
 
-pub type MissionBox = Box<dyn Mission + Send>;
-pub type MissionVec = VecDeque<MissionBox>;
+pub type MissionVec = VecDeque<Mission>;
 struct MissionThreadData {
     mission_list: Arc<Mutex<MissionVec>>,
     conc_mission_list: Arc<Mutex<MissionVec>>,
@@ -29,11 +28,11 @@ impl MissionThreadData {
         }
     }
 
-    fn pop_front(&self) -> Option<MissionBox> {
+    fn pop_front(&self) -> Option<Mission> {
         self.mission_list.lock().unwrap().pop_front()
     }
 
-    fn push_back(&self, mission: MissionBox) {
+    fn push_back(&self, mission: Mission) {
         self.mission_list.lock().unwrap().push_back(mission);
     }
 
@@ -41,7 +40,7 @@ impl MissionThreadData {
         self.mission_list.lock().unwrap().append(&mut mission_vec);
     }
 
-    fn conc_push_back(&self, mission: MissionBox) {
+    fn conc_push_back(&self, mission: Mission) {
         self.conc_mission_list.lock().unwrap().push_back(mission);
     }
 
@@ -64,11 +63,11 @@ impl MissionScheduler {
         }
     }
 
-    pub fn push_back(&self, mission: MissionBox) {
+    pub fn push_back(&self, mission: Mission) {
         self.scheduler_data.push_back(mission);
     }
 
-    pub fn conc_push_back(&self, mission: MissionBox) {
+    pub fn conc_push_back(&self, mission: Mission) {
         self.scheduler_data.conc_push_back(mission);
     }
 

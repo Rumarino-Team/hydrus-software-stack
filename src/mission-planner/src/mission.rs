@@ -45,18 +45,13 @@ impl Task for RustTask {
     }
 }
 
-pub trait Mission : Send + Sync {
-    fn run(&self, data: &DashMap<String, String>) -> MissionResult;
-    fn name(&self) -> &String;
-}
-
-pub struct CommonMission {
+pub struct Mission {
     pub name: String,
     pub task_list: Vec<Box<dyn Task>>,
 }
 
-impl Mission for CommonMission {
-    fn run(&self, data: &DashMap<String, String>) -> MissionResult {
+impl Mission {
+    pub fn run(&self, data: &DashMap<String, String>) -> MissionResult {
         if self.task_list.is_empty() {
             return Ok(())
         }
@@ -84,7 +79,7 @@ impl Mission for CommonMission {
         res
     }
 
-    fn name(&self) -> &String {
+    pub fn name(&self) -> &String {
         &self.name
     }
 }

@@ -15,22 +15,21 @@ use std::time::Duration;
 use pyo3::{ffi::c_str};
 
 use crate::{
-    mission::{CommonMission, Mission}, mission_scheduler::{MissionBox, MissionScheduler}
+    mission::{Mission}, mission_scheduler::MissionScheduler
 };
 
 fn main() {
     let pytest = c_str!(include_str!("pymission_example.py"));
-    let pymision_example = pymission::get_mission_from(pytest, c_str!("pymission_example.py"));
-    let pymission_example = Box::new(pymision_example);
+    let pymission_example = pymission::get_mission_from(pytest, c_str!("pymission_example.py"));
 
-    let cmission_example: MissionBox;
+    let cmission_example;
     unsafe {
         let cmission_ptr = cmission_example_create();
-        cmission_example = Box::from_raw(cmission_ptr as *mut CommonMission);
+        cmission_example = *Box::from_raw(cmission_ptr as *mut Mission);
     }
 
-    let foo: MissionBox = Box::new(mission_example::new());
-    let bar: MissionBox = Box::new(concurrent_mission_example::new());
+    let foo = mission_example::new();
+    let bar = concurrent_mission_example::new();
 
     let mission_list = VecDeque::from(vec![
         pymission_example,

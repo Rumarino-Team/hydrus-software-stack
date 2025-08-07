@@ -1,4 +1,4 @@
-use crate::mission::{CommonMission, MissionHashMap, MissionResult, Task};
+use crate::mission::{Mission, MissionHashMap, MissionResult, Task};
 use std::ffi::{c_char, CStr};
 
 #[repr(C)]
@@ -95,7 +95,7 @@ pub extern "C" fn cmission_create(name_ptr: *const c_char, task_array: *mut CTas
         name = temp.to_str().expect("Failed to get string literal!");
     };
     let name = name.to_string();
-    let mission = CommonMission {
+    let mission = Mission {
         name,
         task_list
     };
