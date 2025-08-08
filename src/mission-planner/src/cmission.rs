@@ -34,6 +34,8 @@ fn run_with(func: &OptionFunction<CTaskFunc>, data: &MissionHashMap) -> MissionR
     let data_ptr = Box::new(data);
     let data_ptr = Box::into_raw(data_ptr) as *mut MissionMapPtr;
     let res = unsafe { func(data_ptr) };
+    //Deallocate pointer
+    let _ = unsafe { Box::from_raw(data_ptr as *mut MissionHashMap)};
     match res {
         CMissionResult::Ok => Ok(()),
         CMissionResult::Err => Err(false),
