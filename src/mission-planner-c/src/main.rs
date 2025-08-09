@@ -13,8 +13,8 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 fn main() {
     let mission: Box<dyn Mission + Send>;
-    unsafe { 
-        let mission_ptr = cmission_example_create(); 
+    unsafe {
+        let mission_ptr = cmission_example_create();
         let mission_box = Box::from_raw(mission_ptr as *mut CMission);
         mission = mission_box;
     }

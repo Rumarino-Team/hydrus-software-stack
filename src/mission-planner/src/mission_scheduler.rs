@@ -94,7 +94,7 @@ impl MissionScheduler {
 
     pub fn start() -> Self {
         let scheduler_data = Arc::new(MissionThreadData::new());
-        
+
         let scheduler_data_normal = scheduler_data.clone();
         let normal_func = move || {
             let mut stop = false;
@@ -166,7 +166,7 @@ impl MissionScheduler {
                         }
                     };
                 };
-                
+
                 sleep(std::time::Duration::from_millis(100));
             }
         };

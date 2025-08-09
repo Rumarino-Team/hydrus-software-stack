@@ -62,7 +62,7 @@ impl CommonMission {
                         run_with(task.repair_func, data)
                     }
                 },
-                
+
             };
             if let Err(skip) = res {
                 if ! skip {

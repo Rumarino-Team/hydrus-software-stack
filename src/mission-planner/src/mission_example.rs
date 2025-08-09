@@ -20,7 +20,7 @@ fn repair_example(data: &MissionHashMap) -> MissionResult {
         sleep(std::time::Duration::from_millis(100));
     }
     println!("Got flag!");
-    
+
     Ok(())
 }
 
@@ -41,7 +41,7 @@ impl Mission for ExampleMission {
     fn run(&self, data: &DashMap<String, String>) -> MissionResult {
         self.common.run(data)
     }
-    
+
     fn name(&self) -> &String {
         &self.common.name
     }

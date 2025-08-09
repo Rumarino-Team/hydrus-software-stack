@@ -27,10 +27,10 @@ pub struct CTask {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ctask_create(name_ptr: *const c_char, task_func: OptionFunction<CTaskFunc>, repair_task_func: OptionFunction<CTaskFunc>) -> *mut CTask {
-    
+
     let name;
-    unsafe { 
-        let temp = CStr::from_ptr(name_ptr); 
+    unsafe {
+        let temp = CStr::from_ptr(name_ptr);
         name = temp.to_str().expect("Failed to get string literal!");
     };
     let name = name.to_string();
@@ -54,7 +54,7 @@ fn run_with(func: &OptionFunction<CTaskFunc>, data: &MissionHashMap) -> CMission
 }
 
 pub struct CMission {
-    name: String, 
+    name: String,
     task_list: Vec<Box<CTask>>,
 }
 
@@ -112,8 +112,8 @@ pub extern "C" fn cmission_create(name_ptr: *const c_char, task_array: *mut CTas
     }
 
     let name;
-    unsafe { 
-        let temp = CStr::from_ptr(name_ptr); 
+    unsafe {
+        let temp = CStr::from_ptr(name_ptr);
         name = temp.to_str().expect("Failed to get string literal!");
     };
     let c_mission = CMission::new(name.to_string(), task_list);
@@ -129,5 +129,3 @@ mod tests {
     //TODO: Write tests
 
 }
-
-

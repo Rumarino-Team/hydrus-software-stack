@@ -1,7 +1,7 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() {    
+fn main() {
     println!("cargo::rerun-if-changed=src/cmission_example.c");
     println!("cargo::rerun-if-changed=src/cmission_example.h");
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();

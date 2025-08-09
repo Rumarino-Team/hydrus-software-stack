@@ -27,7 +27,7 @@ fn main() {
     scheduler.append(mission_list);
     scheduler.conc_append(conc_mission_list);
     let data = scheduler.get_data();
-    
+
     scheduler.run();
     while ! scheduler.is_waiting() {
         println!("{:#?}", data);

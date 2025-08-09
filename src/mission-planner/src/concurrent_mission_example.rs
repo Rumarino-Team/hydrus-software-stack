@@ -29,7 +29,7 @@ impl Mission for ConcExampleMission {
     fn run(&self, data: &MissionHashMap) -> MissionResult {
         self.common.run(data)
     }
-    
+
     fn name(&self) -> &String {
         &self.common.name
     }
