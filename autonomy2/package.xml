@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>autonomy</name>
+  <version>0.1.0</version>
+  <description>ROS2 port of Hydrus computer vision node and custom messages.</description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rclcpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>rosidl_default_generators</build_depend>
+  <build_depend>action_msgs</build_depend>
+
+  <exec_depend>rclcpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+</package>
