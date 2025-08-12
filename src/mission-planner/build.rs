@@ -11,6 +11,7 @@ fn main() {
 
     cbindgen::Builder::new()
         .with_crate(crate_dir)
+        .with_src("src/cmission.rs")
         .with_config(config)
         .generate()
         .expect("Unable to generate bindings")

@@ -5,8 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, sleep};
 
-pub type MissionBox = Box<dyn Mission + Send>;
-pub type MissionVec = VecDeque<MissionBox>;
+pub type MissionVec = VecDeque<Mission>;
 struct MissionThreadData {
     mission_list: Arc<Mutex<MissionVec>>,
     conc_mission_list: Arc<Mutex<MissionVec>>,
@@ -29,24 +28,20 @@ impl MissionThreadData {
         }
     }
 
-    fn pop_front(&self) -> Option<MissionBox> {
-        self.mission_list.lock().unwrap().pop_front()
+    fn with_mission_list(&self, func: impl FnOnce(&mut MissionVec) -> Option<Mission>, is_concurrent: bool) -> Option<Mission> {
+        let mut guard = if is_concurrent {
+            self.conc_mission_list.try_lock().expect("Concurrent mission lock is poisoned!")
+        } else {
+            self.mission_list.try_lock().expect("Mission lock is poisoned!")
+        };
+        func(&mut guard)
     }
 
-    fn push_back(&self, mission: MissionBox) {
-        self.mission_list.lock().unwrap().push_back(mission);
-    }
-
-    fn append(&self, mut mission_vec: MissionVec) {
-        self.mission_list.lock().unwrap().append(&mut mission_vec);
-    }
-
-    fn conc_push_back(&self, mission: MissionBox) {
-        self.conc_mission_list.lock().unwrap().push_back(mission);
-    }
-
-    fn conc_append(&self, mut mission_vec: MissionVec) {
-        self.conc_mission_list.lock().unwrap().append(&mut mission_vec);
+    pub fn pop_front(&self) -> Option<Mission> {
+        let func = move |mission_list: &mut VecDeque<Mission>| {
+            mission_list.pop_front()
+        };
+        self.with_mission_list(func, false)
     }
 }
 pub struct MissionScheduler {
@@ -64,20 +59,40 @@ impl MissionScheduler {
         }
     }
 
-    pub fn push_back(&self, mission: MissionBox) {
-        self.scheduler_data.push_back(mission);
+    #[allow(unused)]
+    pub fn push_back(&self, mission: Mission) {
+        let func = move |mission_list: &mut VecDeque<Mission>| {
+            mission_list.push_back(mission);
+            None
+        };
+        self.scheduler_data.with_mission_list(func, false);
     }
 
-    pub fn conc_push_back(&self, mission: MissionBox) {
-        self.scheduler_data.conc_push_back(mission);
+    #[allow(unused)]
+    pub fn conc_push_back(&self, mission: Mission) {
+        let func = move |mission_list: &mut VecDeque<Mission>| {
+            mission_list.push_back(mission);
+            None
+        };
+        self.scheduler_data.with_mission_list(func, true);
     }
 
-    pub fn append(&self, mission_vec: MissionVec) {
-        self.scheduler_data.append(mission_vec);
+    #[allow(unused)]
+    pub fn append(&self, mut mission_vec: MissionVec) {
+        let func = move |mission_list: &mut VecDeque<Mission>| {
+            mission_list.append(&mut mission_vec);
+            None
+        };
+        self.scheduler_data.with_mission_list(func, false);
     }
 
-    pub fn conc_append(&self, mission_vec: MissionVec) {
-        self.scheduler_data.conc_append(mission_vec);
+    #[allow(unused)]
+    pub fn conc_append(&self, mut mission_vec: MissionVec) {
+        let func = move |mission_list: &mut VecDeque<Mission>| {
+            mission_list.append(&mut mission_vec);
+            None
+        };
+        self.scheduler_data.with_mission_list(func, true);
     }
 
     pub fn get_data(&self) -> Arc<MissionHashMap> {
@@ -149,7 +164,9 @@ impl MissionScheduler {
                     continue
                 }
 
-                let getter = conc_mission_list.lock().unwrap();
+                let getter = conc_mission_list
+                    .try_lock()
+                    .expect("Concurrent mission lock is poisoned!");
                 for mission in &*getter {
                     let res = mission.run(data);
                     match res {
