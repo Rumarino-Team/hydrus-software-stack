@@ -5,9 +5,6 @@
 # Get the directory where this wrapper is located (should be project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Set HYDRUS_ROOT environment variable to ensure test system works correctly
-export HYDRUS_ROOT="$SCRIPT_DIR"
-
 # Change to the project directory to ensure proper module resolution
 cd "$SCRIPT_DIR"
 
