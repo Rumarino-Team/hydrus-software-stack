@@ -1,22 +1,39 @@
 mod mission;
-mod mission_example;
 mod mission_scheduler;
+mod cmission;
+mod pymission;
+mod mission_example;
 mod concurrent_mission_example;
 
-use std::collections::VecDeque;
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+use std::vec;
+use std::{collections::VecDeque};
 use std::time::Duration;
 
+
+use pyo3::{ffi::c_str};
+
 use crate::{
-    mission_scheduler::{MissionScheduler, MissionBox},
-    mission_example::ExampleMission,
-    concurrent_mission_example::ConcExampleMission,
+    mission::{Mission}, mission_scheduler::MissionScheduler
 };
 
 fn main() {
-    let foo: MissionBox = Box::new(ExampleMission::new());
-    let bar: MissionBox = Box::new(ConcExampleMission::new());
+    let pytest = c_str!(include_str!("pymission_example.py"));
+    let pymission_example = pymission::get_mission_from(pytest, c_str!("pymission_example.py"));
+
+    let cmission_example;
+    unsafe {
+        let cmission_ptr = cmission_example_create();
+        cmission_example = *Box::from_raw(cmission_ptr as *mut Mission);
+    }
+
+    let foo = mission_example::new();
+    let bar = concurrent_mission_example::new();
 
     let mission_list = VecDeque::from(vec![
+        pymission_example,
+        cmission_example,
         foo
     ]);
     let conc_mission_list = VecDeque::from(vec![

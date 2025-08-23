@@ -1,13 +1,7 @@
-use dashmap::DashMap;
-
 use std::thread::sleep;
-use crate::mission::{CommonMission, MissionResult, Mission, MissionHashMap, Task};
+use crate::mission::{Mission, Task, MissionResult, MissionHashMap, RustTask};
 
-pub struct ExampleMission {
-    common: CommonMission,
-}
-
-fn example(data: &MissionHashMap) -> MissionResult {
+fn example(_data: &MissionHashMap) -> MissionResult {
     println!("Hello world!");
     Err(false)
 }
@@ -24,26 +18,12 @@ fn repair_example(data: &MissionHashMap) -> MissionResult {
     Ok(())
 }
 
-impl ExampleMission {
-    pub fn new() -> Self {
-        let name = "example-mission";
-        let task = Task::new("example-task".to_string(), Some(example), Some(repair_example));
-        let mut task_list: Vec<Task> = Vec::new();
-        task_list.push(task);
-        let mut repair_task_list: Vec<Task> = Vec::new();
-        Self {
-            common: CommonMission::new(name.to_string(), &mut task_list, &mut repair_task_list)
-        }
-    }
-}
+pub fn new() -> Mission {
+    let name = "example-mission".to_string();
+    let task = RustTask::new("example-task".to_string(), Some(example), Some(repair_example));
+    let task_list: Vec<Box<dyn Task>> = vec![
+        Box::new(task)
+    ];
 
-impl Mission for ExampleMission {
-    fn run(&self, data: &DashMap<String, String>) -> MissionResult {
-        self.common.run(data)
-    }
-
-    fn name(&self) -> &String {
-        &self.common.name
-    }
-
+    Mission { name, task_list }
 }
