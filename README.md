@@ -9,7 +9,7 @@
 </p>
 
 <h3>
-  <a href="PHILOSOPHY.md">Philosophy</a>
+  <a href="docs/PHILOSOPHY.md">Philosophy</a>
   <span> · </span>
   <a href="autonomy/README.md">Autonomy Docs</a>
   <span> · </span>
