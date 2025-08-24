@@ -1,0 +1,16 @@
+[project]
+name = "autonomy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "colorama>=0.4.6",
+    "fastapi>=0.116.1",
+    "matplotlib>=3.10.5",
+    "opencv-python>=4.11.0.86",
+    "pyserial>=3.5",
+    "requests>=2.32.5",
+    "termcolor>=3.1.0",
+    "uvicorn>=0.35.0",
+]

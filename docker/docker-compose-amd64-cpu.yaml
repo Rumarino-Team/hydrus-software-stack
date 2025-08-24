@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ros-master:
     image: ros:noetic-ros-core
@@ -14,36 +12,21 @@ services:
   hydrus_cpu:
     build:
       context: ../../hydrus-software-stack
-      dockerfile: docker/amd64/cpu/hydrus.Dockerfile
+      args:
+        PARENT_IMAGE: "noetic:latest"
+      dockerfile: docker/amd64/pkgmanagers.Dockerfile
     privileged: true
     stdin_open: true
     tty: true
     ports:
       - "8000:8000"
-      - "5000:5000"  # Added port for Flask detection viewer
-    devices:
-      - "/dev/ttyACM0:/dev/ttyACM0"
-      - "/dev/ttyACM1:/dev/ttyACM1"  # Added ttyACM1 mapping
-      - "/dev/ttyUSB0:/dev/ttyUSB0"  # Added ttyUSB0 mapping
-      - "/dev/dri:/dev/dri"
+      - "5000:5000"  
     environment:
       - ROS_MASTER_URI=http://ros-master:11311
-      - ARDUINO_BOARD=arduino:avr:uno
-      - VOLUME
-      - ROSBAG_PLAYBACK
-      - DEBUG_ARDUINO
-      - DISPLAY=${DISPLAY}  # Pass the DISPLAY variable from the host
-      - RVIZ
-      - TEST
-      - NO_BUILD
-      - TMUX_SESSIONS
-      - ARDUINO_COMPILE
-      - VIRTUAL_ARDUINO
+      - DISPLAY=${DISPLAY}  
     volumes:
       - "../:/home/catkin_ws/src/hydrus-software-stack"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
-      - "../rosbags:/rosbags"
-      - "../yolo_models:/yolo_models"  # Volume for YOLO models
     command: /bin/bash -c "sleep infinity"
     depends_on:
       - ros-master

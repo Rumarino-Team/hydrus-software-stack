@@ -1,5 +1,11 @@
 # Hydrus Autonomy System
 
+
+This module is going to be deprecated for the following reasons:
+
+
+
+
 The Hydrus Autonomy System is a comprehensive ROS-based underwater vehicle control and mission management framework. This README documents all available scripts, their purpose, and usage instructions.
 
 > ⚠️ **Warning**: The mission API is currently under development. Some features may not work as expected and are subject to change.
