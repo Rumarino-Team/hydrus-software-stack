@@ -8,15 +8,14 @@ Refactored to separate ROS-specific code from core detection functionality.
 
 from typing import List, Optional, Tuple
 
-import custom_types
 import numpy as np
 import rospy
 from geometry_msgs.msg import Point, PoseStamped
 from sensor_msgs.msg import CameraInfo, Image, RegionOfInterest
 from visualization_msgs.msg import Marker, MarkerArray
 
-from autonomy.msg import Detection, Detections
-from autonomy.srv import (
+from autonomy_interfaces.msg import Detection, Detections
+from autonomy_interfaces.srv import (
     SetColorFilter,
     SetColorFilterResponse,
     SetYoloModel,
@@ -25,6 +24,7 @@ from autonomy.srv import (
 
 # Import our custom detection core module
 from computer_vision.detection_core import ColorFilterConfig, DetectionPipelineManager
+from computer_vision import custom_types
 
 ############################
 # Global variables

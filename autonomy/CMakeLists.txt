@@ -8,6 +8,7 @@ add_compile_options(-std=c++11)
 catkin_python_setup()
 
 find_package(catkin REQUIRED COMPONENTS
+  autonomy_interfaces
   nav_msgs
   sensor_msgs
   stereo_msgs
@@ -103,6 +104,7 @@ generate_messages(
 
 catkin_package(
   CATKIN_DEPENDS
+    autonomy_interfaces
     nav_msgs
     sensor_msgs
     stereo_msgs

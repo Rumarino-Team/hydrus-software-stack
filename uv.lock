@@ -140,7 +140,7 @@ wheels = [
 [[package]]
 name = "computer-vision"
 version = "0.1.0"
-source = { virtual = "src/computer_vision" }
+source = { editable = "src/computer_vision" }
 dependencies = [
     { name = "numpy" },
     { name = "opencv-python" },
