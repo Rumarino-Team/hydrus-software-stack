@@ -19,5 +19,6 @@ services:
         hard: 524288
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - ../../simulation/hydrus_sim_ros2:/home/ros2_ws/src/hydrus_sim_ros2
     stdin_open: true
     tty: true

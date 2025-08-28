@@ -10,7 +10,16 @@ RUN apt-get upgrade -y && \
 	libsdl2-dev \
 	python3-colcon-common-extensions \
 	python3-rosdep \
-	python3-vcstool
+	python3-vcstool \
+	python3-ament-package \
+	ros-humble-ament-cmake
+
+# Setup Stonefish
+
+WORKDIR /home/
+
+RUN git clone https://github.com/patrykcieslak/stonefish
+RUN cd stonefish && mkdir build  && cd build  && cmake ..  && make -j$(nproc) && sudo make install
 
 # ROS 2 workspace setup
 SHELL ["/bin/bash", "-c"]
@@ -23,14 +32,9 @@ RUN mkdir -p /${ROS_WS}/src \
 WORKDIR $ROS_WS/
 
 RUN cd src \
-	&& git clone https://github.com/patrykcieslak/stonefish_ros2.git
+	&& git clone https://github.com/juandelpueblo/stonefish_ros2.git
 
-RUN colcon build --symlink-install \
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install \
 	&& source install/setup.bash
-
-WORKDIR /home/
-
-RUN git clone https://github.com/patrykcieslak/stonefish
-RUN cd stonefish && mkdir build  && cd build  && cmake ..  && make -j$(nproc) && sudo make install
 
 WORKDIR $ROS_WS/src
