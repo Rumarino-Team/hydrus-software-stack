@@ -20,10 +20,12 @@ ENV ROS_WS=/home/ros2_ws
 RUN mkdir -p /${ROS_WS}/src \
 	&& echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc 
 
-WORKDIR $ROS_WS/src
+WORKDIR $ROS_WS/
 
-RUN cd /${ROS_WS}/ \
-	&& colcon build --symlink-install \
+RUN cd src \
+	&& git clone https://github.com/patrykcieslak/stonefish_ros2.git
+
+RUN colcon build --symlink-install \
 	&& source install/setup.bash
 
 WORKDIR /home/
