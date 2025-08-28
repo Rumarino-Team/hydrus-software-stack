@@ -100,6 +100,8 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-image-transport \
     ros-noetic-laser-proc
 
+
+
 COPY ./devices/Arduino/HydrusModule /root/Arduino/libraries/HydrusModule
 
 COPY ./ /catkin_ws/src/hydrus-software-stack
