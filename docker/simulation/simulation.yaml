@@ -1,0 +1,23 @@
+services:
+  simulation:
+    build:
+      context: ../../../hydrus-software-stack
+      dockerfile: docker/simulation/simulation.Dockerfile
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - DISPLAY=${DISPLAY}
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 524288
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    stdin_open: true
+    tty: true
