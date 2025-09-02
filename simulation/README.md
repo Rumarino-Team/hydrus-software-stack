@@ -11,3 +11,5 @@ Docker is required to run the simulation along with a Linux install (WSL works b
 4. Run `colcon build --symlink-install`
 
 5. Run `ros2 launch hydrus_sim_ros2 hydrussim.launch.py`
+
+To control thrusters, run `ros2 topic pub /hydrus_thruster std_msgs/msg/Float64MultiArray "{layout: {}, data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}"`. The first 4 are the corner thrusters while the last 4 are the depth thrusters. 
