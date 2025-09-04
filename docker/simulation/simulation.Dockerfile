@@ -37,4 +37,8 @@ RUN cd src \
 RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install \
 	&& source install/setup.bash
 
-WORKDIR $ROS_WS/src
+WORKDIR $ROS_WS/
+
+COPY docker/simulation/entrypoint.sh .
+
+CMD ["bash", "entrypoint.sh"]
