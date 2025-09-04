@@ -23,5 +23,6 @@ CMissionPtr* cmission_example_create() {
 
     struct CMissionPtr *mission = cmission_create("mission_example", *task_array, 1);
 
+
     return mission;
 }
