@@ -13,7 +13,7 @@
 			</external_part>
 		</base_link>
 
-		<ros_subscriber thrusters="/hydrus_thruster" />
+		<ros_subscriber thrusters="/hydrus_thrusters" />
 
 		<!-- Corner Thrusters -->
 		<actuator name="thruster_front_left" type="thruster">

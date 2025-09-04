@@ -40,6 +40,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'thruster_teleop = hydrus_sim_ros2.thruster_teleop:main',
         ],
     },
 )
