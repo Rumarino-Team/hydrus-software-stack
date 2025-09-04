@@ -7,7 +7,7 @@
 					<mesh filename="models/hydrus_unibody_centered.obj" scale="1.0" />
 					<origin rpy="-1.5708 0.0 0.0" xyz="0.0 0.0 0.0" />
 				</physical>
-				<material name="Steel" />
+				<material name="Plastic" />
 				<look name="green" />
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0" />
 			</external_part>
@@ -23,7 +23,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -44,7 +44,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -65,7 +65,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -86,7 +86,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -108,7 +108,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -129,7 +129,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -150,7 +150,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
@@ -171,7 +171,7 @@
 				normalized_setpoint="true" />
 			<propeller diameter="0.18" right="true">
 				<mesh filename="models/propeller.obj" scale="0.75" />
-				<material name="Dummy" />
+				<material name="Plastic" />
 				<look name="propeller" />
 			</propeller>
 			<rotor_dynamics type="mechanical_pi">
