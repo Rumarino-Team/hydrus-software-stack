@@ -4,6 +4,7 @@ mod cmission;
 mod pymission;
 mod mission_example;
 mod concurrent_mission_example;
+mod ros_sub_mission_example;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 

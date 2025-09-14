@@ -3,19 +3,35 @@ use dashmap::DashMap;
 pub type MissionHashMap = DashMap<String, String>;
 pub type MissionResult = Result<(), bool>;
 
+#[derive(Debug)]
+#[pyo3::pyclass]
+pub struct MissionData {
+    pub example_flag : AtomicBool,
+    pub example_flag_request : AtomicBool,
+}
+
+impl MissionData {
+    pub fn new() -> Self {
+        MissionData {
+            example_flag: AtomicBool::new(false),
+            example_flag_request: AtomicBool::new(false),
+        }
+    }
+}
+
 pub trait Task : Send + Sync {
-    fn run(&self, data: &MissionHashMap) -> MissionResult;
-    fn repair_run(&self, data: &MissionHashMap) -> MissionResult;
+    fn run(&self, data: &MissionData) -> MissionResult;
+    fn repair_run(&self, data: &MissionData) -> MissionResult;
     fn name(&self) -> &String;
 }
 
 pub struct RustTask {
     pub name: String,
-    func: Option<fn(&MissionHashMap) -> MissionResult>,
-    repair_func: Option<fn(&MissionHashMap) -> MissionResult>
+    func: Option<fn(&MissionData) -> MissionResult>,
+    repair_func: Option<fn(&MissionData) -> MissionResult>
 }
 
-fn run_with(func: Option<fn(&MissionHashMap) -> MissionResult>, data: &MissionHashMap) -> MissionResult {
+fn run_with(func: Option<fn(&MissionData) -> MissionResult>, data: &MissionData) -> MissionResult {
     let Some(func) = func else {
         return Err(false);
     };
@@ -23,8 +39,8 @@ fn run_with(func: Option<fn(&MissionHashMap) -> MissionResult>, data: &MissionHa
 }
 
 impl RustTask {
-    pub fn new(name: String, func: Option< fn(&MissionHashMap) -> MissionResult>,
-    repair_func: Option<fn(&MissionHashMap)-> MissionResult>) -> RustTask {
+    pub fn new(name: String, func: Option< fn(&MissionData) -> MissionResult>,
+    repair_func: Option<fn(&MissionData)-> MissionResult>) -> RustTask {
         RustTask {
             name,
             func,
@@ -34,10 +50,10 @@ impl RustTask {
 }
 
 impl Task for RustTask {
-    fn run(&self, data: &MissionHashMap) -> MissionResult {
+    fn run(&self, data: &MissionData) -> MissionResult {
         run_with(self.func, data)
     }
-    fn repair_run(&self, data: &MissionHashMap) -> MissionResult {
+    fn repair_run(&self, data: &MissionData) -> MissionResult {
         run_with(self.repair_func, data)
     }
     fn name(&self) -> &String {
@@ -51,7 +67,7 @@ pub struct Mission {
 }
 
 impl Mission {
-    pub fn run(&self, data: &DashMap<String, String>) -> MissionResult {
+    pub fn run(&self, data: &MissionData) -> MissionResult {
         if self.task_list.is_empty() {
             return Ok(())
         }

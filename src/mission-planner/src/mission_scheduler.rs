@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use crate::mission::{Mission, MissionHashMap};
+use crate::mission::{Mission, MissionData};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,7 +9,7 @@ pub type MissionVec = VecDeque<Mission>;
 struct MissionThreadData {
     mission_list: Arc<Mutex<MissionVec>>,
     conc_mission_list: Arc<Mutex<MissionVec>>,
-    mission_data: Arc<DashMap<String, String>>,
+    mission_data: Arc<MissionData>,
     run: AtomicBool,
     stop: AtomicBool,
     waiting: AtomicBool,
@@ -21,7 +21,7 @@ impl MissionThreadData {
         Self {
             mission_list: Arc::new(Mutex::new(VecDeque::new())),
             conc_mission_list: Arc::new(Mutex::new(VecDeque::new())),
-            mission_data: Arc::new(DashMap::new()),
+            mission_data: Arc::new(MissionData::new()),
             run: AtomicBool::new(false),
             stop: AtomicBool::new(false),
             waiting: AtomicBool::new(false),
@@ -95,7 +95,7 @@ impl MissionScheduler {
         self.scheduler_data.with_mission_list(func, true);
     }
 
-    pub fn get_data(&self) -> Arc<MissionHashMap> {
+    pub fn get_data(&self) -> Arc<MissionData> {
         self.scheduler_data.mission_data.clone()
     }
 

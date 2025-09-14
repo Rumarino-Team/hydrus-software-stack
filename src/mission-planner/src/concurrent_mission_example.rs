@@ -1,9 +1,11 @@
-use crate::mission::{Mission, MissionResult, MissionHashMap, RustTask, Task};
+use std::sync::atomic::Ordering;
 
-fn conc_example(data: &MissionHashMap) -> MissionResult {
-    if data.contains_key("flag_request") {
-        println!("Wrote flag");
-        data.insert("flag".to_string(), "true".to_string());
+use crate::mission::{Mission, MissionResult, MissionData, RustTask, Task};
+
+fn conc_example(data: &MissionData) -> MissionResult {
+    if data.example_flag_request.load(Ordering::Relaxed) {
+        data.example_flag.store(true, Ordering::Relaxed);
+        println!("Wrote flag!");
     }
     Ok(())
 }

@@ -1,16 +1,17 @@
 use std::thread::sleep;
-use crate::mission::{Mission, Task, MissionResult, MissionHashMap, RustTask};
+use crate::mission::{Mission, Task, MissionResult, MissionData, RustTask};
+use std::sync::atomic::Ordering;
 
-fn example(_data: &MissionHashMap) -> MissionResult {
-    println!("Hello world!");
+fn example(_data: &MissionData) -> MissionResult {
+    println!("Hello from Rust!");
     Err(false)
 }
 
-fn repair_example(data: &MissionHashMap) -> MissionResult {
+fn repair_example(data: &MissionData) -> MissionResult {
     println!("Requested flag");
-    data.insert("flag_request".to_string(), "true".to_string());
+    data.example_flag_request.store(true, Ordering::Relaxed);
 
-    while ! data.contains_key("flag") {
+    while ! data.example_flag.load(Ordering::Relaxed) {
         sleep(std::time::Duration::from_millis(100));
     }
     println!("Got flag!");
