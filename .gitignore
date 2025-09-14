@@ -21,3 +21,7 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+#Ros2 stuff
+install/
+build/
+log/
