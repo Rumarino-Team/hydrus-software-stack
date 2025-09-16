@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dashmap = "6.1.0"
+futures = { version = "0.3.31", features = ["thread-pool"] }
+r2r = "0.9.5"
 
 [dependencies.pyo3]
 version = "0.25.1"

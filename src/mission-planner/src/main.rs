@@ -4,13 +4,12 @@ mod cmission;
 mod pymission;
 mod mission_example;
 mod concurrent_mission_example;
-mod ros_sub_mission_example;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use std::vec;
 use std::{collections::VecDeque};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 
 use pyo3::{ffi::c_str};
@@ -35,21 +34,21 @@ fn main() {
     let mission_list = VecDeque::from(vec![
         pymission_example,
         cmission_example,
-        foo
+        foo,
     ]);
     let conc_mission_list = VecDeque::from(vec![
         bar
     ]);
 
-    let scheduler = MissionScheduler::start();
+    let mut scheduler = MissionScheduler::start();
     scheduler.append(mission_list);
     scheduler.conc_append(conc_mission_list);
     let data = scheduler.get_data();
 
+    let start = Instant::now();
     scheduler.run();
-    while ! scheduler.is_waiting() {
-        println!("{:#?}", data);
-        std::thread::sleep(Duration::from_secs(1));
+    while start.elapsed() < Duration::from_secs(15) {
+        scheduler.ros_spin();
     }
     scheduler.stop();
 

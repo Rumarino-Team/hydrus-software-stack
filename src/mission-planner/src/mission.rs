@@ -1,6 +1,4 @@
-use dashmap::DashMap;
-
-pub type MissionHashMap = DashMap<String, String>;
+use std::sync::atomic::AtomicBool;
 pub type MissionResult = Result<(), bool>;
 
 #[derive(Debug)]

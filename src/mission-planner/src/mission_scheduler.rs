@@ -1,9 +1,12 @@
-use dashmap::DashMap;
+use futures::StreamExt;
+use futures::executor::ThreadPool;
+use r2r::{Node, QosProfile, std_msgs};
 use crate::mission::{Mission, MissionData};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, sleep};
+use std::time::Duration;
 
 pub type MissionVec = VecDeque<Mission>;
 struct MissionThreadData {
@@ -13,7 +16,6 @@ struct MissionThreadData {
     run: AtomicBool,
     stop: AtomicBool,
     waiting: AtomicBool,
-
 }
 
 impl MissionThreadData {
@@ -44,18 +46,24 @@ impl MissionThreadData {
         self.with_mission_list(func, false)
     }
 }
+
+
 pub struct MissionScheduler {
     normal_handle: thread::JoinHandle<()>,
     concurrent_handle: thread::JoinHandle<()>,
+    node: Node,
+    pool: ThreadPool,
     scheduler_data : Arc<MissionThreadData>,
 }
 
 impl MissionScheduler {
-    fn new(normal_handle: thread::JoinHandle<()>, concurrent_handle: thread::JoinHandle<()>, scheduler_data: Arc<MissionThreadData>) -> Self {
+    fn new(normal_handle: thread::JoinHandle<()>, concurrent_handle: thread::JoinHandle<()>, node: Node, scheduler_data: Arc<MissionThreadData>) -> Self {
         Self {
             normal_handle,
             concurrent_handle,
+            node,
             scheduler_data,
+            pool: ThreadPool::new().expect("Failed to create ThreadPool"),
         }
     }
 
@@ -99,6 +107,7 @@ impl MissionScheduler {
         self.scheduler_data.mission_data.clone()
     }
 
+    #[allow(unused)]
     pub fn is_waiting(&self) -> bool {
         self.scheduler_data.waiting.load(Ordering::Relaxed)
     }
@@ -107,27 +116,70 @@ impl MissionScheduler {
     //     self.concurrent_mission_list.append(mission);
     // }
 
-    pub fn start() -> Self {
-        let scheduler_data = Arc::new(MissionThreadData::new());
+    fn run_ros_topics(&mut self) {
+        let mut example_sub = self.node
+            .subscribe::<std_msgs::msg::String>("/example", QosProfile::default())
+            .expect("Failed to create example subscriber!");
+        let example_pub= self.node
+            .create_publisher::<std_msgs::msg::String>("/example", QosProfile::default())
+            .expect("Failed to create example publisher!");
+    
+        let scheduler_data = self.scheduler_data.clone();
+        let example_subscriber_func = async move {
+            while ! scheduler_data.stop.load(Ordering::Relaxed) {
+                match example_sub.next().await {
+                    Some(msg) => {
+                        println!("msg: {}", msg.data);
+                    }
+                    None => break,
+                }
+            }
+        };
 
-        let scheduler_data_normal = scheduler_data.clone();
+        let scheduler_data = self.scheduler_data.clone();
+        let example_publisher_func = async move {
+            let mut counter = 0;
+            let mut stop = false;
+            while ! stop {
+                let msg = std_msgs::msg::String {
+                    data: format!("{}", counter),
+                };
+                example_pub.publish(&msg).expect("Failed to publish example!");
+                counter += 1;
+                stop = scheduler_data.stop.load(Ordering::Relaxed);
+                //Should we use a ros timer instead?
+                sleep(Duration::from_secs(1));
+                //This should probably go on another thread
+            }
+        };
+    
+        self.pool.spawn_ok(example_publisher_func);
+        self.pool.spawn_ok(example_subscriber_func);
+    }
+   
+    pub fn start() -> Self {
+
+        let scheduler_data_orig = Arc::new(MissionThreadData::new());
+
+
+        let scheduler_data = scheduler_data_orig.clone();
         let normal_func = move || {
             let mut stop = false;
-            let data = &scheduler_data_normal.mission_data;
+            let data = &scheduler_data.mission_data;
 
             while ! stop {
-                let run = scheduler_data_normal.run.load(Ordering::Relaxed);
-                stop = scheduler_data_normal.stop.load(Ordering::Relaxed);
+                let run = scheduler_data.run.load(Ordering::Relaxed);
+                stop = scheduler_data.stop.load(Ordering::Relaxed);
                 if ! run {
                     sleep(std::time::Duration::from_millis(1));
                     continue
                 }
 
 
-                let mission = scheduler_data_normal.pop_front();
+                let mission = scheduler_data.pop_front();
                 let Some(mission) = mission else {
                     println!("Waiting for missions...");
-                    scheduler_data_normal.waiting.store(true, Ordering::Relaxed);
+                    scheduler_data.waiting.store(true, Ordering::Relaxed);
                     sleep(std::time::Duration::from_secs(3));
                     continue;
                 };
@@ -140,7 +192,7 @@ impl MissionScheduler {
                         }
                         else {
                             println!("{} mission failed!", mission.name());
-                            scheduler_data_normal.stop.store(true, Ordering::Relaxed);
+                            scheduler_data.stop.store(true, Ordering::Relaxed);
                             stop = true;
                         }
                     }
@@ -151,14 +203,14 @@ impl MissionScheduler {
             }
         };
 
-        let scheduler_data_conc = scheduler_data.clone();
+        let scheduler_data = scheduler_data_orig.clone();
         let concurrent_func = move || {
             let mut stop = false;
-            let conc_mission_list = scheduler_data_conc.conc_mission_list.clone();
-            let data = &scheduler_data_conc.mission_data;
+            let conc_mission_list = scheduler_data.conc_mission_list.clone();
+            let data = &scheduler_data.mission_data;
             while ! stop {
-                let run = scheduler_data_conc.run.load(Ordering::Relaxed);
-                stop = scheduler_data_conc.stop.load(Ordering::Relaxed);
+                let run = scheduler_data.run.load(Ordering::Relaxed);
+                stop = scheduler_data.stop.load(Ordering::Relaxed);
                 if ! run {
                     sleep(std::time::Duration::from_millis(1));
                     continue
@@ -177,7 +229,7 @@ impl MissionScheduler {
                             }
                             else {
                                 println!("{} mission failed!", mission.name());
-                                scheduler_data_conc.stop.store(true, Ordering::Relaxed);
+                                scheduler_data.stop.store(true, Ordering::Relaxed);
                                 stop = true;
                             }
                         }
@@ -187,12 +239,19 @@ impl MissionScheduler {
                 sleep(std::time::Duration::from_millis(100));
             }
         };
+
+        
         let normal_handle = thread::spawn(normal_func);
         let conc_handle = thread::spawn(concurrent_func);
-        MissionScheduler::new(normal_handle, conc_handle, scheduler_data.clone())
+        let ctx = r2r::Context::create().expect("Failed to create r2r context!");
+        let node = r2r::Node::create(ctx, "mission_scheduler", "namespace")
+            .expect("Failed to get Node!");
+        MissionScheduler::new(normal_handle, conc_handle, node, scheduler_data_orig)
     }
 
-    pub fn run(&self) {
+    pub fn run(&mut self) {
+        self.run_ros_topics();
+
         self.scheduler_data.run.store(true, Ordering::Relaxed);
     }
 
@@ -200,5 +259,9 @@ impl MissionScheduler {
         self.scheduler_data.stop.store(true, Ordering::Relaxed);
         self.normal_handle.join().expect("Failed to join mission handle!");
         self.concurrent_handle.join().expect("Failed to join concurrent mission handle!");
+    }
+
+    pub fn ros_spin(&mut self) {
+        self.node.spin_once(Duration::from_millis(100));
     }
 }
