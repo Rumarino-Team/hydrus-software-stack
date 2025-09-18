@@ -19,8 +19,8 @@ def generate_launch_description():
                 'simulation_data': PathJoinSubstitution([FindPackageShare('hydrus_sim_ros2'), 'data']),
                 'scenario_desc': PathJoinSubstitution([FindPackageShare('hydrus_sim_ros2'), 'data', 'scenarios', 'hydrus_env.scn']),
                 'simulation_rate': '300.0',
-                'window_res_x': '1200',
-                'window_res_y': '800',
+                'window_res_x': '1920',
+                'window_res_y': '1080',
                 'rendering_quality': 'high'
             }.items()
         )
