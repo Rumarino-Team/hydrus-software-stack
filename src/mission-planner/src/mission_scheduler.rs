@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, sleep};
 use std::time::Duration;
+use crate::ros_mission;
 
 pub type MissionVec = VecDeque<Mission>;
 struct MissionThreadData {
@@ -42,6 +43,14 @@ impl MissionThreadData {
     pub fn pop_front(&self) -> Option<Mission> {
         let func = move |mission_list: &mut VecDeque<Mission>| {
             mission_list.pop_front()
+        };
+        self.with_mission_list(func, false)
+    }
+
+    pub fn push_back(&self, mission : Mission) -> Option<Mission> {
+        let func = move |mission_list: &mut VecDeque<Mission>| {
+            mission_list.push_back(mission);
+            None
         };
         self.with_mission_list(func, false)
     }
@@ -117,19 +126,23 @@ impl MissionScheduler {
     // }
 
     fn run_ros_topics(&mut self) {
+        //TODO: We should not have this hardcoded
         let mut example_sub = self.node
-            .subscribe::<std_msgs::msg::String>("/example", QosProfile::default())
+            .subscribe::<std_msgs::msg::String>("/spawn_mission", QosProfile::default())
             .expect("Failed to create example subscriber!");
         let example_pub= self.node
             .create_publisher::<std_msgs::msg::String>("/example", QosProfile::default())
             .expect("Failed to create example publisher!");
-    
+
         let scheduler_data = self.scheduler_data.clone();
         let example_subscriber_func = async move {
             while ! scheduler_data.stop.load(Ordering::Relaxed) {
                 match example_sub.next().await {
                     Some(msg) => {
-                        println!("msg: {}", msg.data);
+                        if msg.data.eq("do-something") {
+                            let mission = ros_mission::new();
+                            scheduler_data.push_back(mission);
+                        }
                     }
                     None => break,
                 }
