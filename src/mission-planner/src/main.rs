@@ -15,9 +15,11 @@ use std::time::{Duration, Instant};
 
 use pyo3::{ffi::c_str};
 
+use crate::mission_scheduler::{MissionBox, MissionVec};
 use crate::{
-    mission::{Mission}, mission_scheduler::MissionScheduler
+    mission::{CommonMission}, mission_scheduler::MissionScheduler
 };
+
 
 fn main() {
     let pytest = c_str!(include_str!("pymission_example.py"));
@@ -26,20 +28,22 @@ fn main() {
     let cmission_example;
     unsafe {
         let cmission_ptr = cmission_example_create();
-        cmission_example = *Box::from_raw(cmission_ptr as *mut Mission);
+        cmission_example = *Box::from_raw(cmission_ptr as *mut CommonMission);
     }
 
     let foo = mission_example::new();
     let bar = concurrent_mission_example::new();
 
-    let mission_list = VecDeque::from(vec![
-        pymission_example,
-        cmission_example,
-        foo,
-    ]);
-    let conc_mission_list = VecDeque::from(vec![
-        bar
-    ]);
+    let mission_list: [MissionBox; 3] = [
+        Box::new(pymission_example),
+        Box::new(cmission_example),
+        Box::new(foo),
+    ];
+    let mission_list = VecDeque::from(mission_list);
+    let conc_mission_list: [MissionBox; 1] = [
+        Box::new(bar)
+    ];
+    let conc_mission_list = VecDeque::from(conc_mission_list);
 
     let mut scheduler = MissionScheduler::start();
     scheduler.append(mission_list);

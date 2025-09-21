@@ -1,16 +1,48 @@
-use crate::mission::{Mission, Task, MissionResult, MissionData, RustTask};
+use crate::mission::{Mission, CommonMission, Task, MissionResult, MissionData, RustTask};
+use cv_bridge::{CvImage, cv_image};
+use opencv::{core::{CV_8UC1, MatTrait, ToInputArray, no_array}, highgui};
+use r2r::sensor_msgs::msg::Image;
 
-fn ros_example(_data: &MissionData) -> MissionResult {
-    println!("Ros mission invoked!");
+struct ExampleImageMission {
+    name: String,
+    image: Image,
+}
+
+impl Mission for ExampleImageMission {
+    fn name(&self) -> &String {
+        return &self.name
+    }
+    fn run(&self, data: &MissionData) -> MissionResult {
+        ros_example(&self.image, data)
+    }
+    
+}
+
+fn ros_example(image: &Image, data: &MissionData) -> MissionResult {
+
+    let mut cv_image = CvImage::from_imgmsg(image.clone()).expect("Failed to get cvimage!");
+    let mat = match cv_image.as_cvmat() {
+        Ok(mat) => mat,
+        Err(err) => {
+            println!("Error getting mat: {}", err);
+            return Err(false)
+        }
+    };
+
+    // let scalar =opencv::core::Scalar::new(0.0, 0.0, 0.0, 0.0);
+    // let mat = opencv::core::Mat::new_rows_cols_with_default(1024, 1024, CV_8UC1, scalar)
+    //     .unwrap();
+
+    let window = "foo";
+    highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
+    highgui::imshow(window, &mat).unwrap();
+    highgui::wait_key(1).unwrap();
+
     Ok(())
 }
 
-pub fn new() -> Mission {
+pub fn new(image: Image) -> impl Mission {
     let name = "ros-example-mission".to_string();
-    let task = RustTask::new("ros-example-task".to_string(), Some(ros_example), None);
-    let task_list: Vec<Box<dyn Task>> = vec![
-        Box::new(task)
-    ];
 
-    Mission { name, task_list }
+    ExampleImageMission { name, image }
 }

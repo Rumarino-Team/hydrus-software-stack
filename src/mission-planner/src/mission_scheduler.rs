@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use futures::executor::ThreadPool;
-use r2r::{Node, QosProfile, std_msgs};
-use crate::mission::{Mission, MissionData};
+use r2r::{Node, QosProfile, sensor_msgs, std_msgs};
+use crate::mission::{CommonMission, Mission, MissionData};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,7 +9,8 @@ use std::thread::{self, sleep};
 use std::time::Duration;
 use crate::ros_mission;
 
-pub type MissionVec = VecDeque<Mission>;
+pub type MissionBox = Box<dyn Mission>;
+pub type MissionVec = VecDeque<MissionBox>;
 struct MissionThreadData {
     mission_list: Arc<Mutex<MissionVec>>,
     conc_mission_list: Arc<Mutex<MissionVec>>,
@@ -31,7 +32,7 @@ impl MissionThreadData {
         }
     }
 
-    fn with_mission_list(&self, func: impl FnOnce(&mut MissionVec) -> Option<Mission>, is_concurrent: bool) -> Option<Mission> {
+    fn with_mission_list(&self, func: impl FnOnce(&mut MissionVec) -> Option<MissionBox>, is_concurrent: bool) -> Option<MissionBox> {
         let mut guard = if is_concurrent {
             self.conc_mission_list.try_lock().expect("Concurrent mission lock is poisoned!")
         } else {
@@ -40,16 +41,16 @@ impl MissionThreadData {
         func(&mut guard)
     }
 
-    pub fn pop_front(&self) -> Option<Mission> {
-        let func = move |mission_list: &mut VecDeque<Mission>| {
+    pub fn pop_front(&self) -> Option<Box<dyn Mission>> {
+        let func = move |mission_list: &mut MissionVec| {
             mission_list.pop_front()
         };
         self.with_mission_list(func, false)
     }
 
-    pub fn push_back(&self, mission : Mission) -> Option<Mission> {
-        let func = move |mission_list: &mut VecDeque<Mission>| {
-            mission_list.push_back(mission);
+    pub fn push_back(&self, mission : impl Mission + 'static) -> Option<MissionBox> {
+        let func = move |mission_list: &mut MissionVec| {
+            mission_list.push_back(Box::new(mission));
             None
         };
         self.with_mission_list(func, false)
@@ -77,18 +78,18 @@ impl MissionScheduler {
     }
 
     #[allow(unused)]
-    pub fn push_back(&self, mission: Mission) {
-        let func = move |mission_list: &mut VecDeque<Mission>| {
-            mission_list.push_back(mission);
+    pub fn push_back(&self, mission: impl Mission + 'static) {
+        let func = move |mission_list: &mut VecDeque<MissionBox>| {
+            mission_list.push_back(Box::new(mission));
             None
         };
         self.scheduler_data.with_mission_list(func, false);
     }
 
     #[allow(unused)]
-    pub fn conc_push_back(&self, mission: Mission) {
-        let func = move |mission_list: &mut VecDeque<Mission>| {
-            mission_list.push_back(mission);
+    pub fn conc_push_back(&self, mission: impl Mission + 'static) {
+        let func = move |mission_list: &mut MissionVec| {
+            mission_list.push_back(Box::new(mission));
             None
         };
         self.scheduler_data.with_mission_list(func, true);
@@ -96,7 +97,7 @@ impl MissionScheduler {
 
     #[allow(unused)]
     pub fn append(&self, mut mission_vec: MissionVec) {
-        let func = move |mission_list: &mut VecDeque<Mission>| {
+        let func = move |mission_list: &mut MissionVec| {
             mission_list.append(&mut mission_vec);
             None
         };
@@ -105,7 +106,7 @@ impl MissionScheduler {
 
     #[allow(unused)]
     pub fn conc_append(&self, mut mission_vec: MissionVec) {
-        let func = move |mission_list: &mut VecDeque<Mission>| {
+        let func = move |mission_list: &mut MissionVec| {
             mission_list.append(&mut mission_vec);
             None
         };
@@ -128,7 +129,7 @@ impl MissionScheduler {
     fn run_ros_topics(&mut self) {
         //TODO: We should not have this hardcoded
         let mut example_sub = self.node
-            .subscribe::<std_msgs::msg::String>("/spawn_mission", QosProfile::default())
+            .subscribe::<sensor_msgs::msg::Image>("/camera/image", QosProfile::default())
             .expect("Failed to create example subscriber!");
         let example_pub= self.node
             .create_publisher::<std_msgs::msg::String>("/example", QosProfile::default())
@@ -139,10 +140,8 @@ impl MissionScheduler {
             while ! scheduler_data.stop.load(Ordering::Relaxed) {
                 match example_sub.next().await {
                     Some(msg) => {
-                        if msg.data.eq("do-something") {
-                            let mission = ros_mission::new();
-                            scheduler_data.push_back(mission);
-                        }
+                        let mission = ros_mission::new(msg);
+                        scheduler_data.push_back(mission);
                     }
                     None => break,
                 }

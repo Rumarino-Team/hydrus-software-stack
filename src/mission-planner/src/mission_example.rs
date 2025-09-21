@@ -1,5 +1,5 @@
 use std::thread::sleep;
-use crate::mission::{Mission, Task, MissionResult, MissionData, RustTask};
+use crate::mission::{CommonMission, Mission, MissionData, MissionResult, RustTask, Task};
 use std::sync::atomic::Ordering;
 
 fn example(_data: &MissionData) -> MissionResult {
@@ -19,12 +19,12 @@ fn repair_example(data: &MissionData) -> MissionResult {
     Ok(())
 }
 
-pub fn new() -> Mission {
+pub fn new() -> impl Mission {
     let name = "example-mission".to_string();
     let task = RustTask::new("example-task".to_string(), Some(example), Some(repair_example));
     let task_list: Vec<Box<dyn Task>> = vec![
         Box::new(task)
     ];
 
-    Mission { name, task_list }
+    CommonMission { name, task_list }
 }

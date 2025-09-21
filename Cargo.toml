@@ -2,5 +2,5 @@
 resolver = "3"
 
 members = [
-    "src/mission-planner"
-]
+    "src/mission-planner",
+    "third_party/cv-bridge-rs"]
