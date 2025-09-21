@@ -8,14 +8,13 @@ mod ros_mission;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use std::vec;
 use std::{collections::VecDeque};
 use std::time::{Duration, Instant};
 
 
 use pyo3::{ffi::c_str};
 
-use crate::mission_scheduler::{MissionBox, MissionVec};
+use crate::mission_scheduler::MissionBox;
 use crate::{
     mission::{CommonMission}, mission_scheduler::MissionScheduler
 };
@@ -48,7 +47,7 @@ fn main() {
     let mut scheduler = MissionScheduler::start();
     scheduler.append(mission_list);
     scheduler.conc_append(conc_mission_list);
-    let data = scheduler.get_data();
+    let _data = scheduler.get_data();
 
     let start = Instant::now();
     scheduler.run();

@@ -1,6 +1,6 @@
-use crate::mission::{Mission, CommonMission, Task, MissionResult, MissionData, RustTask};
-use cv_bridge::{CvImage, cv_image};
-use opencv::{core::{CV_8UC1, MatTrait, ToInputArray, no_array}, highgui};
+use crate::mission::{Mission, MissionResult, MissionData};
+use cv_bridge::CvImage;
+use opencv::highgui;
 use r2r::sensor_msgs::msg::Image;
 
 struct ExampleImageMission {
@@ -18,7 +18,7 @@ impl Mission for ExampleImageMission {
     
 }
 
-fn ros_example(image: &Image, data: &MissionData) -> MissionResult {
+fn ros_example(image: &Image, _data: &MissionData) -> MissionResult {
 
     let mut cv_image = CvImage::from_imgmsg(image.clone()).expect("Failed to get cvimage!");
     let mat = match cv_image.as_cvmat() {

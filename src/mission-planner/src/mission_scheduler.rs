@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use futures::executor::ThreadPool;
 use r2r::{Node, QosProfile, sensor_msgs, std_msgs};
-use crate::mission::{CommonMission, Mission, MissionData};
+use crate::mission::{Mission, MissionData};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
