@@ -1,22 +1,19 @@
-use futures::StreamExt;
 use futures::executor::ThreadPool;
-use r2r::{Node, QosProfile, sensor_msgs, std_msgs};
+use futures::future::BoxFuture;
 use crate::mission::{Mission, MissionData};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, sleep};
-use std::time::Duration;
-use crate::ros_mission;
 
 pub type MissionBox = Box<dyn Mission>;
 pub type MissionVec = VecDeque<MissionBox>;
-struct MissionThreadData {
-    mission_list: Arc<Mutex<MissionVec>>,
-    conc_mission_list: Arc<Mutex<MissionVec>>,
+pub struct MissionThreadData {
+    pub(super) mission_list: Arc<Mutex<MissionVec>>,
+    pub(super) conc_mission_list: Arc<Mutex<MissionVec>>,
     mission_data: Arc<MissionData>,
     run: AtomicBool,
-    stop: AtomicBool,
+    pub(crate) stop: AtomicBool,
     waiting: AtomicBool,
 }
 
@@ -61,17 +58,15 @@ impl MissionThreadData {
 pub struct MissionScheduler {
     normal_handle: thread::JoinHandle<()>,
     concurrent_handle: thread::JoinHandle<()>,
-    node: Node,
     pool: ThreadPool,
     scheduler_data : Arc<MissionThreadData>,
 }
 
 impl MissionScheduler {
-    fn new(normal_handle: thread::JoinHandle<()>, concurrent_handle: thread::JoinHandle<()>, node: Node, scheduler_data: Arc<MissionThreadData>) -> Self {
+    fn new(normal_handle: thread::JoinHandle<()>, concurrent_handle: thread::JoinHandle<()>, scheduler_data: Arc<MissionThreadData>) -> Self {
         Self {
             normal_handle,
             concurrent_handle,
-            node,
             scheduler_data,
             pool: ThreadPool::new().expect("Failed to create ThreadPool"),
         }
@@ -125,48 +120,12 @@ impl MissionScheduler {
     // pub fn concurrent_append(&mut self, mission: &mut Vec<Box<dyn Mission<'static> + Send >>) {
     //     self.concurrent_mission_list.append(mission);
     // }
+    pub fn add_async_thread<F>(&self, func: F)
+    where F : FnOnce(Arc<MissionThreadData>) -> BoxFuture<'static, ()>
+    {
+        let future = func(self.scheduler_data.clone());
+        self.pool.spawn_ok(future);
 
-    fn run_ros_topics(&mut self) {
-        //TODO: We should not have this hardcoded
-        let mut example_sub = self.node
-            .subscribe::<sensor_msgs::msg::Image>("/camera/image", QosProfile::default())
-            .expect("Failed to create example subscriber!");
-        let example_pub= self.node
-            .create_publisher::<std_msgs::msg::String>("/example", QosProfile::default())
-            .expect("Failed to create example publisher!");
-
-        let scheduler_data = self.scheduler_data.clone();
-        let example_subscriber_func = async move {
-            while ! scheduler_data.stop.load(Ordering::Relaxed) {
-                match example_sub.next().await {
-                    Some(msg) => {
-                        let mission = ros_mission::new(msg);
-                        scheduler_data.push_back(mission);
-                    }
-                    None => break,
-                }
-            }
-        };
-
-        let scheduler_data = self.scheduler_data.clone();
-        let example_publisher_func = async move {
-            let mut counter = 0;
-            let mut stop = false;
-            while ! stop {
-                let msg = std_msgs::msg::String {
-                    data: format!("{}", counter),
-                };
-                example_pub.publish(&msg).expect("Failed to publish example!");
-                counter += 1;
-                stop = scheduler_data.stop.load(Ordering::Relaxed);
-                //Should we use a ros timer instead?
-                sleep(Duration::from_secs(1));
-                //This should probably go on another thread
-            }
-        };
-    
-        self.pool.spawn_ok(example_publisher_func);
-        self.pool.spawn_ok(example_subscriber_func);
     }
    
     pub fn start() -> Self {
@@ -255,15 +214,10 @@ impl MissionScheduler {
         
         let normal_handle = thread::spawn(normal_func);
         let conc_handle = thread::spawn(concurrent_func);
-        let ctx = r2r::Context::create().expect("Failed to create r2r context!");
-        let node = r2r::Node::create(ctx, "mission_scheduler", "namespace")
-            .expect("Failed to get Node!");
-        MissionScheduler::new(normal_handle, conc_handle, node, scheduler_data_orig)
+        MissionScheduler::new(normal_handle, conc_handle, scheduler_data_orig)
     }
 
     pub fn run(&mut self) {
-        self.run_ros_topics();
-
         self.scheduler_data.run.store(true, Ordering::Relaxed);
     }
 
@@ -271,9 +225,5 @@ impl MissionScheduler {
         self.scheduler_data.stop.store(true, Ordering::Relaxed);
         self.normal_handle.join().expect("Failed to join mission handle!");
         self.concurrent_handle.join().expect("Failed to join concurrent mission handle!");
-    }
-
-    pub fn ros_spin(&mut self) {
-        self.node.spin_once(Duration::from_millis(100));
     }
 }
