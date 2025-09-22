@@ -105,7 +105,7 @@ fn main() {
     ];
     let conc_mission_list = VecDeque::from(conc_mission_list);
 
-    let mut scheduler = MissionScheduler::start();
+    let scheduler = MissionScheduler::start();
     scheduler.append(mission_list);
     scheduler.conc_append(conc_mission_list);
     let _data = scheduler.get_data();

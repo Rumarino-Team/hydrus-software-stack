@@ -217,7 +217,7 @@ impl MissionScheduler {
         MissionScheduler::new(normal_handle, conc_handle, scheduler_data_orig)
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&self) {
         self.scheduler_data.run.store(true, Ordering::Relaxed);
     }
 
