@@ -9,20 +9,20 @@ use std::thread::{self, sleep};
 pub type MissionBox = Box<dyn Mission>;
 pub type MissionVec = VecDeque<MissionBox>;
 pub struct MissionThreadData {
-    pub(super) mission_list: Arc<Mutex<MissionVec>>,
-    pub(super) conc_mission_list: Arc<Mutex<MissionVec>>,
-    mission_data: Arc<MissionData>,
+    mission_list: Mutex<MissionVec>,
+    conc_mission_list: Mutex<MissionVec>,
+    mission_data: MissionData,
     run: AtomicBool,
-    pub(crate) stop: AtomicBool,
+    pub stop: AtomicBool,
     waiting: AtomicBool,
 }
 
 impl MissionThreadData {
     fn new() -> Self {
         Self {
-            mission_list: Arc::new(Mutex::new(VecDeque::new())),
-            conc_mission_list: Arc::new(Mutex::new(VecDeque::new())),
-            mission_data: Arc::new(MissionData::new()),
+            mission_list: Mutex::new(VecDeque::new()),
+            conc_mission_list: Mutex::new(VecDeque::new()),
+            mission_data: MissionData::new(),
             run: AtomicBool::new(false),
             stop: AtomicBool::new(false),
             waiting: AtomicBool::new(false),
@@ -108,8 +108,9 @@ impl MissionScheduler {
         self.scheduler_data.with_mission_list(func, true);
     }
 
-    pub fn get_data(&self) -> Arc<MissionData> {
-        self.scheduler_data.mission_data.clone()
+    #[allow(unused)]
+    pub fn get_data(&self) -> &MissionData {
+        &self.scheduler_data.mission_data
     }
 
     #[allow(unused)]
@@ -177,7 +178,6 @@ impl MissionScheduler {
         let scheduler_data = scheduler_data_orig.clone();
         let concurrent_func = move || {
             let mut stop = false;
-            let conc_mission_list = scheduler_data.conc_mission_list.clone();
             let data = &scheduler_data.mission_data;
             while ! stop {
                 let run = scheduler_data.run.load(Ordering::Relaxed);
@@ -187,7 +187,7 @@ impl MissionScheduler {
                     continue
                 }
 
-                let getter = conc_mission_list
+                let getter = scheduler_data.conc_mission_list
                     .try_lock()
                     .expect("Concurrent mission lock is poisoned!");
                 for mission in &*getter {
