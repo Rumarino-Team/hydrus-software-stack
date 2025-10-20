@@ -24,12 +24,16 @@ use crate::{
     mission::{CommonMission}, mission_scheduler::MissionScheduler
 };
 
-
-fn run_ros_topics(scheduler: &MissionScheduler) -> Node {
+fn add_ros_topics(scheduler: &MissionScheduler) -> Node {
     let ctx = r2r::Context::create().expect("Failed to create r2r context!");
     let mut node = r2r::Node::create(ctx, "mission_planner", "namespace")
         .expect("Failed to get Node!");
 
+    
+    node
+}
+
+fn add_example_ros_topics(scheduler: &MissionScheduler, node: &mut Node) {
     let mut example_sub = node
         .subscribe::<sensor_msgs::msg::Image>("/camera/image", QosProfile::default())
         .expect("Failed to create example subscriber!");
@@ -77,46 +81,56 @@ fn run_ros_topics(scheduler: &MissionScheduler) -> Node {
 
     scheduler.add_async_thread(example_publisher_func);
     scheduler.add_async_thread(example_subscriber_func);
-
-    node
 }
     
 fn main() {
-    let pytest = c_str!(include_str!("pymission_example.py"));
-    let pymission_example = pymission::get_mission_from(pytest, c_str!("pymission_example.py"));
 
-    let cmission_example;
-    unsafe {
-        let cmission_ptr = cmission_example_create();
-        cmission_example = *Box::from_raw(cmission_ptr as *mut CommonMission);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn main_test() -> Result<(), String> {
+        let pytest = c_str!(include_str!("pymission_example.py"));
+        let pymission_example = pymission::get_mission_from(pytest, c_str!("pymission_example.py"));
+
+        let cmission_example;
+        unsafe {
+            let cmission_ptr = cmission_example_create();
+            cmission_example = *Box::from_raw(cmission_ptr as *mut CommonMission);
+        }
+
+        let foo = mission_example::new();
+        let bar = concurrent_mission_example::new();
+
+        let mission_list: [MissionBox; 3] = [
+            Box::new(pymission_example),
+            Box::new(cmission_example),
+            Box::new(foo),
+        ];
+        let mission_list = VecDeque::from(mission_list);
+        let conc_mission_list: [MissionBox; 1] = [
+            Box::new(bar)
+        ];
+        let conc_mission_list = VecDeque::from(conc_mission_list);
+
+        let scheduler = MissionScheduler::start();
+        scheduler.append(mission_list);
+        scheduler.conc_append(conc_mission_list);
+        let _data = scheduler.get_data();
+
+        let start = Instant::now();
+        scheduler.run();
+        let mut node = add_ros_topics(&scheduler);
+        add_example_ros_topics(&scheduler, &mut node);
+        while start.elapsed() < Duration::from_secs(15) {
+            node.spin_once(Duration::from_millis(100));
+        }
+        scheduler.stop();
+        Ok(())
+
+
     }
-
-    let foo = mission_example::new();
-    let bar = concurrent_mission_example::new();
-
-    let mission_list: [MissionBox; 3] = [
-        Box::new(pymission_example),
-        Box::new(cmission_example),
-        Box::new(foo),
-    ];
-    let mission_list = VecDeque::from(mission_list);
-    let conc_mission_list: [MissionBox; 1] = [
-        Box::new(bar)
-    ];
-    let conc_mission_list = VecDeque::from(conc_mission_list);
-
-    let scheduler = MissionScheduler::start();
-    scheduler.append(mission_list);
-    scheduler.conc_append(conc_mission_list);
-    let _data = scheduler.get_data();
-
-    let start = Instant::now();
-    scheduler.run();
-    let mut node = run_ros_topics(&scheduler);
-    while start.elapsed() < Duration::from_secs(15) {
-        node.spin_once(Duration::from_millis(100));
-    }
-    scheduler.stop();
-
-
 }

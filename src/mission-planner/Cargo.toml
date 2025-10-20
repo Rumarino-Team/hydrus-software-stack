@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cv-bridge = { version = "0.3.4", path = "../../third_party/cv-bridge-rs" }
+cv-bridge = { version = "0.3.4", path = "../../third_party/cv-bridge-rs", optional = true }
 futures = { version = "0.3.31", features = ["thread-pool"] }
 opencv = { version = "0.95.1", features = ["clang-runtime"] }
 r2r = "0.9.5"
