@@ -29,60 +29,9 @@ fn add_ros_topics(scheduler: &MissionScheduler) -> Node {
     let mut node = r2r::Node::create(ctx, "mission_planner", "namespace")
         .expect("Failed to get Node!");
 
-    
     node
 }
 
-fn add_example_ros_topics(scheduler: &MissionScheduler, node: &mut Node) {
-    let mut example_sub = node
-        .subscribe::<sensor_msgs::msg::Image>("/camera/image", QosProfile::default())
-        .expect("Failed to create example subscriber!");
-    let example_pub= node
-        .create_publisher::<std_msgs::msg::String>("/example", QosProfile::default())
-        .expect("Failed to create example publisher!");
-
-    let example_subscriber_func = 
-    |thread_data : Arc<MissionThreadData>| {
-        let scheduler_data = thread_data.clone();    
-        let pin: BoxFuture<'static, ()> = Box::pin(async move {
-            while ! scheduler_data.stop.load(Ordering::Relaxed) {
-                match example_sub.next().await {
-                    Some(msg) => {
-                        let mission = ros_mission::new(msg);
-                        scheduler_data.push_back(mission);
-                    }
-                    None => break,
-                }
-            }
-        });
-        pin
-    };
-
-    let example_publisher_func = 
-    |thread_data : Arc<MissionThreadData>| {
-        let scheduler_data = thread_data.clone();
-        let pin: BoxFuture<'static, ()> = Box::pin(async move {
-            let mut counter = 0;
-            let mut stop = false;
-            while ! stop {
-                let msg = std_msgs::msg::String {
-                    data: format!("{}", counter),
-                };
-                example_pub.publish(&msg).expect("Failed to publish example!");
-                counter += 1;
-                stop = scheduler_data.stop.load(Ordering::Relaxed);
-                //Should we use a ros timer instead?
-                sleep(Duration::from_secs(1));
-                //This should probably go on another thread
-            }
-        });
-        pin
-    };
-
-    scheduler.add_async_thread(example_publisher_func);
-    scheduler.add_async_thread(example_subscriber_func);
-}
-    
 fn main() {
 
 }
@@ -91,10 +40,64 @@ fn main() {
 mod tests {
     use super::*;
 
+    fn add_example_ros_topics(scheduler: &MissionScheduler) -> Node {
+        let ctx = r2r::Context::create().expect("Failed to create r2r context!");
+        let mut node = r2r::Node::create(ctx, "mission_planner", "namespace")
+            .expect("Failed to get Node!");
+        let mut example_sub = node
+            .subscribe::<sensor_msgs::msg::Image>("/camera/image", QosProfile::default())
+            .expect("Failed to create example subscriber!");
+        let example_pub= node
+            .create_publisher::<std_msgs::msg::String>("/example", QosProfile::default())
+            .expect("Failed to create example publisher!");
+
+        let example_subscriber_func =
+        |thread_data : Arc<MissionThreadData>| {
+            let scheduler_data = thread_data.clone();  
+            let pin: BoxFuture<'static, ()> = Box::pin(async move {
+                while ! scheduler_data.stop.load(Ordering::Relaxed) {
+                    match example_sub.next().await {
+                        Some(msg) => {
+                            let mission = ros_mission::new(msg);
+                            scheduler_data.push_back(mission);
+                        }
+                        None => break,
+                    }
+                }
+            });
+            pin
+        };
+
+        let example_publisher_func =
+        |thread_data : Arc<MissionThreadData>| {
+            let scheduler_data = thread_data.clone();
+            let pin: BoxFuture<'static, ()> = Box::pin(async move {
+                let mut counter = 0;
+                let mut stop = false;
+                while ! stop {
+                    let msg = std_msgs::msg::String {
+                        data: format!("{}", counter),
+                    };
+                    example_pub.publish(&msg).expect("Failed to publish example!");
+                    counter += 1;
+                    stop = scheduler_data.stop.load(Ordering::Relaxed);
+                    //Should we use a ros timer instead?
+                    sleep(Duration::from_secs(1));
+                    //This should probably go on another thread
+                }
+            });
+            pin
+        };
+
+        scheduler.add_async_thread(example_publisher_func);
+        scheduler.add_async_thread(example_subscriber_func);
+        node
+    }
+
     #[test]
     fn main_test() -> Result<(), String> {
         let pytest = c_str!(include_str!("pymission_example.py"));
-        let pymission_example = pymission::get_mission_from(pytest, c_str!("pymission_example.py"));
+        let pymission_example = pymissfion::get_mission_from(pytest, c_str!("pymission_example.py"));
 
         let cmission_example;
         unsafe {
@@ -123,8 +126,7 @@ mod tests {
 
         let start = Instant::now();
         scheduler.run();
-        let mut node = add_ros_topics(&scheduler);
-        add_example_ros_topics(&scheduler, &mut node);
+        let mut node = add_example_ros_topics(&scheduler);
         while start.elapsed() < Duration::from_secs(15) {
             node.spin_once(Duration::from_millis(100));
         }
