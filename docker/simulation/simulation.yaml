@@ -1,0 +1,18 @@
+services:
+  simulation:
+    build:
+      context: ../../../hydrus-software-stack
+      dockerfile: docker/simulation/simulation.Dockerfile
+    privileged: true
+    runtime: nvidia
+    environment:
+      - DISPLAY=${DISPLAY}
+      - PYTHONUNBUFFERED=1
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 524288
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    stdin_open: true
+    tty: true

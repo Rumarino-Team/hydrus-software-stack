@@ -4,3 +4,10 @@
 [submodule "third_party/sam2"]
 	path = third_party/sam2
 	url = https://github.com/facebookresearch/sam2.git
+[submodule "third_party/cv-bridge-rs"]
+	path = third_party/cv-bridge-rs
+	url = https://github.com/ultra-azu/cv-bridge-rs.git
+[submodule "third_party/image_transport_tutorials"]
+	path = third_party/image_transport_tutorials
+	url = https://github.com/ros-perception/image_transport_tutorials.git
+	branch = humble

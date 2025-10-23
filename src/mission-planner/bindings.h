@@ -13,9 +13,9 @@ typedef struct CMissionPtr CMissionPtr;
 
 typedef struct CTask CTask;
 
-typedef struct MissionMapPtr MissionMapPtr;
+typedef struct MissionDataPtr MissionDataPtr;
 
-typedef enum CMissionResult (*CTaskFunc)(struct MissionMapPtr *data);
+typedef enum CMissionResult (*CTaskFunc)(struct MissionDataPtr *data);
 
 typedef enum OptionFunction_CTaskFunc_Tag {
   Some_CTaskFunc,

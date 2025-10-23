@@ -1,10 +1,10 @@
-#include "../bindings.h"
+#include "../../bindings.h"
 #include "cmission_example.h"
 
 #include "stdio.h"
 
-enum CMissionResult foo(struct MissionMapPtr *data) {
-    printf("Hello world!\n");
+enum CMissionResult foo(struct MissionDataPtr *data) {
+    printf("Hello from C!\n");
     return Ok;
 }
 

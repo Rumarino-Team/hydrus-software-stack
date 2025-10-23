@@ -1,4 +1,4 @@
-use crate::mission::{Mission, MissionHashMap, MissionResult, Task};
+use crate::mission::{CommonMission, MissionData, MissionResult, Task};
 use std::ffi::{c_char, CStr};
 
 #[repr(C)]
@@ -16,10 +16,10 @@ pub enum OptionFunction<T> {
     None
 }
 
-pub struct MissionMapPtr;
+pub struct MissionDataPtr;
 
 
-type CTaskFunc = unsafe extern "C" fn(data: *mut MissionMapPtr) -> CMissionResult;
+type CTaskFunc = unsafe extern "C" fn(data: *mut MissionDataPtr) -> CMissionResult;
 
 pub struct CTask {
     name: String,
@@ -27,15 +27,15 @@ pub struct CTask {
     repair_task_func: OptionFunction<CTaskFunc>,
 }
 
-fn run_with(func: &OptionFunction<CTaskFunc>, data: &MissionHashMap) -> MissionResult {
+fn run_with(func: &OptionFunction<CTaskFunc>, data: &MissionData) -> MissionResult {
     let OptionFunction::Some(func) = func else {
         return Err(false)
     };
     let data_ptr = Box::new(data);
-    let data_ptr = Box::into_raw(data_ptr) as *mut MissionMapPtr;
+    let data_ptr = Box::into_raw(data_ptr) as *mut MissionDataPtr;
     let res = unsafe { func(data_ptr) };
     //Deallocate pointer
-    let _ = unsafe { Box::from_raw(data_ptr as *mut MissionHashMap)};
+    let _ = unsafe { Box::from_raw(data_ptr as *mut MissionData)};
     match res {
         CMissionResult::Ok => Ok(()),
         CMissionResult::Err => Err(false),
@@ -44,10 +44,10 @@ fn run_with(func: &OptionFunction<CTaskFunc>, data: &MissionHashMap) -> MissionR
 }
 
 impl Task for CTask {
-    fn run(&self, data: &MissionHashMap) -> MissionResult {
+    fn run(&self, data: &MissionData) -> MissionResult {
         run_with(&self.task_func, data)
     }
-    fn repair_run(&self, data: &MissionHashMap) -> MissionResult {
+    fn repair_run(&self, data: &MissionData) -> MissionResult {
         run_with(&self.repair_task_func, data)
     }
     fn name(&self) -> &String {
@@ -97,7 +97,7 @@ pub extern "C" fn cmission_create(name_ptr: *const c_char, task_array: *mut CTas
         name = temp.to_str().expect("Failed to get string literal!");
     };
     let name = name.to_string();
-    let mission = Mission {
+    let mission = CommonMission {
         name,
         task_list
     };

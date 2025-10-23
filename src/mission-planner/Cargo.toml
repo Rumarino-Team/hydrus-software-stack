@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dashmap = "6.1.0"
+cv-bridge = { version = "0.3.4", path = "../../third_party/cv-bridge-rs"}
+futures = { version = "0.3.31", features = ["thread-pool"] }
+opencv = { version = "0.95.1", features = ["clang-runtime"] }
+r2r = "0.9.5"
 
 [dependencies.pyo3]
-version = "0.25.1"
+version = "0.26.0"
 features = ["auto-initialize"]
 
 [build-dependencies]
