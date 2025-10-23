@@ -11,7 +11,7 @@ pub type MissionVec = VecDeque<MissionBox>;
 pub struct MissionThreadData {
     mission_list: Mutex<MissionVec>,
     conc_mission_list: Mutex<MissionVec>,
-    mission_data: MissionData,
+    pub mission_data: MissionData,
     run: AtomicBool,
     pub stop: AtomicBool,
     waiting: AtomicBool,

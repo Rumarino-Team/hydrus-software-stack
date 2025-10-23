@@ -1,4 +1,6 @@
-use std::sync::atomic::AtomicBool;
+use std::sync::{Mutex, atomic::{AtomicBool, AtomicI32, AtomicUsize}};
+use r2r::interfaces::msg::*;
+use r2r::geometry_msgs::msg::Pose;
 pub type MissionResult = Result<(), bool>;
 
 #[derive(Debug)]
@@ -6,6 +8,10 @@ pub type MissionResult = Result<(), bool>;
 pub struct MissionData {
     pub example_flag : AtomicBool,
     pub example_flag_request : AtomicBool,
+    pub cached_map : Mutex<Map>,
+    pub scouting : AtomicBool,
+    pub map_objects_count : AtomicUsize, //It is possible this being atomic could cause problems
+    pub pose : Mutex<Pose>,
 }
 
 impl MissionData {
@@ -13,6 +19,10 @@ impl MissionData {
         MissionData {
             example_flag: AtomicBool::new(false),
             example_flag_request: AtomicBool::new(false),
+            cached_map: Mutex::new(Map::default()),
+            scouting: AtomicBool::new(true),
+            map_objects_count: AtomicUsize::new(0),
+            pose : Mutex::new(Pose::default())
         }
     }
 }
